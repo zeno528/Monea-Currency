@@ -308,7 +308,6 @@ const HOME_HTML = `<!DOCTYPE html>
   .combobox.open .combo-panel { display: block; }
   .combo-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     gap: 12px;
     padding: 10px 14px;
@@ -317,7 +316,14 @@ const HOME_HTML = `<!DOCTYPE html>
   }
   .combo-item:hover,
   .combo-item.active { background: var(--color-parchment); }
-  .combo-item-cn { font-size: 15px; color: var(--color-ink); }
+  .combo-item-sym {
+    min-width: 34px;
+    text-align: center;
+    font-weight: 600;
+    color: var(--color-ink);
+    flex-shrink: 0;
+  }
+  .combo-item-cn { flex: 1; min-width: 0; font-size: 15px; color: var(--color-ink); }
   .combo-item-code {
     font-size: 13px;
     color: var(--color-ink-muted-48);
@@ -538,7 +544,7 @@ const HOME_HTML = `<!DOCTYPE html>
           </div>
         </div>
         <button id="swap" class="swap-btn" type="button" title="交换货币" aria-label="交换货币">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4M7 4L3 8M7 4l4 4M17 8v12M17 20l4-4M17 20l-4-4"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14M14 5l4 3-4 3M20 16H6M10 13l-4 3 4 3"/></svg>
         </button>
         <div class="currency-field">
           <label>到</label>
@@ -654,10 +660,13 @@ const HOME_HTML = `<!DOCTYPE html>
     var toBox = document.querySelector('[data-field="to"]');
     var CURRENCIES = []; // {code, name, cn}
 
-    // 展示文本：中文名 (代码)
+    // 展示文本：符号 中文名 (代码)
     function displayText(code) {
       for (var i = 0; i < CURRENCIES.length; i++) {
-        if (CURRENCIES[i].code === code) return CURRENCIES[i].cn + " (" + code + ")";
+        if (CURRENCIES[i].code === code) {
+          var c = CURRENCIES[i];
+          return (c.symbol ? c.symbol + " " : "") + c.cn + " (" + code + ")";
+        }
       }
       return code || "";
     }
@@ -669,8 +678,8 @@ const HOME_HTML = `<!DOCTYPE html>
       fetch("/currencies").then(function (r) { return r.json(); }).then(function (data) {
         var codes = Object.keys(data.currencies).sort();
         CURRENCIES = codes.map(function (code) {
-          var en = data.currencies[code].name;
-          return { code: code, name: en, cn: CURRENCY_CN[code] || en };
+          var info = data.currencies[code];
+          return { code: code, name: info.name, cn: CURRENCY_CN[code] || info.name, symbol: info.symbol || "" };
         });
         var n = String(CURRENCIES.length);
         var hc = $("hero-count"), cc = $("currency-count");
@@ -708,6 +717,7 @@ const HOME_HTML = `<!DOCTYPE html>
         panel.innerHTML = list.map(function (c) {
           var sel = c.code === cur ? " active" : "";
           return '<div class="combo-item' + sel + '" data-code="' + c.code + '">'
+            + '<span class="combo-item-sym">' + (c.symbol || "") + '</span>'
             + '<span class="combo-item-cn">' + c.cn + '</span>'
             + '<span class="combo-item-code">' + c.code + '</span>'
             + '</div>';
