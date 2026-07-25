@@ -1,0 +1,17 @@
+{
+  "name": "currency-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Currency conversion API + Apple-style UI on Cloudflare Workers, backed by Frankfurter v2",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "types": "wrangler types"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260724.1",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.114.0"
+  }
+}
