@@ -259,7 +259,9 @@ const HOME_HTML = `<!DOCTYPE html>
     letter-spacing: -0.224px;
     padding-left: 4px;
   }
-  .currency-select {
+  /* combobox: 可搜索货币下拉（Apple search-input pill 规范） */
+  .combobox { position: relative; }
+  .combo-input {
     font-family: var(--font-text);
     font-size: 17px;
     color: var(--color-ink);
@@ -269,16 +271,64 @@ const HOME_HTML = `<!DOCTYPE html>
     padding: 12px 40px 12px 20px;
     height: 44px;
     width: 100%;
-    appearance: none;
-    -webkit-appearance: none;
     cursor: pointer;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231d1d1f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
-    background-repeat: no-repeat;
-    background-position: right 16px center;
+    outline: none;
   }
-  .currency-select:focus {
+  .combo-input::placeholder { color: var(--color-ink-muted-48); }
+  .combo-input:focus {
     outline: 2px solid var(--color-primary-focus);
     outline-offset: 2px;
+    cursor: text;
+  }
+  .combo-arrow {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    color: var(--color-ink);
+    pointer-events: none;
+  }
+  .combo-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    background: var(--color-canvas);
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    padding: 6px;
+    z-index: 30;
+    display: none;
+  }
+  .combobox.open .combo-panel { display: block; }
+  .combo-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+  .combo-item:hover,
+  .combo-item.active { background: var(--color-parchment); }
+  .combo-item-cn { font-size: 15px; color: var(--color-ink); }
+  .combo-item-code {
+    font-size: 13px;
+    color: var(--color-ink-muted-48);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    flex-shrink: 0;
+  }
+  .combo-empty {
+    padding: 18px;
+    text-align: center;
+    color: var(--color-ink-muted-48);
+    font-size: 14px;
   }
 
   /* swap button: icon-circular (pearl variant for light bg) */
@@ -469,7 +519,7 @@ const HOME_HTML = `<!DOCTYPE html>
 
   <section class="hero">
     <h1>汇率换算，简洁如 Apple。</h1>
-    <p class="lead">基于 Frankfurter 开源数据，覆盖 201 种货币，免费、无需 API Key。</p>
+    <p class="lead">基于 Frankfurter 开源数据，覆盖 <span id="hero-count">165</span> 种货币，免费、无需 API Key。</p>
   </section>
 
   <div class="converter-wrap">
@@ -480,15 +530,23 @@ const HOME_HTML = `<!DOCTYPE html>
       </div>
       <div class="pair-row">
         <div class="currency-field">
-          <label for="from">从</label>
-          <select id="from" class="currency-select"></select>
+          <label>从</label>
+          <div class="combobox" data-field="from">
+            <input type="text" class="combo-input" placeholder="搜索货币…" autocomplete="off" spellcheck="false" aria-label="从货币">
+            <svg class="combo-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            <div class="combo-panel" role="listbox"></div>
+          </div>
         </div>
         <button id="swap" class="swap-btn" type="button" title="交换货币" aria-label="交换货币">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4M7 4L3 8M7 4l4 4M17 8v12M17 20l4-4M17 20l-4-4"/></svg>
         </button>
         <div class="currency-field">
-          <label for="to">到</label>
-          <select id="to" class="currency-select"></select>
+          <label>到</label>
+          <div class="combobox" data-field="to">
+            <input type="text" class="combo-input" placeholder="搜索货币…" autocomplete="off" spellcheck="false" aria-label="到货币">
+            <svg class="combo-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            <div class="combo-panel" role="listbox"></div>
+          </div>
         </div>
       </div>
       <div class="result">
@@ -505,7 +563,7 @@ const HOME_HTML = `<!DOCTYPE html>
     <h2>为何选择它</h2>
     <div class="feature-grid">
       <div class="feature">
-        <div class="feature-num">201</div>
+        <div class="feature-num" id="currency-count">165</div>
         <div class="feature-title">种货币</div>
         <div class="feature-desc">覆盖全球主要与新兴市场货币，来自 84 个央行参考汇率。</div>
       </div>
@@ -551,10 +609,58 @@ const HOME_HTML = `<!DOCTYPE html>
   </footer>
 
   <script>
+    // 货币中文映射（ISO 4217）-- Frankfurter 仅返回英文名，这里补中文名
+    var CURRENCY_CN = {
+      AED:"阿联酋迪拉姆",AFN:"阿富汗尼",ALL:"阿尔巴尼亚列克",AMD:"亚美尼亚德拉姆",ANG:"荷属安的列斯盾",
+      AOA:"安哥拉宽扎",ARS:"阿根廷比索",AUD:"澳大利亚元",AWG:"阿鲁巴弗罗林",AZN:"阿塞拜疆马纳特",
+      BAM:"波黑可兑换马克",BBD:"巴巴多斯元",BDT:"孟加拉塔卡",BHD:"巴林第纳尔",BIF:"布隆迪法郎",
+      BMD:"百慕大元",BND:"文莱元",BOB:"玻利维亚诺",BRL:"巴西雷亚尔",BSD:"巴哈马元",
+      BTN:"不丹努尔特鲁姆",BWP:"博茨瓦纳普拉",BYN:"白俄罗斯卢布",BZD:"伯利兹元",CAD:"加拿大元",
+      CDF:"刚果法郎",CHF:"瑞士法郎",CLP:"智利比索",CNH:"离岸人民币",CNY:"人民币",COP:"哥伦比亚比索",
+      CRC:"哥斯达黎加科朗",CUP:"古巴比索",CVE:"佛得角埃斯库多",CZK:"捷克克朗",DJF:"吉布提法郎",
+      DKK:"丹麦克朗",DOP:"多米尼加比索",DZD:"阿尔及利亚第纳尔",EGP:"埃及镑",ERN:"厄立特里亚纳克法",
+      ETB:"埃塞俄比亚比尔",EUR:"欧元",FJD:"斐济元",FKP:"福克兰群岛镑",GBP:"英镑",
+      GEL:"格鲁吉亚拉里",GGP:"根西岛镑",GHS:"加纳塞地",GIP:"直布罗陀镑",GMD:"冈比亚达拉西",
+      GNF:"几内亚法郎",GTQ:"危地马拉格查尔",GYD:"圭亚那元",HKD:"港元",HNL:"洪都拉斯伦皮拉",
+      HTG:"海地古德",HUF:"匈牙利福林",IDR:"印度尼西亚卢比",ILS:"以色列新谢克尔",IMP:"马恩岛镑",
+      INR:"印度卢比",IQD:"伊拉克第纳尔",IRR:"伊朗里亚尔",ISK:"冰岛克朗",JEP:"泽西岛镑",
+      JMD:"牙买加元",JOD:"约旦第纳尔",JPY:"日元",KES:"肯尼亚先令",KGS:"吉尔吉斯斯坦索姆",
+      KHR:"柬埔寨瑞尔",KMF:"科摩罗法郎",KPW:"朝鲜圆",KRW:"韩元",KWD:"科威特第纳尔",
+      KYD:"开曼元",KZT:"哈萨克斯坦坚戈",LAK:"老挝基普",LBP:"黎巴嫩镑",LKR:"斯里兰卡卢比",
+      LRD:"利比里亚元",LSL:"莱索托洛蒂",LYD:"利比亚第纳尔",MAD:"摩洛哥迪拉姆",MDL:"摩尔多瓦列伊",
+      MGA:"马达加斯加阿里亚里",MKD:"北马其顿第纳尔",MMK:"缅元",MNT:"蒙古图格里克",MOP:"澳门元",
+      MRO:"毛里塔尼亚旧乌吉亚",MRU:"毛里塔尼亚乌吉亚",MUR:"毛里求斯卢比",MVR:"马尔代夫拉菲亚",MWK:"马拉维克瓦查",
+      MXN:"墨西哥比索",MYR:"马来西亚林吉特",MZN:"莫桑比克梅蒂卡尔",NAD:"纳米比亚元",NGN:"尼日利亚奈拉",
+      NIO:"尼加拉瓜科多巴",NOK:"挪威克朗",NPR:"尼泊尔卢比",NZD:"新西兰元",OMR:"阿曼里亚尔",
+      PAB:"巴拿马巴波亚",PEN:"秘鲁索尔",PGK:"巴布亚新几内亚基那",PHP:"菲律宾比索",PKR:"巴基斯坦卢比",
+      PLN:"波兰兹罗提",PYG:"巴拉圭瓜拉尼",QAR:"卡塔尔里亚尔",RON:"罗马尼亚列伊",RSD:"塞尔维亚第纳尔",
+      RUB:"俄罗斯卢布",RWF:"卢旺达法郎",SAR:"沙特里亚尔",SBD:"所罗门群岛元",SCR:"塞舌尔卢比",
+      SDG:"苏丹镑",SEK:"瑞典克朗",SGD:"新加坡元",SHP:"圣赫勒拿镑",SLE:"塞拉利昂利昂",
+      SOS:"索马里先令",SRD:"苏里南元",SSP:"南苏丹镑",STN:"圣多美和普林西比多布拉",SVC:"萨尔瓦多科朗",
+      SYP:"叙利亚镑",SZL:"斯威士兰里兰吉尼",THB:"泰铢",TJS:"塔吉克斯坦索莫尼",TMT:"土库曼斯坦马纳特",
+      TND:"突尼斯第纳尔",TOP:"汤加潘加",TRY:"土耳其里拉",TTD:"特立尼达和多巴哥元",TWD:"新台币",
+      TZS:"坦桑尼亚先令",UAH:"乌克兰格里夫纳",UGX:"乌干达先令",USD:"美元",UYU:"乌拉圭比索",
+      UZS:"乌兹别克斯坦苏姆",VES:"委内瑞拉玻利瓦尔",VND:"越南盾",VUV:"瓦努阿图瓦图",WST:"萨摩亚塔拉",
+      XAF:"中非法郎",XAG:"白银",XAU:"黄金",XCD:"东加勒比元",XCG:"加勒比盾",XDR:"特别提款权",
+      XOF:"西非法郎",XPD:"钯",XPF:"太平洋法郎",XPT:"铂",YER:"也门里亚尔",ZAR:"南非兰特",
+      ZMW:"赞比亚克瓦查",ZWG:"津巴布韦金币"
+    };
+
     var $ = function (id) { return document.getElementById(id); };
-    var amountEl = $("amount"), fromEl = $("from"), toEl = $("to");
+    var amountEl = $("amount");
     var resultEl = $("result-value"), rateEl = $("result-rate");
     var errEl = $("error"), convertBtn = $("convert-btn"), swapBtn = $("swap");
+    var fromBox = document.querySelector('[data-field="from"]');
+    var toBox = document.querySelector('[data-field="to"]');
+    var CURRENCIES = []; // {code, name, cn}
+
+    // 展示文本：中文名 (代码)
+    function displayText(code) {
+      for (var i = 0; i < CURRENCIES.length; i++) {
+        if (CURRENCIES[i].code === code) return CURRENCIES[i].cn + " (" + code + ")";
+      }
+      return code || "";
+    }
 
     function showError(msg) { errEl.textContent = msg; errEl.hidden = false; }
     function clearError() { errEl.hidden = true; }
@@ -562,22 +668,116 @@ const HOME_HTML = `<!DOCTYPE html>
     function loadCurrencies() {
       fetch("/currencies").then(function (r) { return r.json(); }).then(function (data) {
         var codes = Object.keys(data.currencies).sort();
-        var html = "";
-        for (var i = 0; i < codes.length; i++) {
-          var code = codes[i];
-          html += '<option value="' + code + '">' + code + " · " + data.currencies[code].name + "</option>";
-        }
-        fromEl.innerHTML = html;
-        toEl.innerHTML = html;
-        fromEl.value = "USD";
-        toEl.value = "CNY";
+        CURRENCIES = codes.map(function (code) {
+          var en = data.currencies[code].name;
+          return { code: code, name: en, cn: CURRENCY_CN[code] || en };
+        });
+        var n = String(CURRENCIES.length);
+        var hc = $("hero-count"), cc = $("currency-count");
+        if (hc) hc.textContent = n;
+        if (cc) cc.textContent = n;
+        initCombobox(fromBox, "USD");
+        initCombobox(toBox, "CNY");
         convert();
       }).catch(function () { showError("无法加载货币列表"); });
     }
 
+    // 可搜索货币下拉（combobox）：输入即过滤，支持代码/中文/英文匹配 + 键盘导航
+    function initCombobox(box, initialCode) {
+      var input = box.querySelector(".combo-input");
+      var panel = box.querySelector(".combo-panel");
+      box.dataset.value = initialCode;
+      input.value = displayText(initialCode);
+
+      function getFiltered(q) {
+        q = (q || "").trim().toLowerCase();
+        if (!q) return CURRENCIES;
+        return CURRENCIES.filter(function (c) {
+          return c.code.toLowerCase().indexOf(q) >= 0
+            || c.cn.toLowerCase().indexOf(q) >= 0
+            || c.name.toLowerCase().indexOf(q) >= 0;
+        });
+      }
+
+      function render(list) {
+        if (!list.length) {
+          panel.innerHTML = '<div class="combo-empty">未找到匹配的货币</div>';
+          return;
+        }
+        var cur = box.dataset.value;
+        panel.innerHTML = list.map(function (c) {
+          var sel = c.code === cur ? " active" : "";
+          return '<div class="combo-item' + sel + '" data-code="' + c.code + '">'
+            + '<span class="combo-item-cn">' + c.cn + '</span>'
+            + '<span class="combo-item-code">' + c.code + '</span>'
+            + '</div>';
+        }).join("");
+      }
+
+      function open() { closeAll(box); box.classList.add("open"); render(getFiltered("")); }
+      function close() { box.classList.remove("open"); }
+
+      function selectCode(code) {
+        box.dataset.value = code;
+        input.value = displayText(code);
+        close();
+        convert();
+      }
+
+      input.addEventListener("focus", function () { open(); input.select(); });
+      input.addEventListener("input", function () {
+        if (!box.classList.contains("open")) box.classList.add("open");
+        render(getFiltered(input.value));
+      });
+      input.addEventListener("keydown", function (e) {
+        var items = panel.querySelectorAll(".combo-item");
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          if (!box.classList.contains("open")) { open(); return; }
+          if (!items.length) return;
+          var idx = -1;
+          items.forEach(function (it, i) { if (it.classList.contains("active")) idx = i; });
+          idx = e.key === "ArrowDown" ? (idx + 1) % items.length : (idx - 1 + items.length) % items.length;
+          items.forEach(function (it) { it.classList.remove("active"); });
+          items[idx].classList.add("active");
+          items[idx].scrollIntoView({ block: "nearest" });
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          var sel = panel.querySelector(".combo-item.active") || panel.querySelector(".combo-item");
+          if (sel) selectCode(sel.dataset.code);
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          input.value = displayText(box.dataset.value);
+          close();
+          input.blur();
+        }
+      });
+      panel.addEventListener("click", function (e) {
+        var item = e.target.closest(".combo-item");
+        if (item) selectCode(item.dataset.code);
+      });
+      // 失焦延迟关闭，让选项点击先触发；并恢复当前选中值的显示
+      input.addEventListener("blur", function () {
+        setTimeout(function () {
+          close();
+          input.value = displayText(box.dataset.value);
+        }, 150);
+      });
+    }
+
+    function closeAll(except) {
+      document.querySelectorAll(".combobox.open").forEach(function (b) {
+        if (b !== except) b.classList.remove("open");
+      });
+    }
+    // 点击下拉外部关闭
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest(".combobox")) closeAll(null);
+    });
+
     function convert() {
       var amount = parseFloat(amountEl.value);
-      var from = fromEl.value, to = toEl.value;
+      var from = fromBox.dataset.value, to = toBox.dataset.value;
       if (!from || !to || !isFinite(amount) || amount < 0) {
         resultEl.textContent = "—";
         rateEl.textContent = "";
@@ -597,10 +797,13 @@ const HOME_HTML = `<!DOCTYPE html>
 
     convertBtn.addEventListener("click", convert);
     amountEl.addEventListener("input", convertDebounced);
-    fromEl.addEventListener("change", convert);
-    toEl.addEventListener("change", convert);
     swapBtn.addEventListener("click", function () {
-      var f = fromEl.value; fromEl.value = toEl.value; toEl.value = f; convert();
+      var f = fromBox.dataset.value;
+      fromBox.dataset.value = toBox.dataset.value;
+      toBox.dataset.value = f;
+      fromBox.querySelector(".combo-input").value = displayText(fromBox.dataset.value);
+      toBox.querySelector(".combo-input").value = displayText(toBox.dataset.value);
+      convert();
     });
 
     loadCurrencies();
