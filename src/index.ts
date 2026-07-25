@@ -279,7 +279,7 @@ const HOME_HTML = `<!DOCTYPE html>
     background-color: var(--color-canvas);
     border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: var(--radius-pill);
-    padding: 12px 40px 12px 20px;
+    padding: 12px 56px 12px 20px;
     height: 44px;
     width: 100%;
     cursor: pointer;
@@ -293,11 +293,11 @@ const HOME_HTML = `<!DOCTYPE html>
   }
   .combo-arrow {
     position: absolute;
-    right: 10px;
+    right: 0;
     top: 50%;
     transform: translateY(-50%);
-    width: 24px;
-    height: 24px;
+    width: 44px;
+    height: 44px;
     padding: 0;
     border: 0;
     background: transparent;
@@ -560,15 +560,16 @@ const HOME_HTML = `<!DOCTYPE html>
   @media (max-width: 833px) {
     .hero h1 { font-size: 40px; }
     .feature-grid { grid-template-columns: 1fr; gap: 32px; }
-    .pair-row { grid-template-columns: 1fr; gap: 20px; align-items: stretch; }
+    .pair-row { grid-template-columns: 1fr; gap: 24px; align-items: stretch; }
     .currency-field { gap: 8px; }
     .currency-field label { display: block; min-height: 20px; line-height: 20px; }
-    .native-select { flex: none; }
+    .combo-input { height: 52px; padding: 14px 60px 14px 20px; }
+    .combo-panel { max-height: min(320px, 42dvh); }
     .swap-btn { margin: 0 auto; transform: rotate(90deg); }
     .swap-btn:active { transform: rotate(90deg) scale(0.95); }
-    /* 移动端：隐藏 combobox，改用原生 select（iOS 原生 picker，无键盘遮挡） */
-    .currency-field .combobox { display: none; }
-    .native-select { display: block; }
+    /* 移动端保留可搜索输入框，方便快速筛选较长的货币列表。 */
+    .currency-field .combobox { display: block; }
+    .native-select { display: none; }
   }
   @media (max-width: 419px) {
     .hero { padding: 48px 22px 32px; }
@@ -589,7 +590,7 @@ const HOME_HTML = `<!DOCTYPE html>
   </nav>
 
   <section class="hero">
-    <h1>汇率换算，简洁如 Apple。</h1>
+    <h1>全球货币，轻松换算。</h1>
     <p class="lead">基于 Frankfurter 开源数据，覆盖 <span id="hero-count">165</span> 种货币，免费、无需 API Key。</p>
   </section>
 
@@ -736,6 +737,16 @@ const HOME_HTML = `<!DOCTYPE html>
         }
       }
       return code || "";
+    }
+
+    function formatAmount(amount, code) {
+      for (var i = 0; i < CURRENCIES.length; i++) {
+        if (CURRENCIES[i].code === code) {
+          var symbol = CURRENCIES[i].symbol || "";
+          return (symbol ? symbol : "") + amount.toLocaleString("zh-CN", { maximumFractionDigits: 4 }) + " " + code;
+        }
+      }
+      return amount.toLocaleString("zh-CN", { maximumFractionDigits: 4 }) + " " + code;
     }
 
     function showError(msg) { errEl.textContent = msg; errEl.hidden = false; }
@@ -906,7 +917,7 @@ const HOME_HTML = `<!DOCTYPE html>
       var url = "/convert?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&amount=" + amount;
       fetch(url).then(function (r) { return r.json(); }).then(function (data) {
         if (data.error) { showError(data.error); return; }
-        resultEl.textContent = data.result.toLocaleString("zh-CN", { maximumFractionDigits: 4 }) + " " + data.to;
+        resultEl.textContent = formatAmount(data.result, data.to);
         rateEl.textContent = "1 " + data.from + " = " + data.rate + " " + data.to + " · 更新于 " + data.date;
       }).catch(function () { showError("网络错误，请重试"); });
     }
