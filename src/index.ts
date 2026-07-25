@@ -123,7 +123,7 @@ const HOME_HTML = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>汇率换算 · Currency</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -162,17 +162,19 @@ const HOME_HTML = `<!DOCTYPE html>
     letter-spacing: -0.374px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* global-nav: surface-black, 44px */
   .global-nav {
     background: var(--color-black);
     color: var(--color-on-dark);
-    height: 44px;
+    min-height: calc(44px + env(safe-area-inset-top, 0px));
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0 22px;
+    padding-top: env(safe-area-inset-top, 0px);
     font-size: 12px;
     letter-spacing: -0.12px;
   }
@@ -282,13 +284,14 @@ const HOME_HTML = `<!DOCTYPE html>
   }
   .combo-arrow {
     position: absolute;
-    right: 16px;
+    right: 10px;
     top: 50%;
     transform: translateY(-50%);
-    width: 12px;
-    height: 12px;
+    width: 24px;
+    height: 24px;
     color: var(--color-ink);
-    pointer-events: none;
+    pointer-events: auto;
+    cursor: pointer;
   }
   .combo-panel {
     position: absolute;
@@ -314,8 +317,10 @@ const HOME_HTML = `<!DOCTYPE html>
     border-radius: var(--radius-sm);
     cursor: pointer;
   }
-  .combo-item:hover,
   .combo-item.active { background: var(--color-parchment); }
+  @media (hover: hover) {
+    .combo-item:hover { background: var(--color-parchment); }
+  }
   .combo-item-sym {
     min-width: 34px;
     text-align: center;
@@ -335,6 +340,29 @@ const HOME_HTML = `<!DOCTYPE html>
     text-align: center;
     color: var(--color-ink-muted-48);
     font-size: 14px;
+  }
+  /* 原生 select：移动端用（iOS 原生 picker，无键盘遮挡）；桌面隐藏 */
+  .native-select {
+    display: none;
+    font-family: var(--font-text);
+    font-size: 17px;
+    color: var(--color-ink);
+    background-color: var(--color-canvas);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: var(--radius-pill);
+    padding: 12px 40px 12px 20px;
+    height: 44px;
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231d1d1f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+  }
+  .native-select:focus {
+    outline: 2px solid var(--color-primary-focus);
+    outline-offset: 2px;
   }
 
   /* swap button: icon-circular (pearl variant for light bg) */
@@ -490,6 +518,7 @@ const HOME_HTML = `<!DOCTYPE html>
     background: var(--color-parchment);
     color: var(--color-ink-muted-80);
     padding: 48px 22px;
+    padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
     font-size: 12px;
     letter-spacing: -0.12px;
     line-height: 1.5;
@@ -509,6 +538,9 @@ const HOME_HTML = `<!DOCTYPE html>
     .pair-row { grid-template-columns: 1fr; }
     .swap-btn { margin: 0 auto; transform: rotate(90deg); }
     .swap-btn:active { transform: rotate(90deg) scale(0.95); }
+    /* 移动端：隐藏 combobox，改用原生 select（iOS 原生 picker，无键盘遮挡） */
+    .currency-field .combobox { display: none; }
+    .native-select { display: block; }
   }
   @media (max-width: 419px) {
     .hero { padding: 48px 22px 32px; }
@@ -542,6 +574,7 @@ const HOME_HTML = `<!DOCTYPE html>
             <svg class="combo-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
             <div class="combo-panel" role="listbox"></div>
           </div>
+          <select class="native-select" aria-label="从货币"></select>
         </div>
         <button id="swap" class="swap-btn" type="button" title="交换货币" aria-label="交换货币">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14M14 5l4 3-4 3M20 16H6M10 13l-4 3 4 3"/></svg>
@@ -553,6 +586,7 @@ const HOME_HTML = `<!DOCTYPE html>
             <svg class="combo-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
             <div class="combo-panel" role="listbox"></div>
           </div>
+          <select class="native-select" aria-label="到货币"></select>
         </div>
       </div>
       <div class="result">
@@ -685,6 +719,11 @@ const HOME_HTML = `<!DOCTYPE html>
         var hc = $("hero-count"), cc = $("currency-count");
         if (hc) hc.textContent = n;
         if (cc) cc.textContent = n;
+        // 填充原生 select（移动端用），选项格式：符号 中文名 (代码)
+        var optHtml = CURRENCIES.map(function (c) {
+          return '<option value="' + c.code + '">' + (c.symbol ? c.symbol + " " : "") + c.cn + " (" + c.code + ")</option>";
+        }).join("");
+        document.querySelectorAll(".native-select").forEach(function (sel) { sel.innerHTML = optHtml; });
         initCombobox(fromBox, "USD");
         initCombobox(toBox, "CNY");
         convert();
@@ -695,8 +734,11 @@ const HOME_HTML = `<!DOCTYPE html>
     function initCombobox(box, initialCode) {
       var input = box.querySelector(".combo-input");
       var panel = box.querySelector(".combo-panel");
+      var arrow = box.querySelector(".combo-arrow");
+      var nativeSel = box.parentNode.querySelector(".native-select");
       box.dataset.value = initialCode;
       input.value = displayText(initialCode);
+      if (nativeSel) nativeSel.value = initialCode;
 
       function getFiltered(q) {
         q = (q || "").trim().toLowerCase();
@@ -730,11 +772,12 @@ const HOME_HTML = `<!DOCTYPE html>
       function selectCode(code) {
         box.dataset.value = code;
         input.value = displayText(code);
+        if (nativeSel) nativeSel.value = code;
         close();
         convert();
       }
 
-      input.addEventListener("focus", function () { open(); input.select(); });
+      input.addEventListener("focus", function () { input.select(); });
       input.addEventListener("input", function () {
         if (!box.classList.contains("open")) box.classList.add("open");
         render(getFiltered(input.value));
@@ -773,6 +816,22 @@ const HOME_HTML = `<!DOCTYPE html>
           input.value = displayText(box.dataset.value);
         }, 150);
       });
+      // 点击下拉箭头：展开/收起全部货币（桌面端入口）
+      if (arrow) {
+        arrow.addEventListener("click", function (e) {
+          e.stopPropagation();
+          if (box.classList.contains("open")) { close(); input.blur(); }
+          else { closeAll(box); box.classList.add("open"); render(getFiltered("")); }
+        });
+      }
+      // 移动端原生 select 切换：同步值并换算
+      if (nativeSel) {
+        nativeSel.addEventListener("change", function () {
+          box.dataset.value = nativeSel.value;
+          input.value = displayText(nativeSel.value);
+          convert();
+        });
+      }
     }
 
     function closeAll(except) {
@@ -807,12 +866,19 @@ const HOME_HTML = `<!DOCTYPE html>
 
     convertBtn.addEventListener("click", convert);
     amountEl.addEventListener("input", convertDebounced);
+    // 同步某字段的 combobox 显示与原生 select 值
+    function syncDisplay(box) {
+      var code = box.dataset.value;
+      box.querySelector(".combo-input").value = displayText(code);
+      var sel = box.parentNode.querySelector(".native-select");
+      if (sel) sel.value = code;
+    }
     swapBtn.addEventListener("click", function () {
       var f = fromBox.dataset.value;
       fromBox.dataset.value = toBox.dataset.value;
       toBox.dataset.value = f;
-      fromBox.querySelector(".combo-input").value = displayText(fromBox.dataset.value);
-      toBox.querySelector(".combo-input").value = displayText(toBox.dataset.value);
+      syncDisplay(fromBox);
+      syncDisplay(toBox);
       convert();
     });
 
