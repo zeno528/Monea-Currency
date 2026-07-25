@@ -3,6 +3,9 @@
   "name": "currency-worker",
   "main": "src/index.ts",
   "compatibility_date": "2025-07-01",
+  "assets": {
+    "directory": "./assets"
+  },
   "observability": {
     "enabled": true
   }

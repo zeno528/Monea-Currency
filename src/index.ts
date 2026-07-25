@@ -125,6 +125,7 @@ const HOME_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>汇率换算 · Currency</title>
+<link rel="icon" href="/currency-logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -178,7 +179,15 @@ const HOME_HTML = `<!DOCTYPE html>
     font-size: 12px;
     letter-spacing: -0.12px;
   }
-  .global-nav span { opacity: 0.92; }
+  .brand {
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+  }
+  .brand img { width: 20px; height: 20px; }
+  .brand span { opacity: 0.92; }
 
   /* hero tile: parchment */
   .hero {
@@ -289,10 +298,16 @@ const HOME_HTML = `<!DOCTYPE html>
     transform: translateY(-50%);
     width: 24px;
     height: 24px;
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: var(--color-ink);
-    pointer-events: auto;
     cursor: pointer;
+    display: grid;
+    place-items: center;
   }
+  .combo-arrow:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; border-radius: 50%; }
+  .combo-arrow svg { width: 18px; height: 18px; pointer-events: none; }
   .combo-panel {
     position: absolute;
     top: calc(100% + 6px);
@@ -307,7 +322,17 @@ const HOME_HTML = `<!DOCTYPE html>
     padding: 6px;
     z-index: 30;
     display: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
   }
+  /* 自定义滚动条（WebKit：Chrome / Edge / Safari） */
+  .combo-panel::-webkit-scrollbar { width: 8px; }
+  .combo-panel::-webkit-scrollbar-track { background: transparent; }
+  .combo-panel::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.18);
+    border-radius: 4px;
+  }
+  .combo-panel::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.28); }
   .combobox.open .combo-panel { display: block; }
   .combo-item {
     display: flex;
@@ -535,7 +560,10 @@ const HOME_HTML = `<!DOCTYPE html>
   @media (max-width: 833px) {
     .hero h1 { font-size: 40px; }
     .feature-grid { grid-template-columns: 1fr; gap: 32px; }
-    .pair-row { grid-template-columns: 1fr; }
+    .pair-row { grid-template-columns: 1fr; gap: 20px; align-items: stretch; }
+    .currency-field { gap: 8px; }
+    .currency-field label { display: block; min-height: 20px; line-height: 20px; }
+    .native-select { flex: none; }
     .swap-btn { margin: 0 auto; transform: rotate(90deg); }
     .swap-btn:active { transform: rotate(90deg) scale(0.95); }
     /* 移动端：隐藏 combobox，改用原生 select（iOS 原生 picker，无键盘遮挡） */
@@ -553,7 +581,12 @@ const HOME_HTML = `<!DOCTYPE html>
 </style>
 </head>
 <body>
-  <nav class="global-nav"><span>Currency · 汇率换算</span></nav>
+  <nav class="global-nav">
+    <a class="brand" href="/" aria-label="Currency 汇率换算首页">
+      <img src="/currency-logo.svg" alt="" width="20" height="20">
+      <span>Currency · 汇率换算</span>
+    </a>
+  </nav>
 
   <section class="hero">
     <h1>汇率换算，简洁如 Apple。</h1>
@@ -571,7 +604,7 @@ const HOME_HTML = `<!DOCTYPE html>
           <label>从</label>
           <div class="combobox" data-field="from">
             <input type="text" class="combo-input" placeholder="搜索货币…" autocomplete="off" spellcheck="false" aria-label="从货币">
-            <svg class="combo-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            <button class="combo-arrow" type="button" aria-label="展开从货币列表" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
             <div class="combo-panel" role="listbox"></div>
           </div>
           <select class="native-select" aria-label="从货币"></select>
@@ -583,7 +616,7 @@ const HOME_HTML = `<!DOCTYPE html>
           <label>到</label>
           <div class="combobox" data-field="to">
             <input type="text" class="combo-input" placeholder="搜索货币…" autocomplete="off" spellcheck="false" aria-label="到货币">
-            <svg class="combo-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            <button class="combo-arrow" type="button" aria-label="展开到货币列表" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
             <div class="combo-panel" role="listbox"></div>
           </div>
           <select class="native-select" aria-label="到货币"></select>
@@ -766,8 +799,16 @@ const HOME_HTML = `<!DOCTYPE html>
         }).join("");
       }
 
-      function open() { closeAll(box); box.classList.add("open"); render(getFiltered("")); }
-      function close() { box.classList.remove("open"); }
+      function open() {
+        closeAll(box);
+        box.classList.add("open");
+        if (arrow) arrow.setAttribute("aria-expanded", "true");
+        render(getFiltered(""));
+      }
+      function close() {
+        box.classList.remove("open");
+        if (arrow) arrow.setAttribute("aria-expanded", "false");
+      }
 
       function selectCode(code) {
         box.dataset.value = code;
@@ -779,7 +820,11 @@ const HOME_HTML = `<!DOCTYPE html>
 
       input.addEventListener("focus", function () { input.select(); });
       input.addEventListener("input", function () {
-        if (!box.classList.contains("open")) box.classList.add("open");
+        if (!box.classList.contains("open")) {
+          closeAll(box);
+          box.classList.add("open");
+          if (arrow) arrow.setAttribute("aria-expanded", "true");
+        }
         render(getFiltered(input.value));
       });
       input.addEventListener("keydown", function (e) {
@@ -819,9 +864,10 @@ const HOME_HTML = `<!DOCTYPE html>
       // 点击下拉箭头：展开/收起全部货币（桌面端入口）
       if (arrow) {
         arrow.addEventListener("click", function (e) {
+          e.preventDefault();
           e.stopPropagation();
-          if (box.classList.contains("open")) { close(); input.blur(); }
-          else { closeAll(box); box.classList.add("open"); render(getFiltered("")); }
+          if (box.classList.contains("open")) { close(); }
+          else { open(); }
         });
       }
       // 移动端原生 select 切换：同步值并换算
@@ -836,7 +882,11 @@ const HOME_HTML = `<!DOCTYPE html>
 
     function closeAll(except) {
       document.querySelectorAll(".combobox.open").forEach(function (b) {
-        if (b !== except) b.classList.remove("open");
+        if (b !== except) {
+          b.classList.remove("open");
+          var toggle = b.querySelector(".combo-arrow");
+          if (toggle) toggle.setAttribute("aria-expanded", "false");
+        }
       });
     }
     // 点击下拉外部关闭
