@@ -228,19 +228,50 @@ const HOME_HTML = `<!DOCTYPE html>
     border-radius: var(--radius-lg);
     padding: 24px;
     width: 100%;
-    max-width: 720px;
+    max-width: 880px;
   }
-  .amount-row { margin-bottom: 24px; }
-  .amount-label {
+  .pair-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+  }
+  .currency-field {
+    min-width: 0;
+    background: var(--color-canvas);
+    border: 1px solid var(--color-hairline);
+    border-radius: 20px;
+    padding: 18px 20px 16px;
+    cursor: text;
+  }
+  .currency-field:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-focus);
+  }
+  .currency-field label {
+    display: block;
     font-size: 14px;
     color: var(--color-ink-muted-48);
     letter-spacing: -0.224px;
-    margin-bottom: 8px;
-    padding-left: 4px;
+    margin-bottom: 10px;
   }
-  .amount-input {
+  .money-input-wrap {
+    display: flex;
+    align-items: baseline;
+    min-width: 0;
+  }
+  .money-symbol {
     font-family: var(--font-display);
-    font-size: 40px;
+    font-size: 34px;
+    font-weight: 600;
+    line-height: 1.1;
+    color: var(--color-ink);
+    margin-right: 4px;
+    flex: 0 0 auto;
+  }
+  .money-input {
+    font-family: var(--font-display);
+    font-size: 36px;
     font-weight: 600;
     line-height: 1.1;
     color: var(--color-ink);
@@ -249,27 +280,14 @@ const HOME_HTML = `<!DOCTYPE html>
     outline: none;
     width: 100%;
     letter-spacing: 0;
-    padding: 8px 0;
+    padding: 0;
+    min-width: 0;
   }
-  .amount-input::placeholder { color: var(--color-ink-muted-48); }
-  .amount-input::-webkit-outer-spin-button,
-  .amount-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  .amount-input { -moz-appearance: textfield; appearance: textfield; }
-
-  .pair-row {
-    display: grid;
-    grid-template-columns: 1fr 44px 1fr;
-    gap: 12px;
-    align-items: end;
-    margin-bottom: 24px;
-  }
-  .currency-field { display: flex; flex-direction: column; gap: 6px; }
-  .currency-field label {
-    font-size: 14px;
-    color: var(--color-ink-muted-48);
-    letter-spacing: -0.224px;
-    padding-left: 4px;
-  }
+  .money-input::placeholder { color: var(--color-ink-muted-48); }
+  .money-input::-webkit-outer-spin-button,
+  .money-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .money-input { -moz-appearance: textfield; appearance: textfield; }
+  .currency-field .combobox { margin-top: 18px; }
   /* combobox: 可搜索货币下拉（Apple search-input pill 规范） */
   .combobox { position: relative; }
   .combo-input {
@@ -392,8 +410,8 @@ const HOME_HTML = `<!DOCTYPE html>
 
   /* swap button: icon-circular (pearl variant for light bg) */
   .swap-btn {
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
     border-radius: 9999px;
     background: var(--color-pearl);
     border: 1px solid var(--color-divider-soft);
@@ -407,53 +425,34 @@ const HOME_HTML = `<!DOCTYPE html>
   .swap-btn:active { transform: scale(0.95); }
   .swap-btn svg { width: 18px; height: 18px; }
 
-  /* result block */
-  .result {
+  .rate-summary {
     background: var(--color-parchment);
-    border-radius: var(--radius-lg);
-    padding: 24px;
-    margin-bottom: 24px;
-  }
-  .result-label {
+    border-radius: 14px;
+    padding: 13px 16px;
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
     font-size: 14px;
     color: var(--color-ink-muted-48);
     letter-spacing: -0.224px;
-    margin-bottom: 8px;
+    word-break: keep-all;
   }
-  .result-value {
-    font-family: var(--font-display);
-    font-size: 40px;
-    font-weight: 600;
-    line-height: 1.1;
-    letter-spacing: 0;
-    word-break: break-word;
-  }
-  .result-rate {
-    font-size: 14px;
-    color: var(--color-ink-muted-48);
-    margin-top: 8px;
-    letter-spacing: -0.224px;
-  }
-
-  /* primary button: Action Blue pill */
-  .btn-primary {
-    font-family: var(--font-text);
-    font-size: 17px;
-    font-weight: 400;
-    color: var(--color-on-dark);
-    background: var(--color-primary);
-    border: none;
-    border-radius: var(--radius-pill);
-    padding: 11px 22px;
+  .rate-text { min-width: 0; }
+  .reset-btn {
+    margin-left: auto;
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding: 5px 7px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-primary);
+    font: inherit;
     cursor: pointer;
-    width: 100%;
-    transition: transform 0.15s ease;
   }
-  .btn-primary:active { transform: scale(0.95); }
-  .btn-primary:focus-visible {
-    outline: 2px solid var(--color-primary-focus);
-    outline-offset: 2px;
-  }
+  .reset-btn:hover { background: rgba(0, 102, 204, 0.08); }
+  .reset-btn:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
   .error { color: #d33; font-size: 14px; margin-top: 12px; letter-spacing: -0.224px; }
 
   /* features tile: dark */
@@ -560,12 +559,12 @@ const HOME_HTML = `<!DOCTYPE html>
   @media (max-width: 833px) {
     .hero h1 { font-size: 40px; }
     .feature-grid { grid-template-columns: 1fr; gap: 32px; }
-    .pair-row { grid-template-columns: 1fr; gap: 24px; align-items: stretch; }
-    .currency-field { gap: 8px; }
-    .currency-field label { display: block; min-height: 20px; line-height: 20px; }
+    .pair-row { grid-template-columns: 1fr; gap: 12px; align-items: stretch; }
+    .currency-field { padding: 18px 20px; }
     .combo-input { height: 52px; padding: 14px 60px 14px 20px; }
     .combo-panel { max-height: min(320px, 42dvh); }
-    .swap-btn { margin: 0 auto; transform: rotate(90deg); }
+    .rate-summary { font-size: 13px; }
+    .swap-btn { margin: -4px auto; transform: rotate(90deg); z-index: 1; }
     .swap-btn:active { transform: rotate(90deg) scale(0.95); }
     /* 移动端保留可搜索输入框，方便快速筛选较长的货币列表。 */
     .currency-field .combobox { display: block; }
@@ -575,8 +574,8 @@ const HOME_HTML = `<!DOCTYPE html>
     .hero { padding: 48px 22px 32px; }
     .hero h1 { font-size: 28px; }
     .hero .lead { font-size: 21px; }
-    .amount-input { font-size: 32px; }
-    .result-value { font-size: 32px; }
+    .money-input { font-size: 32px; }
+    .money-symbol { font-size: 30px; }
     .features, .api-section { padding: 48px 22px; }
   }
 </style>
@@ -596,13 +595,13 @@ const HOME_HTML = `<!DOCTYPE html>
 
   <div class="converter-wrap">
     <div class="converter-card">
-      <div class="amount-row">
-        <div class="amount-label">金额</div>
-        <input id="amount" class="amount-input" type="number" inputmode="decimal" value="100" min="0" step="0.01" placeholder="0">
-      </div>
       <div class="pair-row">
-        <div class="currency-field">
+        <div class="currency-field" data-amount-side="from">
           <label>从</label>
+          <div class="money-input-wrap">
+            <span id="from-symbol" class="money-symbol" aria-hidden="true">$</span>
+            <input id="from-amount" class="money-input" type="number" inputmode="decimal" value="100" min="0" step="0.01" placeholder="0" aria-label="从货币金额">
+          </div>
           <div class="combobox" data-field="from">
             <input type="text" class="combo-input" placeholder="搜索货币…" autocomplete="off" spellcheck="false" aria-label="从货币">
             <button class="combo-arrow" type="button" aria-label="展开从货币列表" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
@@ -613,8 +612,12 @@ const HOME_HTML = `<!DOCTYPE html>
         <button id="swap" class="swap-btn" type="button" title="交换货币" aria-label="交换货币">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14M14 5l4 3-4 3M20 16H6M10 13l-4 3 4 3"/></svg>
         </button>
-        <div class="currency-field">
+        <div class="currency-field" data-amount-side="to">
           <label>到</label>
+          <div class="money-input-wrap">
+            <span id="to-symbol" class="money-symbol" aria-hidden="true">¥</span>
+            <input id="to-amount" class="money-input" type="number" inputmode="decimal" value="" min="0" step="0.01" placeholder="0" aria-label="到货币金额">
+          </div>
           <div class="combobox" data-field="to">
             <input type="text" class="combo-input" placeholder="搜索货币…" autocomplete="off" spellcheck="false" aria-label="到货币">
             <button class="combo-arrow" type="button" aria-label="展开到货币列表" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
@@ -623,12 +626,10 @@ const HOME_HTML = `<!DOCTYPE html>
           <select class="native-select" aria-label="到货币"></select>
         </div>
       </div>
-      <div class="result">
-        <div class="result-label">换算结果</div>
-        <div id="result-value" class="result-value">—</div>
-        <div id="result-rate" class="result-rate"></div>
+      <div class="rate-summary">
+        <span id="result-rate" class="rate-text" aria-live="polite">输入金额后将自动换算</span>
+        <button id="reset" class="reset-btn" type="button" title="恢复默认换算" aria-label="重置为 100 美元换算人民币">↺ 重置</button>
       </div>
-      <button id="convert-btn" class="btn-primary" type="button">换算</button>
       <div id="error" class="error" hidden></div>
     </div>
   </div>
@@ -721,12 +722,15 @@ const HOME_HTML = `<!DOCTYPE html>
     };
 
     var $ = function (id) { return document.getElementById(id); };
-    var amountEl = $("amount");
-    var resultEl = $("result-value"), rateEl = $("result-rate");
-    var errEl = $("error"), convertBtn = $("convert-btn"), swapBtn = $("swap");
+    var fromAmountEl = $("from-amount"), toAmountEl = $("to-amount");
+    var fromSymbolEl = $("from-symbol"), toSymbolEl = $("to-symbol");
+    var rateEl = $("result-rate");
+    var errEl = $("error"), swapBtn = $("swap"), resetBtn = $("reset");
     var fromBox = document.querySelector('[data-field="from"]');
     var toBox = document.querySelector('[data-field="to"]');
     var CURRENCIES = []; // {code, name, cn}
+    var activeSide = "from";
+    var requestId = 0;
 
     // 展示文本：符号 中文名 (代码)
     function displayText(code) {
@@ -739,14 +743,20 @@ const HOME_HTML = `<!DOCTYPE html>
       return code || "";
     }
 
-    function formatAmount(amount, code) {
+    function currencySymbol(code) {
       for (var i = 0; i < CURRENCIES.length; i++) {
-        if (CURRENCIES[i].code === code) {
-          var symbol = CURRENCIES[i].symbol || "";
-          return (symbol ? symbol : "") + amount.toLocaleString("zh-CN", { maximumFractionDigits: 4 }) + " " + code;
-        }
+        if (CURRENCIES[i].code === code) return CURRENCIES[i].symbol || code;
       }
-      return amount.toLocaleString("zh-CN", { maximumFractionDigits: 4 }) + " " + code;
+      return code || "";
+    }
+
+    function formatEditableAmount(amount) {
+      return Number(amount).toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 4 });
+    }
+
+    function syncSymbols() {
+      fromSymbolEl.textContent = currencySymbol(fromBox.dataset.value);
+      toSymbolEl.textContent = currencySymbol(toBox.dataset.value);
     }
 
     function showError(msg) { errEl.textContent = msg; errEl.hidden = false; }
@@ -770,6 +780,7 @@ const HOME_HTML = `<!DOCTYPE html>
         document.querySelectorAll(".native-select").forEach(function (sel) { sel.innerHTML = optHtml; });
         initCombobox(fromBox, "USD");
         initCombobox(toBox, "CNY");
+        syncSymbols();
         convert();
       }).catch(function () { showError("无法加载货币列表"); });
     }
@@ -826,7 +837,8 @@ const HOME_HTML = `<!DOCTYPE html>
         input.value = displayText(code);
         if (nativeSel) nativeSel.value = code;
         close();
-        convert();
+        syncSymbols();
+        convertDebounced();
       }
 
       input.addEventListener("focus", function () { input.select(); });
@@ -886,7 +898,8 @@ const HOME_HTML = `<!DOCTYPE html>
         nativeSel.addEventListener("change", function () {
           box.dataset.value = nativeSel.value;
           input.value = displayText(nativeSel.value);
-          convert();
+          syncSymbols();
+          convertDebounced();
         });
       }
     }
@@ -906,27 +919,47 @@ const HOME_HTML = `<!DOCTYPE html>
     });
 
     function convert() {
-      var amount = parseFloat(amountEl.value);
       var from = fromBox.dataset.value, to = toBox.dataset.value;
+      var inputEl = activeSide === "from" ? fromAmountEl : toAmountEl;
+      var outputEl = activeSide === "from" ? toAmountEl : fromAmountEl;
+      var base = activeSide === "from" ? from : to;
+      var quote = activeSide === "from" ? to : from;
+      var amount = parseFloat(inputEl.value);
       if (!from || !to || !isFinite(amount) || amount < 0) {
-        resultEl.textContent = "—";
-        rateEl.textContent = "";
+        outputEl.value = "";
+        rateEl.textContent = "输入金额后将自动换算";
         return;
       }
       clearError();
-      var url = "/convert?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&amount=" + amount;
+      var currentRequest = ++requestId;
+      var url = "/convert?from=" + encodeURIComponent(base) + "&to=" + encodeURIComponent(quote) + "&amount=" + amount;
       fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+        if (currentRequest !== requestId) return;
         if (data.error) { showError(data.error); return; }
-        resultEl.textContent = formatAmount(data.result, data.to);
+        outputEl.value = formatEditableAmount(data.result);
         rateEl.textContent = "1 " + data.from + " = " + data.rate + " " + data.to + " · 更新于 " + data.date;
-      }).catch(function () { showError("网络错误，请重试"); });
+      }).catch(function () {
+        if (currentRequest === requestId) showError("网络错误，请重试");
+      });
     }
 
     var timer;
     function convertDebounced() { clearTimeout(timer); timer = setTimeout(convert, 300); }
 
-    convertBtn.addEventListener("click", convert);
-    amountEl.addEventListener("input", convertDebounced);
+    fromAmountEl.addEventListener("focus", function () { activeSide = "from"; });
+    toAmountEl.addEventListener("focus", function () { activeSide = "to"; });
+    fromAmountEl.addEventListener("input", function () { activeSide = "from"; convertDebounced(); });
+    toAmountEl.addEventListener("input", function () { activeSide = "to"; convertDebounced(); });
+    // 整张金额卡片都是输入热区；货币选择控件维持自己的点击语义。
+    document.querySelectorAll(".currency-field").forEach(function (field) {
+      field.addEventListener("click", function (event) {
+        // 直接点数字时交给浏览器定位插入光标，避免二次 focus 把光标送到首位。
+        if (event.target.closest(".money-input, .combobox, .native-select")) return;
+        var isFrom = field.dataset.amountSide === "from";
+        activeSide = isFrom ? "from" : "to";
+        (isFrom ? fromAmountEl : toAmountEl).focus({ preventScroll: true });
+      });
+    });
     // 同步某字段的 combobox 显示与原生 select 值
     function syncDisplay(box) {
       var code = box.dataset.value;
@@ -940,7 +973,25 @@ const HOME_HTML = `<!DOCTYPE html>
       toBox.dataset.value = f;
       syncDisplay(fromBox);
       syncDisplay(toBox);
+      var amount = fromAmountEl.value;
+      fromAmountEl.value = toAmountEl.value;
+      toAmountEl.value = amount;
+      activeSide = "from";
+      syncSymbols();
       convert();
+    });
+    resetBtn.addEventListener("click", function () {
+      fromBox.dataset.value = "USD";
+      toBox.dataset.value = "CNY";
+      fromAmountEl.value = "100";
+      toAmountEl.value = "";
+      activeSide = "from";
+      syncDisplay(fromBox);
+      syncDisplay(toBox);
+      syncSymbols();
+      clearError();
+      convert();
+      fromAmountEl.focus({ preventScroll: true });
     });
 
     loadCurrencies();
