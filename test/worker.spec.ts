@@ -59,6 +59,33 @@ describe("Monea Currency Worker", () => {
     expect(response.headers.get("X-Monea-Cache")).toBe("MISS");
   });
 
+  it("loads a narrowed history series from Frankfurter's documented rates endpoint", async () => {
+    vi.useFakeTimers({ now: new Date("2026-07-26T12:00:00Z") });
+    const upstream = vi.fn(async (input: RequestInfo | URL) => {
+      expect(String(input)).toBe("https://api.frankfurter.dev/v2/rates?base=USD&quotes=CNY&from=2026-07-19&to=2026-07-26");
+      return Response.json([
+        { date: "2026-07-24", base: "USD", quote: "CNY", rate: 6.76 },
+        { date: "2026-07-26", base: "USD", quote: "CNY", rate: 6.77 },
+      ]);
+    });
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await workerExports.default.fetch("https://example.com/history?from=USD&to=CNY&range=1W");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      from: "USD",
+      to: "CNY",
+      range: "1W",
+      group: "day",
+      points: [
+        { date: "2026-07-24", rate: 6.76 },
+        { date: "2026-07-26", rate: 6.77 },
+      ],
+    });
+    vi.useRealTimers();
+  });
+
   it("serves the most recent successful result without client caching when the upstream has a temporary failure", async () => {
     const requestUrl = "https://example.com/latest?base=CHF";
     const upstreamUrl = "https://api.frankfurter.dev/v2/rates?base=CHF";

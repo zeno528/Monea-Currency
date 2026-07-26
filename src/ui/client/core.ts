@@ -288,6 +288,8 @@ export const HOME_CLIENT_CORE = String.raw`
 
     function setHistoryLoading(message, loading) {
       historyEl.classList.toggle("is-loading", Boolean(loading));
+      historyQuoteEl.hidden = true;
+      historyNoteEl.hidden = true;
       historyChartEl.innerHTML = '<div class="history-empty' + (loading ? ' is-loading' : '') + '" role="status">' + (loading ? '<span class="history-loading-indicator" aria-hidden="true"></span>' : '') + '<span>' + message + '</span></div>';
     }
 
@@ -326,6 +328,53 @@ export const HOME_CLIENT_CORE = String.raw`
       return cached.data;
     }
 
+    function fetchJsonWithin(url, signal, timeoutMs) {
+      var controller = new AbortController();
+      var timedOut = false;
+      function abortWithParent() { controller.abort(); }
+      signal.addEventListener("abort", abortWithParent, { once: true });
+      var timeoutId = window.setTimeout(function () {
+        timedOut = true;
+        controller.abort();
+      }, timeoutMs);
+      return fetch(url, { signal: controller.signal })
+        .then(function (response) {
+          if (!response.ok) throw new Error("history-response");
+          return response.json();
+        })
+        .catch(function (error) {
+          if (timedOut) throw new Error("history-timeout");
+          throw error;
+        })
+        .finally(function () {
+          window.clearTimeout(timeoutId);
+          signal.removeEventListener("abort", abortWithParent);
+        });
+    }
+
+    function fetchOfficialHistory(from, to, range, signal) {
+      var presets = {
+        "1D": { days: 1 }, "1W": { days: 7 }, "1M": { days: 30 },
+        "6M": { days: 183, group: "week" }, "1Y": { days: 365, group: "month" },
+        "2Y": { days: 730, group: "month" }, "5Y": { days: 1826, group: "month" }
+      };
+      var preset = presets[range];
+      var endDate = new Date();
+      var startDate = new Date(endDate);
+      startDate.setUTCDate(startDate.getUTCDate() - preset.days);
+      var params = new URLSearchParams({
+        base: from,
+        quotes: to,
+        from: startDate.toISOString().slice(0, 10),
+        to: endDate.toISOString().slice(0, 10)
+      });
+      if (preset.group) params.set("group", preset.group);
+      return fetchJsonWithin("https://api.frankfurter.dev/v2/rates?" + params.toString(), signal, 6000)
+        .then(function (entries) {
+          return { points: entries.filter(function (entry) { return entry.base === from && entry.quote === to; }).map(function (entry) { return { date: entry.date, rate: entry.rate }; }) };
+        });
+    }
+
     function loadHistory(animation) {
       var from = fromBox.dataset.value, to = toBox.dataset.value;
       if (!from || !to) return;
@@ -338,8 +387,15 @@ export const HOME_CLIENT_CORE = String.raw`
       var cached = readHistoryCache(key);
       var dataPromise = cached
         ? Promise.resolve(cached)
-        : fetch("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + historyRange, { signal: signal })
-          .then(function (response) { return response.json(); })
+        : fetchJsonWithin("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + historyRange, signal, 1500)
+          .then(function (data) {
+            if (data.error) throw new Error("history-response");
+            return data;
+          })
+          .catch(function (error) {
+            if (error.name === "AbortError") throw error;
+            return fetchOfficialHistory(from, to, historyRange, signal);
+          })
           .then(function (data) {
             if (!data.error) historyCache.set(key, { data: data, storedAt: Date.now() });
             return data;
@@ -351,7 +407,7 @@ export const HOME_CLIENT_CORE = String.raw`
         renderer.render(data.points, from, to, animation, historyRange);
       }).catch(function (error) {
         if (id !== historyRequestId || error.name === "AbortError") return;
-        setHistoryLoading("走势加载失败，请稍后重试");
+        setHistoryLoading(error.message === "history-timeout" ? "走势数据加载超时，请重试" : "走势加载失败，请稍后重试");
       });
     }
 

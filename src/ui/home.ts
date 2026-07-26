@@ -12,7 +12,7 @@ export const HOME_HTML = `<!DOCTYPE html>
 <style>
 ${HOME_STYLES}</style>
 ${HOME_MARKUP}  <script>
-window.__HISTORY_CLIENT_URL = "/history-client.js?v=20260727-ranges1";
+window.__HISTORY_CLIENT_URL = "/history-client.js?v=20260727-historyfix1";
 ${HOME_CLIENT}  </script>
 </body>
 </html>`;
