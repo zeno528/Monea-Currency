@@ -447,30 +447,6 @@ export const BASE_STYLES = String.raw`
     color: var(--color-ink-muted-48);
     font-size: 14px;
   }
-  /* 原生 select：移动端用（iOS 原生 picker，无键盘遮挡）；桌面隐藏 */
-  .native-select {
-    display: none;
-    font-family: var(--font-text);
-    font-size: 17px;
-    color: var(--color-ink);
-    background-color: var(--color-canvas);
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: var(--radius-pill);
-    padding: 12px 40px 12px 20px;
-    height: 44px;
-    width: 100%;
-    appearance: none;
-    -webkit-appearance: none;
-    cursor: pointer;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231d1d1f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
-    background-repeat: no-repeat;
-    background-position: right 16px center;
-  }
-  .native-select:focus {
-    outline: 2px solid var(--color-primary-focus);
-    outline-offset: 2px;
-  }
-
   /* 交换是唯一的圆形主控件，按下即反馈。 */
   .swap-btn {
     width: 48px;

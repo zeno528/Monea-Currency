@@ -12,6 +12,7 @@ export const HOME_HTML = `<!DOCTYPE html>
 <style>
 ${HOME_STYLES}</style>
 ${HOME_MARKUP}  <script>
+window.__HISTORY_CLIENT_URL = "/history-client.js?v=20260726-perf1";
 ${HOME_CLIENT}  </script>
 </body>
 </html>`;
