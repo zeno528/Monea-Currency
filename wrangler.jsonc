@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "currency-worker",
+  "name": "monea-currency",
   "main": "src/index.ts",
   "compatibility_date": "2025-07-01",
   "assets": {

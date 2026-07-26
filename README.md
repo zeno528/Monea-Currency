@@ -1,4 +1,8 @@
-# Currency Worker
+# Monea Currency
+
+<p align="center">
+  <img src="docs/screenshots/preview.png" alt="Monea Currency 网站预览" width="800" />
+</p>
 
 > 全球货币，轻松换算。
 
