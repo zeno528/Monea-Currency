@@ -321,14 +321,6 @@ const HOME_HTML = `<!DOCTYPE html>
     color: #0066cc;
     flex: 0 0 auto;
   }
-  .currency-title-icon {
-    display: inline-grid;
-    place-items: center;
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 15px;
-    font-weight: 600;
-    line-height: 1;
-  }
   .converter-hint { color: var(--color-ink-muted-48); font-size: 13px; }
   .converter-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
   .date-control {
@@ -707,23 +699,26 @@ const HOME_HTML = `<!DOCTYPE html>
     top: 0;
     left: 0;
     z-index: 70;
-    min-width: max-content;
+    min-width: 166px;
     max-width: calc(100vw - 24px);
-    padding: 6px 8px;
-    border-radius: 8px;
-    background: rgba(29, 29, 31, 0.96);
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
-    color: #fff;
-    font-size: 11px;
-    line-height: 1.35;
+    padding: 11px 13px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14), 0 1px 2px rgba(0, 0, 0, 0.04);
+    backdrop-filter: blur(18px) saturate(180%);
+    color: var(--color-ink);
+    line-height: 1.3;
     letter-spacing: 0;
     pointer-events: none;
-    white-space: nowrap;
+    white-space: normal;
     transform: translate(14px, -50%) scale(0.98);
     opacity: 0;
     transition: opacity 120ms ease, transform 180ms var(--ease-out);
     will-change: transform, opacity;
   }
+  .chart-tooltip-rate { display: block; font-size: 16px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.2; }
+  .chart-tooltip-meta { display: block; margin-top: 4px; color: var(--color-ink-muted-48); font-size: 11px; line-height: 1.35; }
   .chart-tooltip.is-visible { opacity: 1; transform: translate(14px, -50%) scale(1); }
   .chart-tooltip.is-left { transform: translate(calc(-100% - 14px), -50%) scale(0.98); }
   .chart-tooltip.is-left.is-visible { transform: translate(calc(-100% - 14px), -50%) scale(1); }
@@ -906,7 +901,7 @@ const HOME_HTML = `<!DOCTYPE html>
   <div class="converter-wrap">
     <div class="converter-card">
       <div class="converter-topline">
-        <h2 class="converter-title"><span class="title-icon currency-title-icon" aria-hidden="true">¤</span>开始换算</h2>
+        <h2 class="converter-title"><svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.25"/><path d="M6.5 10.25h.01M17.5 13.75h.01"/></svg>开始换算</h2>
         <div class="converter-actions">
           <label class="date-control"><span>参考日期</span><input id="rate-date" type="date" aria-label="参考日期，留空则使用最新数据"></label>
           <button id="favorite-pair" class="utility-btn" type="button" aria-pressed="false">收藏组合</button>
@@ -1085,6 +1080,8 @@ const HOME_HTML = `<!DOCTYPE html>
     var requestId = 0;
     var historyRange = "1M";
     var historyRequestId = 0;
+    var historyVisual = null;
+    var historyAnimationId = 0;
     var PAIR_STORAGE_KEY = "currency-worker:pairs:v1";
     var savedPairsInitialized = false;
 
@@ -1156,7 +1153,7 @@ const HOME_HTML = `<!DOCTYPE html>
       renderSavedPairs();
     }
     function syncHistory() {
-      if (historyEl.classList.contains("is-open")) loadHistory("draw");
+      if (historyEl.classList.contains("is-open")) loadHistory("morph");
     }
 
     // 展示文本：符号 中文名 (代码)
@@ -1512,7 +1509,8 @@ const HOME_HTML = `<!DOCTYPE html>
     }
     function renderHistory(points, from, to, animation) {
       if (!points || points.length < 2) { setHistoryLoading("该时间范围暂无可用参考数据"); return; }
-      var width = 640, height = 210, inset = { top: 14, right: 16, bottom: 30, left: 16 };
+      var animationId = ++historyAnimationId;
+      var width = 640, height = 210, inset = { top: 20, right: 16, bottom: 30, left: 58 };
       var values = points.map(function (point) { return Number(point.rate); }).filter(function (value) { return isFinite(value); });
       if (values.length < 2) { setHistoryLoading("该时间范围暂无可用参考数据"); return; }
       var rangeMin = Math.min.apply(null, values), rangeMax = Math.max.apply(null, values);
@@ -1539,7 +1537,11 @@ const HOME_HTML = `<!DOCTYPE html>
       }).join("");
       var gridLines = [0, 0.5, 1].map(function (ratio) {
         var y = inset.top + innerHeight * ratio;
-        return '<line x1="' + inset.left + '" y1="' + y.toFixed(2) + '" x2="' + (width - inset.right) + '" y2="' + y.toFixed(2) + '" stroke="rgba(0,0,0,.09)"/>';
+        return '<line x1="16" y1="' + y.toFixed(2) + '" x2="' + (width - 16) + '" y2="' + y.toFixed(2) + '" stroke="rgba(0,0,0,.09)"/>';
+      }).join("");
+      var axisLabels = [max, (min + max) / 2, min].map(function (value, index) {
+        var y = inset.top + innerHeight * index / 2;
+        return '<text x="8" y="' + (y - 6).toFixed(2) + '" fill="#86868b" font-size="10.5">' + value.toFixed(4) + '</text>';
       }).join("");
       var areaPath = path + "L " + positions[positions.length - 1].x.toFixed(2) + " " + (height - inset.bottom) + "L " + positions[0].x.toFixed(2) + " " + (height - inset.bottom) + "Z";
       var latestPosition = positions[positions.length - 1];
@@ -1548,14 +1550,50 @@ const HOME_HTML = `<!DOCTYPE html>
       var oldTooltip = $("history-tooltip");
       if (oldTooltip) oldTooltip.remove();
       document.body.insertAdjacentHTML("beforeend", '<div id="history-tooltip" class="chart-tooltip" role="status"></div>');
-      historyChartEl.innerHTML = '<svg id="history-svg" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="' + from + " 到 " + to + ' 的参考汇率走势。移动鼠标查看每个日期的价格。"><defs><linearGradient id="history-area-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#0071e3" stop-opacity=".20"/><stop offset="100%" stop-color="#0071e3" stop-opacity="0"/></linearGradient><clipPath id="history-area-clip"><rect id="history-area-reveal" x="' + inset.left + '" y="' + inset.top + '" width="' + innerWidth + '" height="' + innerHeight + '"/></clipPath></defs>' + gridLines + '<path id="history-area" d="' + areaPath + '" fill="url(#history-area-gradient)" clip-path="url(#history-area-clip)"/><path id="history-line" d="' + path + '" fill="none" stroke="#0071e3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle id="history-latest-dot" cx="' + latestPosition.x.toFixed(2) + '" cy="' + latestPosition.y.toFixed(2) + '" r="4.5" fill="#0071e3" stroke="#fff" stroke-width="2"/><g id="history-cursor" class="chart-cursor" hidden><line id="history-cursor-line" y1="' + inset.top + '" y2="' + (height - inset.bottom) + '" stroke="#0071e3" stroke-width="1" stroke-dasharray="3 3"/><circle id="history-cursor-dot" r="5" fill="#fff" stroke="#0071e3" stroke-width="3"/></g>' + dateLabels + '</svg>';
-      var svg = $("history-svg"), line = $("history-line"), areaReveal = $("history-area-reveal"), latestDot = $("history-latest-dot"), tooltip = $("history-tooltip"), cursor = $("history-cursor"), cursorLine = $("history-cursor-line"), cursorDot = $("history-cursor-dot");
+      historyChartEl.innerHTML = '<svg id="history-svg" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="' + from + " 到 " + to + ' 的参考汇率走势。移动鼠标查看每个日期的价格。"><defs><linearGradient id="history-area-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#0071e3" stop-opacity=".20"/><stop offset="100%" stop-color="#0071e3" stop-opacity="0"/></linearGradient><clipPath id="history-area-clip"><rect id="history-area-reveal" x="' + inset.left + '" y="' + inset.top + '" width="' + innerWidth + '" height="' + innerHeight + '"/></clipPath></defs>' + gridLines + axisLabels + '<path id="history-area" d="' + areaPath + '" fill="url(#history-area-gradient)" clip-path="url(#history-area-clip)"/><path id="history-line" d="' + path + '" fill="none" stroke="#0071e3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle id="history-latest-dot" cx="' + latestPosition.x.toFixed(2) + '" cy="' + latestPosition.y.toFixed(2) + '" r="4.5" fill="#0071e3" stroke="#fff" stroke-width="2"/><g id="history-cursor" class="chart-cursor" hidden><line id="history-cursor-line" y1="' + inset.top + '" y2="' + (height - inset.bottom) + '" stroke="#0071e3" stroke-width="1" stroke-dasharray="3 3"/><circle id="history-cursor-dot" r="5" fill="#fff" stroke="#0071e3" stroke-width="3"/></g>' + dateLabels + '</svg>';
+      var svg = $("history-svg"), line = $("history-line"), area = $("history-area"), areaReveal = $("history-area-reveal"), latestDot = $("history-latest-dot"), tooltip = $("history-tooltip"), cursor = $("history-cursor"), cursorLine = $("history-cursor-line"), cursorDot = $("history-cursor-dot");
       var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       function pathFromPositions(list) {
         return list.map(function (position, index) { return (index ? "L" : "M") + position.x.toFixed(2) + " " + position.y.toFixed(2); }).join(" ");
       }
-      if (!reduceMotion && animation === "draw") {
+      function areaPathFromPositions(list) {
+        return pathFromPositions(list) + "L " + list[list.length - 1].x.toFixed(2) + " " + (height - inset.bottom) + "L " + list[0].x.toFixed(2) + " " + (height - inset.bottom) + "Z";
+      }
+      function resamplePositions(source, count) {
+        return Array.from({ length: count }, function (_, index) {
+          var position = count === 1 ? 0 : index / (count - 1) * (source.length - 1);
+          var low = Math.floor(position), high = Math.min(source.length - 1, Math.ceil(position)), progress = position - low;
+          return { x: source[low].x + (source[high].x - source[low].x) * progress, y: source[low].y + (source[high].y - source[low].y) * progress };
+        });
+      }
+      function animateCurve(fromPositions, toPositions) {
+        var startedAt;
+        line.setAttribute("d", pathFromPositions(fromPositions));
+        area.setAttribute("d", areaPathFromPositions(fromPositions));
+        latestDot.setAttribute("cx", fromPositions[fromPositions.length - 1].x.toFixed(2));
+        latestDot.setAttribute("cy", fromPositions[fromPositions.length - 1].y.toFixed(2));
+        function frame(now) {
+          if (!startedAt) startedAt = now;
+          var progress = Math.min(1, (now - startedAt) / 680);
+          var eased = 1 - Math.pow(1 - progress, 4);
+          var current = toPositions.map(function (position, index) {
+            return { x: fromPositions[index].x + (position.x - fromPositions[index].x) * eased, y: fromPositions[index].y + (position.y - fromPositions[index].y) * eased };
+          });
+          if (animationId !== historyAnimationId) return;
+          line.setAttribute("d", pathFromPositions(current));
+          area.setAttribute("d", areaPathFromPositions(current));
+          latestDot.setAttribute("cx", current[current.length - 1].x.toFixed(2));
+          latestDot.setAttribute("cy", current[current.length - 1].y.toFixed(2));
+          historyVisual = { positions: current };
+          if (progress < 1) requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+      }
+      if (!reduceMotion && animation === "morph" && historyVisual && historyVisual.positions.length > 1) {
+        animateCurve(resamplePositions(historyVisual.positions, positions.length), positions);
+      } else if (!reduceMotion && animation === "draw") {
         // 从左端进入；先提交隐藏帧，避免浏览器合并起止状态。
+        historyVisual = null;
         line.setAttribute("d", pathFromPositions(positions));
         var lineLength = line.getTotalLength();
         var drawDuration = 1050;
@@ -1579,11 +1617,15 @@ const HOME_HTML = `<!DOCTYPE html>
             }
             requestAnimationFrame(revealArea);
             window.setTimeout(function () {
+              if (animationId !== historyAnimationId) return;
               latestDot.style.transition = "opacity 160ms ease-out";
               latestDot.style.opacity = "1";
+              historyVisual = { positions: positions };
             }, drawDuration - 120);
           });
         });
+      } else {
+        historyVisual = { positions: positions };
       }
       var activeIndex = points.length - 1;
       function placeTooltip(clientX, clientY) {
@@ -1601,7 +1643,7 @@ const HOME_HTML = `<!DOCTYPE html>
         cursor.removeAttribute("hidden");
         cursorLine.setAttribute("x1", x); cursorLine.setAttribute("x2", x);
         cursorDot.setAttribute("cx", x); cursorDot.setAttribute("cy", y);
-        tooltip.textContent = point.date + " · 1 " + from + " = " + Number(point.rate).toFixed(4) + " " + to;
+        tooltip.innerHTML = '<strong class="chart-tooltip-rate">' + Number(point.rate).toFixed(4) + " " + to + '</strong><span class="chart-tooltip-meta">1 ' + from + " · 参考日期 " + point.date + "</span>";
         tooltip.classList.add("is-visible");
         if (clientX === undefined || clientY === undefined) {
           var svgRect = svg.getBoundingClientRect();
@@ -1627,11 +1669,12 @@ const HOME_HTML = `<!DOCTYPE html>
       var from = fromBox.dataset.value, to = toBox.dataset.value;
       if (!from || !to) return;
       var id = ++historyRequestId;
-      setHistoryLoading("正在加载参考走势…");
+      var mode = animation === "morph" && historyVisual && historyVisual.positions.length > 1 ? "morph" : "draw";
+      if (mode === "draw") setHistoryLoading("正在加载参考走势…");
       fetch("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + historyRange).then(function (response) { return response.json(); }).then(function (data) {
         if (id !== historyRequestId) return;
         if (data.error) { setHistoryLoading(data.error); return; }
-        renderHistory(data.points, from, to, animation || "draw");
+        renderHistory(data.points, from, to, mode);
       }).catch(function () { if (id === historyRequestId) setHistoryLoading("走势加载失败，请稍后重试"); });
     }
     historyToggleEl.addEventListener("click", function () {
@@ -1656,7 +1699,7 @@ const HOME_HTML = `<!DOCTYPE html>
       button.addEventListener("click", function () {
         historyRange = button.dataset.range;
         document.querySelectorAll(".history-range").forEach(function (item) { item.setAttribute("aria-pressed", item === button ? "true" : "false"); });
-        loadHistory("draw");
+        loadHistory("morph");
       });
     });
 
