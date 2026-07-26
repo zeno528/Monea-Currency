@@ -676,9 +676,12 @@ const HOME_HTML = `<!DOCTYPE html>
   .history[hidden] { display: grid; }
   .history.is-open { grid-template-rows: 1fr; margin-top: 14px; padding: 18px; border-color: rgba(0, 0, 0, 0.08); opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
   .history-content { min-height: 0; overflow: hidden; }
-  .history-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; min-height: 42px; margin-bottom: 14px; }
+  .history-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; min-height: 72px; margin-bottom: 14px; }
   .history-title { font-size: 15px; font-weight: 600; }
-  .history-note { margin-top: 2px; color: var(--color-ink-muted-48); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .history-quote { display: grid; gap: 1px; margin: 7px 0 0; }
+  .history-quote-label { color: var(--color-ink-muted-48); font-size: 12px; line-height: 1.2; }
+  .history-quote-value { color: var(--color-ink); font-size: 23px; font-weight: 650; letter-spacing: -0.035em; line-height: 1.15; }
+  .history-note { margin-top: 4px; color: var(--color-ink-muted-48); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .history-ranges { display: flex; gap: 5px; }
   .history-range {
     min-width: 38px;
@@ -958,7 +961,7 @@ const HOME_HTML = `<!DOCTYPE html>
       <section id="history" class="history" aria-label="参考汇率走势" aria-hidden="true" hidden>
         <div id="history-content" class="history-content" inert>
           <div class="history-head">
-            <div><h3 class="history-title"><svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 3 7-8"/><path d="M16 7h4v4"/></svg>参考汇率走势</h3><p id="history-note" class="history-note">按需加载，不影响首屏。</p></div>
+            <div><h3 class="history-title"><svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 3 7-8"/><path d="M16 7h4v4"/></svg>参考汇率走势</h3><p id="history-quote" class="history-quote"><span class="history-quote-label">一单位参考汇率</span><strong class="history-quote-value">加载中</strong></p><p id="history-note" class="history-note">按需加载，不影响首屏。</p></div>
             <div class="history-ranges" aria-label="走势时间范围">
               <button class="history-range" type="button" data-range="1W" aria-pressed="false">1周</button>
               <button class="history-range" type="button" data-range="1M" aria-pressed="true">1月</button>
@@ -1072,7 +1075,7 @@ const HOME_HTML = `<!DOCTYPE html>
     var errEl = $("error"), swapBtn = $("swap"), resetBtn = $("reset");
     var dateEl = $("rate-date"), favoriteBtn = $("favorite-pair");
     var savedPairsEl = $("saved-pairs"), historyEl = $("history"), historyContentEl = $("history-content"), historyToggleEl = $("history-toggle");
-    var historyChartEl = $("history-chart"), historyNoteEl = $("history-note");
+    var historyChartEl = $("history-chart"), historyNoteEl = $("history-note"), historyQuoteEl = $("history-quote");
     var rateSummaryEl = document.querySelector(".rate-summary");
     var converterCardEl = document.querySelector(".converter-card");
     var fromBox = document.querySelector('[data-field="from"]');
@@ -1082,7 +1085,6 @@ const HOME_HTML = `<!DOCTYPE html>
     var requestId = 0;
     var historyRange = "1M";
     var historyRequestId = 0;
-    var historyVisual = null;
     var PAIR_STORAGE_KEY = "currency-worker:pairs:v1";
     var savedPairsInitialized = false;
 
@@ -1526,56 +1528,63 @@ const HOME_HTML = `<!DOCTYPE html>
         return { x: inset.left + innerWidth * index / (points.length - 1), y: inset.top + (max - Number(point.rate)) / (max - min) * innerHeight };
       });
       var latest = points[points.length - 1];
-      historyNoteEl.textContent = from + " → " + to + " · 范围 " + rangeMin.toFixed(4) + "–" + rangeMax.toFixed(4) + " · 最新 " + Number(latest.rate).toFixed(4);
+      var latestRate = Number(latest.rate).toFixed(4);
+      var dateIndexes = [0, Math.round((points.length - 1) / 3), Math.round((points.length - 1) * 2 / 3), points.length - 1].filter(function (index, position, list) { return list.indexOf(index) === position; });
+      var dateLabels = dateIndexes.map(function (index, position) {
+        var dateParts = points[index].date.split("-");
+        var label = historyRange === "1W" ? Number(dateParts[1]) + "月" + Number(dateParts[2]) + "日" : Number(dateParts[1]) + "月";
+        var anchor = position === 0 ? "start" : (position === dateIndexes.length - 1 ? "end" : "middle");
+        var x = inset.left + innerWidth * index / (points.length - 1);
+        return '<text x="' + x.toFixed(2) + '" y="' + (height - 8) + '" fill="#86868b" font-size="11" text-anchor="' + anchor + '">' + label + '</text>';
+      }).join("");
+      var gridLines = [0, 0.5, 1].map(function (ratio) {
+        var y = inset.top + innerHeight * ratio;
+        return '<line x1="' + inset.left + '" y1="' + y.toFixed(2) + '" x2="' + (width - inset.right) + '" y2="' + y.toFixed(2) + '" stroke="rgba(0,0,0,.09)"/>';
+      }).join("");
+      var areaPath = path + "L " + positions[positions.length - 1].x.toFixed(2) + " " + (height - inset.bottom) + "L " + positions[0].x.toFixed(2) + " " + (height - inset.bottom) + "Z";
+      var latestPosition = positions[positions.length - 1];
+      historyQuoteEl.innerHTML = '<span class="history-quote-label">1 ' + from + ' =</span><strong class="history-quote-value">' + latestRate + " " + to + "</strong>";
+      historyNoteEl.textContent = "参考区间 " + rangeMin.toFixed(4) + "–" + rangeMax.toFixed(4) + " · " + points[0].date + " 至 " + latest.date;
       var oldTooltip = $("history-tooltip");
       if (oldTooltip) oldTooltip.remove();
       document.body.insertAdjacentHTML("beforeend", '<div id="history-tooltip" class="chart-tooltip" role="status"></div>');
-      historyChartEl.innerHTML = '<svg id="history-svg" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="' + from + " 到 " + to + ' 的参考汇率走势。移动鼠标查看每个日期的价格。"><line x1="' + inset.left + '" y1="' + (height - inset.bottom) + '" x2="' + (width - inset.right) + '" y2="' + (height - inset.bottom) + '" stroke="rgba(0,0,0,.12)"/><path id="history-line" d="' + path + '" fill="none" stroke="#0071e3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><g id="history-cursor" class="chart-cursor" hidden><line id="history-cursor-line" y1="' + inset.top + '" y2="' + (height - inset.bottom) + '" stroke="#0071e3" stroke-width="1" stroke-dasharray="3 3"/><circle id="history-cursor-dot" r="5" fill="#fff" stroke="#0071e3" stroke-width="3"/></g><text x="' + inset.left + '" y="' + (height - 8) + '" fill="#6e6e73" font-size="11">' + points[0].date + '</text><text x="' + (width - inset.right) + '" y="' + (height - 8) + '" fill="#6e6e73" font-size="11" text-anchor="end">' + latest.date + '</text></svg>';
-      var svg = $("history-svg"), line = $("history-line"), tooltip = $("history-tooltip"), cursor = $("history-cursor"), cursorLine = $("history-cursor-line"), cursorDot = $("history-cursor-dot");
+      historyChartEl.innerHTML = '<svg id="history-svg" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="' + from + " 到 " + to + ' 的参考汇率走势。移动鼠标查看每个日期的价格。"><defs><linearGradient id="history-area-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#0071e3" stop-opacity=".20"/><stop offset="100%" stop-color="#0071e3" stop-opacity="0"/></linearGradient><clipPath id="history-area-clip"><rect id="history-area-reveal" x="' + inset.left + '" y="' + inset.top + '" width="' + innerWidth + '" height="' + innerHeight + '"/></clipPath></defs>' + gridLines + '<path id="history-area" d="' + areaPath + '" fill="url(#history-area-gradient)" clip-path="url(#history-area-clip)"/><path id="history-line" d="' + path + '" fill="none" stroke="#0071e3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle id="history-latest-dot" cx="' + latestPosition.x.toFixed(2) + '" cy="' + latestPosition.y.toFixed(2) + '" r="4.5" fill="#0071e3" stroke="#fff" stroke-width="2"/><g id="history-cursor" class="chart-cursor" hidden><line id="history-cursor-line" y1="' + inset.top + '" y2="' + (height - inset.bottom) + '" stroke="#0071e3" stroke-width="1" stroke-dasharray="3 3"/><circle id="history-cursor-dot" r="5" fill="#fff" stroke="#0071e3" stroke-width="3"/></g>' + dateLabels + '</svg>';
+      var svg = $("history-svg"), line = $("history-line"), areaReveal = $("history-area-reveal"), latestDot = $("history-latest-dot"), tooltip = $("history-tooltip"), cursor = $("history-cursor"), cursorLine = $("history-cursor-line"), cursorDot = $("history-cursor-dot");
       var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       function pathFromPositions(list) {
         return list.map(function (position, index) { return (index ? "L" : "M") + position.x.toFixed(2) + " " + position.y.toFixed(2); }).join(" ");
       }
-      function resamplePositions(source, count) {
-        return Array.from({ length: count }, function (_, index) {
-          var position = count === 1 ? 0 : index / (count - 1) * (source.length - 1);
-          var low = Math.floor(position), high = Math.min(source.length - 1, Math.ceil(position)), progress = position - low;
-          return { x: source[low].x + (source[high].x - source[low].x) * progress, y: source[low].y + (source[high].y - source[low].y) * progress };
-        });
-      }
-      function animateCurve(fromPositions, toPositions) {
-        var startedAt;
-        line.setAttribute("d", pathFromPositions(fromPositions));
-        function frame(now) {
-          if (!startedAt) startedAt = now;
-          var progress = Math.min(1, (now - startedAt) / 620);
-          var eased = 1 - Math.pow(1 - progress, 4);
-          var current = toPositions.map(function (position, index) {
-            return { x: fromPositions[index].x + (position.x - fromPositions[index].x) * eased, y: fromPositions[index].y + (position.y - fromPositions[index].y) * eased };
-          });
-          line.setAttribute("d", pathFromPositions(current));
-          if (progress < 1) requestAnimationFrame(frame);
-        }
-        requestAnimationFrame(frame);
-      }
-      if (!reduceMotion && animation === "morph" && historyVisual && historyVisual.positions.length > 1) {
-        animateCurve(resamplePositions(historyVisual.positions, positions.length), positions);
-      } else if (!reduceMotion && animation === "draw") {
+      if (!reduceMotion && animation === "draw") {
         // 从左端进入；先提交隐藏帧，避免浏览器合并起止状态。
         line.setAttribute("d", pathFromPositions(positions));
         var lineLength = line.getTotalLength();
+        var drawDuration = 1050;
         line.style.transition = "none";
         line.style.strokeDasharray = String(lineLength);
         line.style.strokeDashoffset = String(lineLength);
+        areaReveal.setAttribute("width", "0");
+        latestDot.style.opacity = "0";
         line.getBoundingClientRect();
         requestAnimationFrame(function () {
           requestAnimationFrame(function () {
-            line.style.transition = "stroke-dashoffset 2200ms cubic-bezier(0.45, 0, 0.55, 1)";
+            line.style.transition = "stroke-dashoffset " + drawDuration + "ms cubic-bezier(0.22, 1, 0.36, 1)";
             line.style.strokeDashoffset = "0";
+            var areaStartedAt;
+            function revealArea(now) {
+              if (!areaStartedAt) areaStartedAt = now;
+              var progress = Math.min(1, (now - areaStartedAt) / drawDuration);
+              var eased = 1 - Math.pow(1 - progress, 4);
+              areaReveal.setAttribute("width", String(innerWidth * eased));
+              if (progress < 1) requestAnimationFrame(revealArea);
+            }
+            requestAnimationFrame(revealArea);
+            window.setTimeout(function () {
+              latestDot.style.transition = "opacity 160ms ease-out";
+              latestDot.style.opacity = "1";
+            }, drawDuration - 120);
           });
         });
       }
-      historyVisual = { pair: from + ":" + to, positions: positions };
       var activeIndex = points.length - 1;
       function placeTooltip(clientX, clientY) {
         tooltip.style.left = clientX + "px";
@@ -1618,7 +1627,7 @@ const HOME_HTML = `<!DOCTYPE html>
       var from = fromBox.dataset.value, to = toBox.dataset.value;
       if (!from || !to) return;
       var id = ++historyRequestId;
-      if (animation !== "morph") setHistoryLoading("正在加载参考走势…");
+      setHistoryLoading("正在加载参考走势…");
       fetch("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + historyRange).then(function (response) { return response.json(); }).then(function (data) {
         if (id !== historyRequestId) return;
         if (data.error) { setHistoryLoading(data.error); return; }
@@ -1647,7 +1656,7 @@ const HOME_HTML = `<!DOCTYPE html>
       button.addEventListener("click", function () {
         historyRange = button.dataset.range;
         document.querySelectorAll(".history-range").forEach(function (item) { item.setAttribute("aria-pressed", item === button ? "true" : "false"); });
-        loadHistory("morph");
+        loadHistory("draw");
       });
     });
 
