@@ -296,7 +296,7 @@ export const BASE_STYLES = String.raw`
     background-color: var(--color-canvas);
     border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: var(--radius-pill);
-    padding: 12px 56px 12px 20px;
+    padding: 12px 80px 12px 20px;
     height: 44px;
     width: 100%;
     cursor: pointer;
@@ -311,19 +311,19 @@ export const BASE_STYLES = String.raw`
   .combo-arrow {
     position: absolute;
     right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 44px;
-    height: 44px;
-    padding: 0;
+    top: 0;
+    bottom: 0;
+    width: 72px;
+    padding: 0 13px 0 0;
     border: 0;
     background: transparent;
     color: var(--color-ink);
     cursor: pointer;
-    display: grid;
-    place-items: center;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
   }
-  .combo-arrow:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; border-radius: 50%; }
+  .combo-arrow:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; border-radius: 0 var(--radius-pill) var(--radius-pill) 0; }
   .combo-arrow svg {
     width: 18px;
     height: 18px;
