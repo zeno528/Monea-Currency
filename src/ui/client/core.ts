@@ -58,6 +58,7 @@ export const HOME_CLIENT_CORE = String.raw`
     var historyAnimationId = 0;
     var PAIR_STORAGE_KEY = "currency-worker:pairs:v1";
     var savedPairsInitialized = false;
+    var savedPairsResizeCleanup = null; // 当前正在进行的卡片高度动画的清理器（模块级，保证同一时刻只有一个动画拥有共享卡片）
 
     dateEl.max = new Date().toISOString().slice(0, 10);
 
@@ -98,6 +99,9 @@ export const HOME_CLIENT_CORE = String.raw`
         savedPairsInitialized = true;
         return;
       }
+      // 若上一次高度动画尚未收尾，先就地结算，确保同一时刻只有一个动画拥有共享卡片，
+      // 否则旧的定时器/transitionend 会在本次动画进行中清掉 is-resizing 与 height，造成跳变。
+      if (savedPairsResizeCleanup) savedPairsResizeCleanup();
       var startHeight = converterCardEl.getBoundingClientRect().height;
       converterCardEl.style.height = startHeight + "px";
       updateSavedPairs(content);
@@ -111,19 +115,20 @@ export const HOME_CLIENT_CORE = String.raw`
       }
       converterCardEl.style.height = startHeight + "px";
       converterCardEl.classList.add("is-resizing");
-      requestAnimationFrame(function () { converterCardEl.style.height = endHeight + "px"; });
-      var settled = false;
+      // 守卫：若本次动画已被后续调用结算，陈旧的 rAF 不得再把卡片钉回固定高度。
+      requestAnimationFrame(function () { if (savedPairsResizeCleanup === cleanup) converterCardEl.style.height = endHeight + "px"; });
+      var timer = setTimeout(cleanup, 500); // 兜底：过渡被打断（transitioncancel 而非 transitionend）时也复位（过渡时长 380ms）
       function cleanup() {
-        if (settled) return;
-        settled = true;
+        if (savedPairsResizeCleanup !== cleanup) return; // 仅当前动画的清理器生效，杜绝跨调用误伤
+        savedPairsResizeCleanup = null;
+        clearTimeout(timer);
         converterCardEl.classList.remove("is-resizing");
         converterCardEl.style.height = "";
         converterCardEl.removeEventListener("transitionend", onEnd);
       }
       function onEnd(event) { if (event.propertyName === "height") cleanup(); }
       converterCardEl.addEventListener("transitionend", onEnd);
-      // 安全兜底：即便 transitionend 因过渡被打断/合并而未触发，也保证复位（过渡时长 380ms）
-      setTimeout(cleanup, 500);
+      savedPairsResizeCleanup = cleanup;
     }
     function renderSavedPairs() {
       var store = readPairStore();
