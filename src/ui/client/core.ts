@@ -143,13 +143,20 @@ export const HOME_CLIENT_CORE = String.raw`
       if (keyboardOpen) session.keyboardWasShown = true;
 
       var rect = input.getBoundingClientRect();
-      // 保留 iOS 已完成的原生上滑；仅在输入框仍被顶部导航或键盘遮挡时做最小校正。
-      var safeTop = 64;
+      // 顶栏随文档滚动，不占键盘场景的固定安全区；仅做最小校正。
+      var safeTop = 16;
       var safeBottom = visibleHeight - 20;
       var delta = rect.top < safeTop
         ? rect.top - safeTop
         : (rect.bottom > safeBottom ? rect.bottom - safeBottom : 0);
-      if (Math.abs(delta) > 8) window.scrollTo(window.scrollX, window.scrollY + delta);
+      if (Math.abs(delta) > 8) {
+        var targetTop = Math.max(0, window.scrollY + delta);
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          window.scrollTo(window.scrollX, targetTop);
+        } else {
+          window.scrollTo({ left: window.scrollX, top: targetTop, behavior: "smooth" });
+        }
+      }
     }
 
     function requestComboScrollRestore(input) {
