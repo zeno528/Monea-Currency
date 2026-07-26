@@ -452,7 +452,7 @@ export const BASE_STYLES = String.raw`
     box-shadow: 0 7px 16px rgba(0, 113, 227, 0.28);
     transition: transform 160ms var(--ease-out), background-color 160ms ease, box-shadow 160ms ease;
   }
-  .swap-btn:active { transform: scale(0.95) rotate(180deg); }
+  .swap-btn:active { transform: scale(0.95); }
   .swap-btn:focus-visible { outline: 3px solid rgba(10, 132, 255, 0.3); outline-offset: 3px; }
   .swap-btn svg { width: 18px; height: 18px; }
 

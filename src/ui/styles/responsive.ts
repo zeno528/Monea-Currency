@@ -26,7 +26,7 @@ export const RESPONSIVE_STYLES = String.raw`
       transform: rotate(90deg);
       z-index: 2;
     }
-    .swap-btn:active { transform: rotate(270deg) scale(0.95); }
+    .swap-btn:active { transform: rotate(90deg) scale(0.95); }
     /* 移动端保留可搜索输入框，方便快速筛选较长的货币列表。 */
     .currency-field .combobox { display: block; }
     .native-select { display: none; }
