@@ -1,0 +1,92 @@
+# 分支预览部署
+#
+# 触发：推送到任意「非 main」分支时运行。
+# 行为：上传一个预览版本到 Cloudflare Workers（wrangler versions upload），
+#       不切换生产流量，并生成基于分支名的稳定预览 URL；
+#       版本 message 带上本次 git 提交信息（commit subject）。
+# 生产环境（main 分支）不走本工作流，仍由你手动 `wrangler deploy` 上线。
+#
+# 前置：在仓库 Settings → Secrets and variables → Actions 配置：
+#   - CLOUDFLARE_API_TOKEN   具备 Workers Scripts:Edit 权限的 API Token
+#   - CLOUDFLARE_ACCOUNT_ID  账户 ID（dashboard 右侧可查）
+name: Preview Deploy
+
+on:
+  push:
+    branches-ignore:
+      - main
+
+# 同一分支并发推送时，取消旧的一次，只部署最新提交
+concurrency:
+  group: preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: Upload preview version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          # 与 pnpm-lock.yaml 的 lockfileVersion 9.0 匹配，保证 --frozen-lockfile 通过
+          version: 9.15.9
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare commit message & preview alias
+        run: |
+          # 分支名 -> 合法 preview-alias：
+          #   Cloudflare 要求仅小写字母/数字/横线，且必须小写字母开头
+          raw="${GITHUB_REF_NAME}"
+          alias=$(printf '%s' "$raw" \
+                  | tr '[:upper:]' '[:lower:]' \
+                  | sed -E 's/[^a-z0-9]+/-/g' \
+                  | sed -E 's/^-+//; s/-+$//' \
+                  | cut -c1-40)
+          # 处理后若非小写字母开头（如分支名以数字开头），补前缀
+          case "$alias" in
+            [a-z]*) ;;
+            *) alias="branch-$alias" ;;
+          esac
+          # 取 commit 第一行（subject）作为版本 message：单行，传参最稳
+          msg=$(git log -1 --pretty=%s)
+          {
+            echo "PREVIEW_ALIAS=$alias"
+            echo "COMMIT_MESSAGE=$msg"
+          } >> "$GITHUB_ENV"
+
+      - name: Upload preview version to Cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          pnpm exec wrangler versions upload \
+            --message "$COMMIT_MESSAGE" \
+            --preview-alias "$PREVIEW_ALIAS"
+
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo "### 🚀 预览版本已上传（未切换生产流量）"
+            echo ""
+            echo "- **分支**: \`${GITHUB_REF_NAME}\`"
+            echo "- **Commit**: ${COMMIT_MESSAGE:-（无）}"
+            echo "- **版本别名**: \`${PREVIEW_ALIAS:-（无）}\`"
+            echo ""
+            echo "预览 URL 见上方 \`Upload preview version\` 步骤输出（wrangler 会打印 \`Version Preview URL\`）。"
+            echo "同分支多次推送，\`${PREVIEW_ALIAS:-该别名}\` 对应的别名 URL 保持稳定不变。"
+          } >> "$GITHUB_STEP_SUMMARY"
