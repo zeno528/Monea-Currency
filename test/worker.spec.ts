@@ -86,6 +86,24 @@ describe("Monea Currency Worker", () => {
     vi.useRealTimers();
   });
 
+  it("uses weekly grouping for the one-year history range", async () => {
+    vi.useFakeTimers({ now: new Date("2026-07-26T12:00:00Z") });
+    const upstream = vi.fn(async (input: RequestInfo | URL) => {
+      expect(String(input)).toBe("https://api.frankfurter.dev/v2/rates?base=USD&quotes=CNY&from=2025-07-26&to=2026-07-26&group=week");
+      return Response.json([
+        { date: "2025-07-27", base: "USD", quote: "CNY", rate: 7.1 },
+        { date: "2026-07-26", base: "USD", quote: "CNY", rate: 6.77 },
+      ]);
+    });
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await workerExports.default.fetch("https://example.com/history?from=USD&to=CNY&range=1Y");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ range: "1Y", group: "week" });
+    vi.useRealTimers();
+  });
+
   it("serves the most recent successful result without client caching when the upstream has a temporary failure", async () => {
     const requestUrl = "https://example.com/latest?base=CHF";
     const upstreamUrl = "https://api.frankfurter.dev/v2/rates?base=CHF";
