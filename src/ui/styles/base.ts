@@ -527,7 +527,9 @@ export const BASE_STYLES = String.raw`
   .reset-btn:active { transform: scale(0.97); }
   @media (hover: hover) and (pointer: fine) { .reset-btn:hover { background: rgba(0, 102, 204, 0.08); } }
   .reset-btn:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
-  .history-btn { white-space: nowrap; }
+  .history-btn { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+  .history-toggle-icon { width: 14px; height: 14px; transition: transform 220ms var(--ease-out); }
+  .history-btn[aria-expanded="true"] .history-toggle-icon { transform: rotate(180deg); }
   .history {
     display: grid;
     grid-template-rows: 0fr;
