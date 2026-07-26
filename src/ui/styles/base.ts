@@ -70,15 +70,16 @@ export const BASE_STYLES = String.raw`
   .hero {
     /* Hero 与换算器共用同一画布，避免两段渐变产生色阶断层。 */
     background: var(--color-parchment);
-    padding: 76px 22px 38px;
+    padding: 32px 22px 20px;
     text-align: center;
   }
   .eyebrow {
     display: inline-flex;
     align-items: center;
+    gap: 6px;
     min-height: 28px;
     padding: 4px 11px;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
     color: #6e6e73;
     background: rgba(255, 255, 255, 0.72);
     border: 1px solid rgba(0, 0, 0, 0.06);
@@ -86,6 +87,12 @@ export const BASE_STYLES = String.raw`
     font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.01em;
+  }
+  .eyebrow-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-primary);
   }
   .hero h1 {
     font-family: var(--font-display);
@@ -96,15 +103,27 @@ export const BASE_STYLES = String.raw`
     max-width: 980px;
     margin: 0 auto;
   }
-  .hero .lead {
+  .hero-rate {
     font-family: var(--font-display);
     font-size: clamp(20px, 2.5vw, 26px);
     font-weight: 400;
     line-height: 1.14;
     letter-spacing: -0.02em;
     color: var(--color-ink-muted-80);
-    margin: 17px auto 0;
+    margin: 10px auto 0;
     max-width: 720px;
+  }
+  .hero-meta {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--color-ink-muted-48);
+    margin: 10px auto 0;
+    max-width: 720px;
+  }
+  .hero-meta a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
   }
 
   /* 换算器是页面唯一的主操作面，输入与结果以深浅两层区分。 */
