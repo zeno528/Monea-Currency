@@ -36,10 +36,9 @@ export const BASE_STYLES = String.raw`
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* 浮动的半透明顶栏：提供位置感，但不抢占内容层级。 */
+  /* 普通文档流中的品牌栏：提供身份识别，不干预移动端键盘滚动。 */
   .global-nav {
-    position: sticky;
-    top: 0;
+    position: relative;
     z-index: 40;
     background: linear-gradient(135deg, rgba(8, 20, 69, 0.78) 0%, rgba(4, 9, 44, 0.78) 60%, rgba(2, 8, 31, 0.78) 100%);
     backdrop-filter: saturate(180%) blur(20px);
