@@ -14,7 +14,15 @@ export const RESPONSIVE_STYLES = String.raw`
     .currency-field { --combo-panel-offset: 26px; padding: 18px 20px; }
     .combo-input { height: 52px; padding: 14px 80px 14px 52px; }
     .combo-panel { --combo-panel-max-height: min(320px, 42dvh); }
-    .rate-summary { font-size: 13px; }
+    .rate-summary {
+      box-sizing: border-box;
+      height: 60px;
+      min-height: 60px;
+      align-items: center;
+      font-size: 13px;
+    }
+    .rate-text { flex: 1 1 auto; }
+    .summary-actions { flex-wrap: nowrap; }
     .converter-topline { align-items: flex-start; }
     .converter-actions { flex-wrap: wrap; justify-content: flex-end; }
     /* 在两张卡片的分界线上，而非任一侧的边缘。 */
@@ -81,7 +89,7 @@ export const RESPONSIVE_STYLES = String.raw`
     .history-note { white-space: normal; }
     .history-chart { height: 220px; }
     .history.is-loading .history-chart { height: 124px; }
-    .rate-summary { align-items: flex-start; }
+    .rate-summary { align-items: center; }
     .summary-actions { margin-left: 0; }
     .quick-pairs { margin-bottom: 16px; }
     .features, .api-section { padding: 56px 22px; }

@@ -503,7 +503,12 @@ export const BASE_STYLES = String.raw`
     letter-spacing: -0.224px;
     word-break: keep-all;
   }
-  .rate-text { min-width: 0; }
+  .rate-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .rate-summary.is-loading .rate-text { color: #86868b; }
   .summary-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: 0 0 auto; }
   .reset-btn {
