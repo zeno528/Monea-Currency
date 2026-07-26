@@ -788,6 +788,8 @@ export const HOME_CLIENT_CORE = String.raw`
         input.value = displayText(code);
         syncComboFlag(box);
         close();
+        // 选项已提交：结束搜索输入，避免整张货币卡因 focus-within 继续显示编辑态。
+        input.blur();
         syncSymbols();
         syncHeroPair();
         activePairSource = "";
@@ -857,7 +859,12 @@ export const HOME_CLIENT_CORE = String.raw`
           return;
         }
         var item = e.target.closest(".combo-item");
-        if (item) selectCode(item.dataset.code);
+        if (item) {
+          // selectCode 会移除菜单节点；阻止这次点击继续冒泡到整张金额卡片，
+          // 否则外层会把已脱离 combobox 的目标误判为卡片空白并聚焦金额输入框。
+          e.stopPropagation();
+          selectCode(item.dataset.code);
+        }
       });
       // 点按星标时不让输入框失焦，避免移动端键盘和列表在状态切换中收起。
       panel.addEventListener("pointerdown", function (e) {
