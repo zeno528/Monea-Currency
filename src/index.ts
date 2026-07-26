@@ -637,14 +637,15 @@ const HOME_HTML = `<!DOCTYPE html>
     opacity: 0;
     transform: translateY(-8px) scale(0.99);
     pointer-events: none;
+    overflow-anchor: none;
     transition: grid-template-rows 380ms var(--ease-out), margin 380ms var(--ease-out), padding 380ms var(--ease-out), border-color 240ms ease, opacity 180ms ease, transform 380ms var(--ease-out);
   }
   .history[hidden] { display: grid; }
   .history.is-open { grid-template-rows: 1fr; margin-top: 14px; padding: 18px; border-color: rgba(0, 0, 0, 0.08); opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
   .history-content { min-height: 0; overflow: hidden; }
-  .history-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+  .history-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; min-height: 42px; margin-bottom: 14px; }
   .history-title { font-size: 15px; font-weight: 600; }
-  .history-note { margin-top: 2px; color: var(--color-ink-muted-48); font-size: 12px; }
+  .history-note { margin-top: 2px; color: var(--color-ink-muted-48); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .history-ranges { display: flex; gap: 5px; }
   .history-range {
     min-width: 38px;
@@ -661,10 +662,11 @@ const HOME_HTML = `<!DOCTYPE html>
   }
   .history-range[aria-pressed="true"] { color: #0066cc; border-color: #b8d8ff; background: #e8f2ff; }
   .history-range:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
-  .history-chart { position: relative; min-height: 180px; }
+  .history-chart { position: relative; height: 266px; }
   .history-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
   .history-chart svg:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 4px; border-radius: 8px; }
   .chart-cursor { pointer-events: none; }
+  .chart-cursor[hidden] { display: none; }
   .chart-tooltip {
     position: fixed;
     top: 0;
@@ -690,7 +692,7 @@ const HOME_HTML = `<!DOCTYPE html>
   .chart-tooltip.is-visible { opacity: 1; transform: translate(14px, -50%) scale(1); }
   .chart-tooltip.is-left { transform: translate(calc(-100% - 14px), -50%) scale(0.98); }
   .chart-tooltip.is-left.is-visible { transform: translate(calc(-100% - 14px), -50%) scale(1); }
-  .history-empty { display: grid; min-height: 180px; place-items: center; color: var(--color-ink-muted-48); font-size: 13px; text-align: center; }
+  .history-empty { display: grid; height: 100%; place-items: center; color: var(--color-ink-muted-48); font-size: 13px; text-align: center; }
   .error { color: #d33; font-size: 14px; margin-top: 12px; letter-spacing: -0.224px; }
 
   /* 信息区域仍然简洁，但用可扫读的统计卡片替代大片装饰。 */
@@ -838,8 +840,10 @@ const HOME_HTML = `<!DOCTYPE html>
     .converter-hint { display: none; }
     .converter-actions { gap: 6px; }
     .date-control span { display: none; }
-    .history-head { display: block; }
+    .history-head { display: block; min-height: 0; }
     .history-ranges { margin-top: 10px; }
+    .history-note { white-space: normal; }
+    .history-chart { height: 180px; }
     .rate-summary { align-items: flex-start; }
     .summary-actions { margin-left: 0; }
     .quick-pairs { margin-bottom: 16px; }
@@ -1045,6 +1049,7 @@ const HOME_HTML = `<!DOCTYPE html>
     var requestId = 0;
     var historyRange = "1M";
     var historyRequestId = 0;
+    var historyVisual = null;
     var PAIR_STORAGE_KEY = "currency-worker:pairs:v1";
 
     dateEl.max = new Date().toISOString().slice(0, 10);
@@ -1090,7 +1095,7 @@ const HOME_HTML = `<!DOCTYPE html>
       renderSavedPairs();
     }
     function syncHistory() {
-      if (historyEl.classList.contains("is-open")) loadHistory();
+      if (historyEl.classList.contains("is-open")) loadHistory("draw");
     }
 
     // 展示文本：符号 中文名 (代码)
@@ -1410,7 +1415,7 @@ const HOME_HTML = `<!DOCTYPE html>
     function setHistoryLoading(message) {
       historyChartEl.innerHTML = '<div class="history-empty">' + message + '</div>';
     }
-    function renderHistory(points, from, to) {
+    function renderHistory(points, from, to, animation) {
       if (!points || points.length < 2) { setHistoryLoading("该时间范围暂无可用参考数据"); return; }
       var width = 640, height = 210, inset = { top: 14, right: 12, bottom: 30, left: 56 };
       var values = points.map(function (point) { return Number(point.rate); }).filter(function (value) { return isFinite(value); });
@@ -1423,13 +1428,52 @@ const HOME_HTML = `<!DOCTYPE html>
         var y = inset.top + (max - Number(point.rate)) / (max - min) * innerHeight;
         return (index ? "L" : "M") + x.toFixed(2) + " " + y.toFixed(2);
       }).join(" ");
+      var positions = points.map(function (point, index) {
+        return { x: inset.left + innerWidth * index / (points.length - 1), y: inset.top + (max - Number(point.rate)) / (max - min) * innerHeight };
+      });
       var latest = points[points.length - 1];
       historyNoteEl.textContent = from + " → " + to + " · " + points[0].date + " 至 " + latest.date + " · 最新 " + Number(latest.rate).toFixed(4);
       var oldTooltip = $("history-tooltip");
       if (oldTooltip) oldTooltip.remove();
       document.body.insertAdjacentHTML("beforeend", '<div id="history-tooltip" class="chart-tooltip" role="status"></div>');
-      historyChartEl.innerHTML = '<svg id="history-svg" viewBox="0 0 ' + width + ' ' + height + '" role="img" tabindex="0" aria-label="' + from + " 到 " + to + ' 的参考汇率走势。鼠标移动或按左右方向键查看每个日期的价格。"><line x1="' + inset.left + '" y1="' + inset.top + '" x2="' + inset.left + '" y2="' + (height - inset.bottom) + '" stroke="rgba(0,0,0,.12)"/><line x1="' + inset.left + '" y1="' + (height - inset.bottom) + '" x2="' + (width - inset.right) + '" y2="' + (height - inset.bottom) + '" stroke="rgba(0,0,0,.12)"/><path d="' + path + '" fill="none" stroke="#0071e3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><g id="history-cursor" class="chart-cursor" hidden><line id="history-cursor-line" y1="' + inset.top + '" y2="' + (height - inset.bottom) + '" stroke="#0071e3" stroke-width="1" stroke-dasharray="3 3"/><circle id="history-cursor-dot" r="5" fill="#fff" stroke="#0071e3" stroke-width="3"/></g><text x="4" y="' + (inset.top + 5) + '" fill="#6e6e73" font-size="11">' + max.toFixed(4) + '</text><text x="4" y="' + (height - inset.bottom) + '" fill="#6e6e73" font-size="11">' + min.toFixed(4) + '</text><text x="' + inset.left + '" y="' + (height - 8) + '" fill="#6e6e73" font-size="11">' + points[0].date + '</text><text x="' + (width - inset.right) + '" y="' + (height - 8) + '" fill="#6e6e73" font-size="11" text-anchor="end">' + latest.date + '</text></svg>';
-      var svg = $("history-svg"), tooltip = $("history-tooltip"), cursor = $("history-cursor"), cursorLine = $("history-cursor-line"), cursorDot = $("history-cursor-dot");
+      historyChartEl.innerHTML = '<svg id="history-svg" viewBox="0 0 ' + width + ' ' + height + '" role="img" tabindex="0" aria-label="' + from + " 到 " + to + ' 的参考汇率走势。鼠标移动或按左右方向键查看每个日期的价格。"><line x1="' + inset.left + '" y1="' + inset.top + '" x2="' + inset.left + '" y2="' + (height - inset.bottom) + '" stroke="rgba(0,0,0,.12)"/><line x1="' + inset.left + '" y1="' + (height - inset.bottom) + '" x2="' + (width - inset.right) + '" y2="' + (height - inset.bottom) + '" stroke="rgba(0,0,0,.12)"/><path id="history-line" d="' + path + '" fill="none" stroke="#0071e3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><g id="history-cursor" class="chart-cursor" hidden><line id="history-cursor-line" y1="' + inset.top + '" y2="' + (height - inset.bottom) + '" stroke="#0071e3" stroke-width="1" stroke-dasharray="3 3"/><circle id="history-cursor-dot" r="5" fill="#fff" stroke="#0071e3" stroke-width="3"/></g><text x="4" y="' + (inset.top + 5) + '" fill="#6e6e73" font-size="11">' + max.toFixed(4) + '</text><text x="4" y="' + (height - inset.bottom) + '" fill="#6e6e73" font-size="11">' + min.toFixed(4) + '</text><text x="' + inset.left + '" y="' + (height - 8) + '" fill="#6e6e73" font-size="11">' + points[0].date + '</text><text x="' + (width - inset.right) + '" y="' + (height - 8) + '" fill="#6e6e73" font-size="11" text-anchor="end">' + latest.date + '</text></svg>';
+      var svg = $("history-svg"), line = $("history-line"), tooltip = $("history-tooltip"), cursor = $("history-cursor"), cursorLine = $("history-cursor-line"), cursorDot = $("history-cursor-dot");
+      var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      function pathFromPositions(list) {
+        return list.map(function (position, index) { return (index ? "L" : "M") + position.x.toFixed(2) + " " + position.y.toFixed(2); }).join(" ");
+      }
+      function resamplePositions(source, count) {
+        return Array.from({ length: count }, function (_, index) {
+          var position = count === 1 ? 0 : index / (count - 1) * (source.length - 1);
+          var low = Math.floor(position), high = Math.min(source.length - 1, Math.ceil(position)), progress = position - low;
+          return { x: source[low].x + (source[high].x - source[low].x) * progress, y: source[low].y + (source[high].y - source[low].y) * progress };
+        });
+      }
+      function animateCurve(fromPositions, toPositions) {
+        var startedAt;
+        line.setAttribute("d", pathFromPositions(fromPositions));
+        function frame(now) {
+          if (!startedAt) startedAt = now;
+          var progress = Math.min(1, (now - startedAt) / 620);
+          var eased = 1 - Math.pow(1 - progress, 4);
+          var current = toPositions.map(function (position, index) {
+            return { x: fromPositions[index].x + (position.x - fromPositions[index].x) * eased, y: fromPositions[index].y + (position.y - fromPositions[index].y) * eased };
+          });
+          line.setAttribute("d", pathFromPositions(current));
+          if (progress < 1) requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+      }
+      if (!reduceMotion && animation === "morph" && historyVisual && historyVisual.positions.length > 1) {
+        animateCurve(resamplePositions(historyVisual.positions, positions.length), positions);
+      } else if (!reduceMotion && animation === "draw") {
+        var lineLength = line.getTotalLength();
+        line.style.strokeDasharray = String(lineLength);
+        line.style.strokeDashoffset = String(lineLength);
+        line.style.transition = "stroke-dashoffset 1500ms var(--ease-out)";
+        requestAnimationFrame(function () { line.style.strokeDashoffset = "0"; });
+      }
+      historyVisual = { pair: from + ":" + to, positions: positions };
       var activeIndex = points.length - 1;
       function placeTooltip(clientX, clientY) {
         tooltip.style.left = clientX + "px";
@@ -1443,7 +1487,7 @@ const HOME_HTML = `<!DOCTYPE html>
         var point = points[activeIndex];
         var x = inset.left + innerWidth * activeIndex / (points.length - 1);
         var y = inset.top + (max - Number(point.rate)) / (max - min) * innerHeight;
-        cursor.hidden = false;
+        cursor.removeAttribute("hidden");
         cursorLine.setAttribute("x1", x); cursorLine.setAttribute("x2", x);
         cursorDot.setAttribute("cx", x); cursorDot.setAttribute("cy", y);
         tooltip.textContent = point.date + " · 1 " + from + " = " + Number(point.rate).toFixed(4) + " " + to;
@@ -1455,10 +1499,15 @@ const HOME_HTML = `<!DOCTYPE html>
         }
         placeTooltip(clientX, clientY);
       }
-      function hidePoint() { cursor.hidden = true; tooltip.classList.remove("is-visible"); }
+      function hidePoint() { cursor.setAttribute("hidden", ""); tooltip.classList.remove("is-visible"); }
       svg.addEventListener("pointermove", function (event) {
         var rect = svg.getBoundingClientRect();
         var x = (event.clientX - rect.left) / rect.width * width;
+        var y = (event.clientY - rect.top) / rect.height * height;
+        if (x < inset.left || x > width - inset.right || y < inset.top || y > height - inset.bottom) {
+          hidePoint();
+          return;
+        }
         showPoint(Math.round((x - inset.left) / innerWidth * (points.length - 1)), event.clientX, event.clientY);
       });
       svg.addEventListener("pointerleave", hidePoint);
@@ -1471,15 +1520,15 @@ const HOME_HTML = `<!DOCTYPE html>
         }
       });
     }
-    function loadHistory() {
+    function loadHistory(animation) {
       var from = fromBox.dataset.value, to = toBox.dataset.value;
       if (!from || !to) return;
       var id = ++historyRequestId;
-      setHistoryLoading("正在加载参考走势…");
+      if (animation !== "morph") setHistoryLoading("正在加载参考走势…");
       fetch("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + historyRange).then(function (response) { return response.json(); }).then(function (data) {
         if (id !== historyRequestId) return;
         if (data.error) { setHistoryLoading(data.error); return; }
-        renderHistory(data.points, from, to);
+        renderHistory(data.points, from, to, animation || "draw");
       }).catch(function () { if (id === historyRequestId) setHistoryLoading("走势加载失败，请稍后重试"); });
     }
     historyToggleEl.addEventListener("click", function () {
@@ -1498,13 +1547,13 @@ const HOME_HTML = `<!DOCTYPE html>
       historyEl.setAttribute("aria-hidden", opening ? "false" : "true");
       historyToggleEl.setAttribute("aria-expanded", opening ? "true" : "false");
       historyToggleEl.textContent = opening ? "收起走势" : "走势";
-      if (opening) loadHistory();
+      if (opening) loadHistory("draw");
     });
     document.querySelectorAll(".history-range").forEach(function (button) {
       button.addEventListener("click", function () {
         historyRange = button.dataset.range;
         document.querySelectorAll(".history-range").forEach(function (item) { item.setAttribute("aria-pressed", item === button ? "true" : "false"); });
-        loadHistory();
+        loadHistory("morph");
       });
     });
 
