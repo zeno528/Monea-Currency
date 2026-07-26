@@ -60,12 +60,14 @@ export const HOME_CLIENT_CORE = String.raw`
       XAF:"cfa.svg",XOF:"cfa.svg",XCD:"caribbean.svg",XCG:"caribbean-guilder.svg",XDR:"sdr.svg",XPF:"pacific.svg",
       XAG:"metal-silver.svg",XAU:"metal-gold.svg",XPD:"metal-palladium.svg",XPT:"metal-platinum.svg"
     };
+    // 旗帜更新时只改此版本号；与一年 immutable 缓存配套，确保新旧图标 URL 不冲突。
+    var FLAG_ASSET_VERSION = "20260727";
 
     var $ = function (id) { return document.getElementById(id); };
     var fromAmountEl = $("from-amount"), toAmountEl = $("to-amount");
     var fromSymbolEl = $("from-symbol"), toSymbolEl = $("to-symbol");
     var rateEl = $("result-rate");
-    var heroTitleEl = $("hero-title"), heroRateEl = $("hero-rate");
+    var heroTitleEl = $("hero-title");
     var errEl = $("error"), swapBtn = $("swap"), resetBtn = $("reset");
     var dateEl = $("rate-date"), favoriteBtn = $("favorite-pair");
     var savedPairsEl = $("saved-pairs"), historyEl = $("history"), historyContentEl = $("history-content"), historyToggleEl = $("history-toggle");
@@ -79,15 +81,150 @@ export const HOME_CLIENT_CORE = String.raw`
     // 快捷组合的高亮表示本次操作来源，而不是所有恰好匹配当前货币对的按钮。
     var activePairSource = "quick";
     var requestId = 0;
+    var rateCache = new Map();
+    var rateRequest = null;
     var historyRange = "1M";
     var historyRequestId = 0;
-    var historyVisual = null;
-    var historyAnimationId = 0;
-    var PAIR_STORAGE_KEY = "currency-worker:pairs:v1";
+    var historyRequestController = null;
+    var historyCache = new Map();
+    var historyStoreLoaded = false;
+    var HISTORY_STORAGE_KEY = "monea-currency:history:v1";
+    var historyClientPromise = null;
+    var PAIR_STORAGE_KEY = "monea-currency:pairs:v1";
+    var CURRENCY_FAVORITES_STORAGE_KEY = "monea-currency:favorite-currencies:v1";
     var savedPairsInitialized = false;
     var savedPairsResizeCleanup = null; // 当前正在进行的卡片高度动画的清理器（模块级，保证同一时刻只有一个动画拥有共享卡片）
+    // 移动端搜索货币时，键盘会缩小可视区域；记录原位置，避免输入框与下拉列表被键盘遮住。
+    var comboKeyboardSession = null;
+    var comboKeyboardSettleTimer = null;
 
     dateEl.max = new Date().toISOString().slice(0, 10);
+
+    function isCompactViewport() {
+      return window.matchMedia("(max-width: 833px)").matches;
+    }
+
+    function comboViewportHeight() {
+      return window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    }
+
+    function revealComboPanel(panel) {
+      if (!isCompactViewport()) return;
+      // 等浮层进入布局后再量尺寸；不聚焦输入框，因此不会触发键盘或键盘回弹逻辑。
+      requestAnimationFrame(function () {
+        var rect = panel.getBoundingClientRect();
+        var visibleHeight = comboViewportHeight();
+        var safeTop = 16;
+        var safeBottom = visibleHeight - 16;
+        var delta = rect.top < safeTop
+          ? rect.top - safeTop
+          : (rect.bottom > safeBottom ? rect.bottom - safeBottom : 0);
+        if (Math.abs(delta) <= 8) return;
+        var targetTop = Math.max(0, window.scrollY + delta);
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          window.scrollTo(window.scrollX, targetTop);
+        } else {
+          window.scrollTo({ left: window.scrollX, top: targetTop, behavior: "smooth" });
+        }
+      });
+    }
+
+    function cancelComboKeyboardAlignment() {
+      if (comboKeyboardSettleTimer === null) return;
+      clearTimeout(comboKeyboardSettleTimer);
+      comboKeyboardSettleTimer = null;
+    }
+
+    function startComboKeyboardSession(input) {
+      if (!isCompactViewport()) return;
+      var previous = comboKeyboardSession;
+      comboKeyboardSession = {
+        input: input,
+        scrollX: previous ? previous.scrollX : window.scrollX,
+        scrollY: previous ? previous.scrollY : window.scrollY,
+        initialViewportHeight: previous ? previous.initialViewportHeight : comboViewportHeight(),
+        keyboardWasShown: previous ? previous.keyboardWasShown : false,
+        restoreRequested: false,
+      };
+    }
+
+    function scheduleComboKeyboardAlignment(input) {
+      cancelComboKeyboardAlignment();
+      // iOS 键盘动画期间不与系统争夺滚动；等可视区域停止变化后再检查一次。
+      comboKeyboardSettleTimer = setTimeout(function () {
+        comboKeyboardSettleTimer = null;
+        alignComboWithKeyboard(input);
+      }, 100);
+    }
+
+    function alignComboWithKeyboard(input) {
+      var session = comboKeyboardSession;
+      if (!session || session.input !== input || !isCompactViewport()) return;
+      var visibleHeight = comboViewportHeight();
+      var keyboardOpen = session.initialViewportHeight - visibleHeight > 80;
+      if (!keyboardOpen) return;
+      if (keyboardOpen) session.keyboardWasShown = true;
+
+      var rect = input.getBoundingClientRect();
+      // 顶栏随文档滚动，不占键盘场景的固定安全区；仅做最小校正。
+      var safeTop = 16;
+      var safeBottom = visibleHeight - 20;
+      var delta = rect.top < safeTop
+        ? rect.top - safeTop
+        : (rect.bottom > safeBottom ? rect.bottom - safeBottom : 0);
+      if (Math.abs(delta) > 8) {
+        var targetTop = Math.max(0, window.scrollY + delta);
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          window.scrollTo(window.scrollX, targetTop);
+        } else {
+          window.scrollTo({ left: window.scrollX, top: targetTop, behavior: "smooth" });
+        }
+      }
+    }
+
+    function requestComboScrollRestore(input) {
+      var session = comboKeyboardSession;
+      if (!session || session.input !== input) return;
+      session.restoreRequested = true;
+      cancelComboKeyboardAlignment();
+      // 旧版 Safari 可能不报告键盘的 viewport 变化，给系统关闭键盘动画留出时间。
+      setTimeout(tryRestoreComboScroll, session.keyboardWasShown ? 0 : 300);
+    }
+
+    function tryRestoreComboScroll() {
+      var session = comboKeyboardSession;
+      if (!session || !session.restoreRequested) return;
+      var keyboardStillOpen = session.keyboardWasShown && session.initialViewportHeight - comboViewportHeight() > 80;
+      if (keyboardStillOpen) {
+        setTimeout(tryRestoreComboScroll, 120);
+        return;
+      }
+      // iOS 可能在键盘收起后保留输入焦点；清掉它，下一次真实点击才能重新触发原生键盘。
+      if (document.activeElement === session.input) session.input.blur();
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        window.scrollTo(session.scrollX, session.scrollY);
+      } else {
+        // 交给浏览器的原生滚动实现，与 Safari 的键盘收起节奏保持一致。
+        window.scrollTo({ left: session.scrollX, top: session.scrollY, behavior: "smooth" });
+      }
+      comboKeyboardSession = null;
+    }
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", function () {
+        var session = comboKeyboardSession;
+        if (!session) return;
+        if (session.initialViewportHeight - comboViewportHeight() > 80) {
+          session.keyboardWasShown = true;
+          scheduleComboKeyboardAlignment(session.input);
+        } else {
+          cancelComboKeyboardAlignment();
+          // Android 返回键等场景可能收起键盘但不触发 input 的 blur。
+          if (session.keyboardWasShown) session.restoreRequested = true;
+          tryRestoreComboScroll();
+        }
+      }, { passive: true });
+    }
 
     function pairId(from, to) { return from + ":" + to; }
     function currentPair() { return { from: fromBox.dataset.value, to: toBox.dataset.value }; }
@@ -99,6 +236,25 @@ export const HOME_CLIENT_CORE = String.raw`
     }
     function writePairStore(store) {
       try { localStorage.setItem(PAIR_STORAGE_KEY, JSON.stringify(store)); } catch (_) {}
+    }
+    function readFavoriteCurrencies() {
+      try {
+        var codes = JSON.parse(localStorage.getItem(CURRENCY_FAVORITES_STORAGE_KEY) || "[]");
+        return Array.isArray(codes) ? codes.filter(function (code) { return typeof code === "string"; }) : [];
+      } catch (_) { return []; }
+    }
+    function writeFavoriteCurrencies(codes) {
+      try { localStorage.setItem(CURRENCY_FAVORITES_STORAGE_KEY, JSON.stringify(codes)); } catch (_) {}
+    }
+    function isFavoriteCurrency(code) {
+      return readFavoriteCurrencies().indexOf(code) !== -1;
+    }
+    function toggleFavoriteCurrency(code) {
+      var favorites = readFavoriteCurrencies();
+      var index = favorites.indexOf(code);
+      if (index === -1) favorites.unshift(code);
+      else favorites.splice(index, 1);
+      writeFavoriteCurrencies(favorites);
     }
     function isFavorite(pair) {
       return readPairStore().favorites.some(function (item) { return pairId(item.from, item.to) === pairId(pair.from, pair.to); });
@@ -182,6 +338,172 @@ export const HOME_CLIENT_CORE = String.raw`
       if (historyEl.classList.contains("is-open")) loadHistory("morph");
     }
 
+    function setHistoryLoading(message, loading) {
+      setHistoryUpdating(false);
+      historyEl.classList.toggle("is-loading", Boolean(loading));
+      historyEl.setAttribute("aria-busy", loading ? "true" : "false");
+      historyQuoteEl.hidden = true;
+      historyNoteEl.hidden = true;
+      historyChartEl.innerHTML = '<div class="history-empty' + (loading ? ' is-loading' : '') + '" role="status">' + (loading ? '<span class="history-loading-indicator" aria-hidden="true"></span>' : '') + '<span>' + message + '</span></div>';
+    }
+
+    function setHistoryUpdating(updating) {
+      historyEl.classList.toggle("is-updating", Boolean(updating));
+      historyEl.setAttribute("aria-busy", updating ? "true" : "false");
+    }
+
+    function ensureHistoryClient() {
+      if (window.CurrencyHistoryRenderer) return Promise.resolve(window.CurrencyHistoryRenderer);
+      if (historyClientPromise) return historyClientPromise;
+      historyClientPromise = new Promise(function (resolve, reject) {
+        var script = document.createElement("script");
+        script.src = window.__HISTORY_CLIENT_URL || "/history-client.js";
+        script.async = true;
+        script.onload = function () {
+          if (window.CurrencyHistoryRenderer) resolve(window.CurrencyHistoryRenderer);
+          else {
+            historyClientPromise = null;
+            script.remove();
+            reject(new Error("走势图模块初始化失败"));
+          }
+        };
+        script.onerror = function () {
+          historyClientPromise = null;
+          script.remove();
+          reject(new Error("走势图模块加载失败"));
+        };
+        document.head.appendChild(script);
+      });
+      return historyClientPromise;
+    }
+
+    function loadHistoryStore() {
+      if (historyStoreLoaded) return;
+      historyStoreLoaded = true;
+      try {
+        var raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+        if (!raw) return;
+        var entries = JSON.parse(raw);
+        if (!entries || typeof entries !== "object") return;
+        var cutoff = Date.now() - 60 * 60 * 1000;
+        Object.keys(entries).forEach(function (storeKey) {
+          var entry = entries[storeKey];
+          if (entry && entry.storedAt > cutoff) historyCache.set(storeKey, entry);
+        });
+      } catch (_) {}
+    }
+
+    function persistHistoryStore() {
+      try {
+        var keys = Array.from(historyCache.keys());
+        // 仅保留最近 24 条，避免长期使用后无限增长
+        if (keys.length > 24) keys = keys.slice(keys.length - 24);
+        var entries = {};
+        keys.forEach(function (storeKey) { entries[storeKey] = historyCache.get(storeKey); });
+        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(entries));
+      } catch (_) {}
+    }
+
+    function readHistoryCache(key) {
+      loadHistoryStore();
+      var cached = historyCache.get(key);
+      if (!cached) return null;
+      if (Date.now() - cached.storedAt > 60 * 60 * 1000) {
+        historyCache.delete(key);
+        return null;
+      }
+      return cached.data;
+    }
+
+    function fetchJsonWithin(url, signal, timeoutMs) {
+      var controller = new AbortController();
+      var timedOut = false;
+      function abortWithParent() { controller.abort(); }
+      signal.addEventListener("abort", abortWithParent, { once: true });
+      var timeoutId = window.setTimeout(function () {
+        timedOut = true;
+        controller.abort();
+      }, timeoutMs);
+      return fetch(url, { signal: controller.signal })
+        .then(function (response) {
+          if (!response.ok) throw new Error("history-response");
+          return response.json();
+        })
+        .catch(function (error) {
+          if (timedOut) throw new Error("history-timeout");
+          throw error;
+        })
+        .finally(function () {
+          window.clearTimeout(timeoutId);
+          signal.removeEventListener("abort", abortWithParent);
+        });
+    }
+
+    function fetchOfficialHistory(from, to, range, signal) {
+      var presets = {
+        "1D": { days: 1 }, "1W": { days: 7 }, "1M": { days: 30 },
+        "6M": { days: 183 }, "1Y": { days: 365, group: "week" },
+        "2Y": { days: 730, group: "week" }, "5Y": { days: 1826, group: "month" }
+      };
+      var preset = presets[range];
+      var endDate = new Date();
+      var startDate = new Date(endDate);
+      startDate.setUTCDate(startDate.getUTCDate() - preset.days);
+      var params = new URLSearchParams({
+        base: from,
+        quotes: to,
+        from: startDate.toISOString().slice(0, 10),
+        to: endDate.toISOString().slice(0, 10)
+      });
+      if (preset.group) params.set("group", preset.group);
+      return fetchJsonWithin("https://api.frankfurter.dev/v2/rates?" + params.toString(), signal, 6000)
+        .then(function (entries) {
+          return { points: entries.filter(function (entry) { return entry.base === from && entry.quote === to; }).map(function (entry) { return { date: entry.date, rate: entry.rate }; }) };
+        });
+    }
+
+    function loadHistory(animation) {
+      var from = fromBox.dataset.value, to = toBox.dataset.value;
+      if (!from || !to) return;
+      var id = ++historyRequestId;
+      var key = from + ":" + to + ":" + historyRange;
+      var hasVisibleChart = Boolean(historyChartEl.querySelector("#history-svg"));
+      // 首次加载需要完整占位；切换范围时保留旧曲线，并明确标注它正在更新。
+      if (animation === "draw" || (animation === "morph" && !hasVisibleChart)) setHistoryLoading("正在加载汇率走势图…", true);
+      else if (animation === "morph") setHistoryUpdating(true);
+      if (historyRequestController) historyRequestController.abort();
+      historyRequestController = new AbortController();
+      var signal = historyRequestController.signal;
+      var cached = readHistoryCache(key);
+      var dataPromise = cached
+        ? Promise.resolve(cached)
+        : fetchJsonWithin("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + historyRange, signal, 2000)
+          .then(function (data) {
+            if (data.error) throw new Error("history-response");
+            return data;
+          })
+          .catch(function (error) {
+            if (error.name === "AbortError") throw error;
+            return fetchOfficialHistory(from, to, historyRange, signal);
+          })
+          .then(function (data) {
+            if (!data.error) {
+              historyCache.set(key, { data: data, storedAt: Date.now() });
+              persistHistoryStore();
+            }
+            return data;
+          });
+      Promise.all([ensureHistoryClient(), dataPromise]).then(function (result) {
+        if (id !== historyRequestId) return;
+        var renderer = result[0], data = result[1];
+        if (data.error) { setHistoryLoading(data.error); return; }
+        renderer.render(data.points, from, to, animation, historyRange);
+      }).catch(function (error) {
+        if (id !== historyRequestId || error.name === "AbortError") return;
+        setHistoryLoading(error.message === "history-timeout" ? "走势数据加载超时，请重试" : "走势加载失败，请稍后重试");
+      });
+    }
+
     // 展示文本：符号 中文名 (代码)
     function displayText(code) {
       for (var i = 0; i < CURRENCIES.length; i++) {
@@ -194,21 +516,25 @@ export const HOME_CLIENT_CORE = String.raw`
     }
 
     function currencyFlagSource(code) {
-      if (CURRENCY_ICON_SOURCES[code]) return "/flags/" + CURRENCY_ICON_SOURCES[code];
+      var filename = CURRENCY_ICON_SOURCES[code];
       var region = CURRENCY_REGIONS[code];
-      return "/flags/" + (region || "XX").toLowerCase() + ".svg";
+      if (!filename) filename = (region || "XX").toLowerCase() + ".svg";
+      return "/flags/" + filename + "?v=" + FLAG_ASSET_VERSION;
     }
 
     function syncComboFlag(box) {
       var flagEl = box.querySelector(".combo-selected-flag");
       if (!flagEl) return;
+      var code = box.dataset.value;
+      if (flagEl.dataset.code === code && flagEl.firstElementChild) return;
       var image = document.createElement("img");
-      image.src = currencyFlagSource(box.dataset.value);
+      image.src = currencyFlagSource(code);
       image.alt = "";
       image.width = 24;
       image.height = 18;
       image.decoding = "async";
       image.setAttribute("fetchpriority", "low");
+      flagEl.dataset.code = code;
       flagEl.replaceChildren(image);
     }
 
@@ -234,15 +560,7 @@ export const HOME_CLIENT_CORE = String.raw`
       var from = fromBox.dataset.value, to = toBox.dataset.value;
       if (!from || !to) return;
       requestId++;
-      heroTitleEl.textContent = currencyName(from) + "兑换" + currencyName(to);
-      heroRateEl.textContent = "正在获取" + (dateEl.value ? "指定日期" : "最新") + "参考汇率…";
-    }
-
-    function syncHeroRate(data) {
-      var from = fromBox.dataset.value, to = toBox.dataset.value;
-      var rate = data.from === from && data.to === to ? Number(data.rate) : 1 / Number(data.rate);
-      if (!isFinite(rate)) return;
-      heroRateEl.textContent = "1 " + currencyName(from) + " = " + formatHeroRate(rate) + " " + currencyName(to) + " · 数据日期 " + data.date;
+      heroTitleEl.textContent = from + " 兑换 " + to;
     }
 
     function formatEditableAmount(amount) {
@@ -302,17 +620,10 @@ export const HOME_CLIENT_CORE = String.raw`
         });
         var cc = $("currency-count");
         if (cc) cc.textContent = String(CURRENCIES.length);
-        // 填充原生 select（移动端用），选项格式：符号 中文名 (代码)
-        var optHtml = CURRENCIES.map(function (c) {
-          return '<option value="' + c.code + '">' + (c.symbol ? c.symbol + " " : "") + c.cn + " (" + c.code + ")</option>";
-        }).join("");
-        document.querySelectorAll(".native-select").forEach(function (sel) { sel.innerHTML = optHtml; });
-        initCombobox(fromBox, "USD");
-        initCombobox(toBox, "CNY");
+        initCombobox(fromBox, fromBox.dataset.value || "USD");
+        initCombobox(toBox, toBox.dataset.value || "CNY");
         syncSymbols();
-        syncHeroPair();
         renderSavedPairs();
-        convert();
       }).catch(function () { showError("无法加载货币列表"); });
     }
 
@@ -322,50 +633,139 @@ export const HOME_CLIENT_CORE = String.raw`
       var panel = box.querySelector(".combo-panel");
       var listEl = panel.querySelector(".combo-scroll");
       var arrow = box.querySelector(".combo-arrow");
-      var nativeSel = box.parentNode.querySelector(".native-select");
       var lastTouchY = null;
+      var flagObserver = null;
+      var renderedCurrencies = [];
+      var renderedCount = 0;
+      // 当前输入的搜索词与输入框的“已选货币展示值”是两种状态，不能混用。
+      var searchQuery = "";
       box.dataset.value = initialCode;
       input.value = displayText(initialCode);
-      if (nativeSel) nativeSel.value = initialCode;
       syncComboFlag(box);
 
       function getFiltered(q) {
         q = (q || "").trim().toLowerCase();
-        if (!q) return CURRENCIES;
-        return CURRENCIES.filter(function (c) {
+        var matches = !q ? CURRENCIES : CURRENCIES.filter(function (c) {
           return c.code.toLowerCase().indexOf(q) >= 0
             || c.cn.toLowerCase().indexOf(q) >= 0
             || c.name.toLowerCase().indexOf(q) >= 0;
         });
+        var favorites = readFavoriteCurrencies();
+        if (!favorites.length) return matches;
+        return matches.slice().sort(function (a, b) {
+          var aIndex = favorites.indexOf(a.code), bIndex = favorites.indexOf(b.code);
+          if (aIndex === -1 && bIndex === -1) return 0;
+          if (aIndex === -1) return 1;
+          if (bIndex === -1) return -1;
+          return aIndex - bIndex;
+        });
+      }
+
+      function currencyItemsHtml(list) {
+        var cur = box.dataset.value;
+        return list.map(function (c) {
+          var sel = c.code === cur ? " active" : "";
+          var favorite = isFavoriteCurrency(c.code);
+          var favoriteLabel = favorite ? "取消收藏 " + c.code : "收藏 " + c.code;
+          return '<div class="combo-item' + sel + '" data-code="' + c.code + '">'
+            + '<img class="combo-item-flag" data-src="' + currencyFlagSource(c.code) + '" alt="" width="24" height="18" decoding="async" fetchpriority="low">'
+            + '<span class="combo-item-sym" aria-hidden="true">' + (c.symbol || "—") + '</span>'
+            + '<span class="combo-item-cn">' + c.cn + '</span>'
+            + '<span class="combo-item-code">' + c.code + '</span>'
+            + '<button class="combo-favorite" type="button" data-code="' + c.code + '" aria-label="' + favoriteLabel + '" aria-pressed="' + favorite + '" title="' + favoriteLabel + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m12 3.7 2.57 5.21 5.75.84-4.16 4.05.98 5.73L12 16.82l-5.14 2.71.98-5.73-4.16-4.05 5.75-.84L12 3.7Z"/></svg></button>'
+            + '</div>';
+        }).join("");
+      }
+
+      function observePendingFlags() {
+        var images = listEl.querySelectorAll(".combo-item-flag[data-src]:not([data-observed])");
+        images.forEach(function (image) { image.setAttribute("data-observed", ""); });
+        if (!images.length) return;
+        if (flagObserver) {
+          images.forEach(function (image) { flagObserver.observe(image); });
+          return;
+        }
+        images.forEach(function (image) {
+          image.src = image.dataset.src;
+          image.removeAttribute("data-src");
+        });
+      }
+
+      function appendCurrencyBatch() {
+        if (renderedCount >= renderedCurrencies.length) return;
+        var batch = renderedCurrencies.slice(renderedCount, renderedCount + 32);
+        renderedCount += batch.length;
+        listEl.insertAdjacentHTML("beforeend", currencyItemsHtml(batch));
+        observePendingFlags();
+      }
+
+      function updateFavoriteButton(button, favorite) {
+        var label = favorite ? "取消收藏 " + button.dataset.code : "收藏 " + button.dataset.code;
+        button.setAttribute("aria-pressed", String(favorite));
+        button.setAttribute("aria-label", label);
+        button.setAttribute("title", label);
+      }
+
+      function reorderVisibleCurrencyItems() {
+        var allMatches = getFiltered(searchQuery);
+        var byCode = {};
+        var rank = {};
+        allMatches.forEach(function (currency, index) { byCode[currency.code] = currency; rank[currency.code] = index; });
+        var items = Array.from(listEl.querySelectorAll(".combo-item"));
+        items.sort(function (a, b) { return rank[a.dataset.code] - rank[b.dataset.code]; });
+        items.forEach(function (item) { listEl.appendChild(item); });
+        // 保留已渲染节点，后续滚动继续追加未出现的项目，避免重建图片造成闪烁。
+        var visibleCodes = {};
+        var visibleCurrencies = items.map(function (item) {
+          visibleCodes[item.dataset.code] = true;
+          return byCode[item.dataset.code];
+        });
+        renderedCurrencies = visibleCurrencies.concat(allMatches.filter(function (currency) { return !visibleCodes[currency.code]; }));
+        renderedCount = visibleCurrencies.length;
       }
 
       function render(list) {
+        if (flagObserver) flagObserver.disconnect();
+        flagObserver = null;
+        listEl.replaceChildren();
+        renderedCurrencies = list;
+        renderedCount = 0;
         if (!list.length) {
           listEl.innerHTML = '<div class="combo-empty">未找到匹配的货币</div>';
           return;
         }
-        var cur = box.dataset.value;
-        listEl.innerHTML = list.map(function (c) {
-          var sel = c.code === cur ? " active" : "";
-          return '<div class="combo-item' + sel + '" data-code="' + c.code + '">'
-            + '<img class="combo-item-flag" src="' + currencyFlagSource(c.code) + '" alt="" width="24" height="18" loading="lazy" decoding="async">'
-            + '<span class="combo-item-sym" aria-hidden="true">' + (c.symbol || "—") + '</span>'
-            + '<span class="combo-item-cn">' + c.cn + '</span>'
-            + '<span class="combo-item-code">' + c.code + '</span>'
-            + '</div>';
-        }).join("");
+        if ("IntersectionObserver" in window) {
+          var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+              if (!entry.isIntersecting) return;
+              var image = entry.target;
+              image.src = image.dataset.src;
+              image.removeAttribute("data-src");
+              observer.unobserve(image);
+            });
+          }, { root: listEl, rootMargin: "48px 0px" });
+          flagObserver = observer;
+        }
+        appendCurrencyBatch();
       }
 
       function open() {
         closeAll(box);
         box.classList.add("open");
         if (arrow) arrow.setAttribute("aria-expanded", "true");
-        render(getFiltered(""));
+        render(getFiltered(searchQuery));
       }
       function close() {
         box.classList.remove("open");
         if (arrow) arrow.setAttribute("aria-expanded", "false");
+        searchQuery = "";
+        if (flagObserver) flagObserver.disconnect();
+        flagObserver = null;
+        renderedCurrencies = [];
+        renderedCount = 0;
+        listEl.replaceChildren();
       }
+      box._closeCombo = close;
 
       // 浮层内列表滚到边界时，显式截断滚轮/触摸事件。
       // 某些浏览器在 absolute 浮层中仍会把剩余滚动量传给页面，
@@ -388,33 +788,44 @@ export const HOME_CLIENT_CORE = String.raw`
         lastTouchY = touch.clientY;
       }, { passive: false });
       listEl.addEventListener("touchend", function () { lastTouchY = null; }, { passive: true });
+      listEl.addEventListener("scroll", function () {
+        if (listEl.scrollTop + listEl.clientHeight >= listEl.scrollHeight - 160) appendCurrencyBatch();
+      }, { passive: true });
 
       function selectCode(code) {
         box.dataset.value = code;
         input.value = displayText(code);
         syncComboFlag(box);
-        if (nativeSel) nativeSel.value = code;
         close();
+        // 选项已提交：结束搜索输入，避免整张货币卡因 focus-within 继续显示编辑态。
+        input.blur();
         syncSymbols();
         syncHeroPair();
         activePairSource = "";
         syncQuickPairs();
         rememberCurrentPair();
         syncHistory();
-        convertDebounced();
+        convert();
       }
 
-      input.addEventListener("focus", function () {
+      function activateTextSearch() {
+        startComboKeyboardSession(input);
         input.select();
         if (!box.classList.contains("open")) open();
+      }
+      input.addEventListener("focus", activateTextSearch);
+      // 输入框已持有焦点、但列表刚被收起时，focus 不会再次触发；点击文本仍须恢复编辑状态。
+      input.addEventListener("click", function () {
+        if (!box.classList.contains("open")) activateTextSearch();
       });
       input.addEventListener("input", function () {
+        searchQuery = input.value;
         if (!box.classList.contains("open")) {
           closeAll(box);
           box.classList.add("open");
           if (arrow) arrow.setAttribute("aria-expanded", "true");
         }
-        render(getFiltered(input.value));
+        render(getFiltered(searchQuery));
       });
       input.addEventListener("keydown", function (e) {
         var items = panel.querySelectorAll(".combo-item");
@@ -424,6 +835,13 @@ export const HOME_CLIENT_CORE = String.raw`
           if (!items.length) return;
           var idx = -1;
           items.forEach(function (it, i) { if (it.classList.contains("active")) idx = i; });
+          if (e.key === "ArrowDown" && idx === items.length - 1 && renderedCount < renderedCurrencies.length) {
+            appendCurrencyBatch();
+            items = panel.querySelectorAll(".combo-item");
+          } else if (e.key === "ArrowUp" && idx <= 0 && renderedCount < renderedCurrencies.length) {
+            while (renderedCount < renderedCurrencies.length) appendCurrencyBatch();
+            items = panel.querySelectorAll(".combo-item");
+          }
           idx = e.key === "ArrowDown" ? (idx + 1) % items.length : (idx - 1 + items.length) % items.length;
           items.forEach(function (it) { it.classList.remove("active"); });
           items[idx].classList.add("active");
@@ -440,38 +858,46 @@ export const HOME_CLIENT_CORE = String.raw`
         }
       });
       panel.addEventListener("click", function (e) {
+        var favoriteButton = e.target.closest(".combo-favorite");
+        if (favoriteButton) {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleFavoriteCurrency(favoriteButton.dataset.code);
+          updateFavoriteButton(favoriteButton, isFavoriteCurrency(favoriteButton.dataset.code));
+          reorderVisibleCurrencyItems();
+          return;
+        }
         var item = e.target.closest(".combo-item");
-        if (item) selectCode(item.dataset.code);
+        if (item) {
+          // selectCode 会移除菜单节点；阻止这次点击继续冒泡到整张金额卡片，
+          // 否则外层会把已脱离 combobox 的目标误判为卡片空白并聚焦金额输入框。
+          e.stopPropagation();
+          selectCode(item.dataset.code);
+        }
+      });
+      // 点按星标时不让输入框失焦，避免移动端键盘和列表在状态切换中收起。
+      panel.addEventListener("pointerdown", function (e) {
+        if (e.target.closest(".combo-favorite")) e.preventDefault();
       });
       // 失焦延迟关闭，让选项点击先触发；并恢复当前选中值的显示
       input.addEventListener("blur", function () {
+        requestComboScrollRestore(input);
         setTimeout(function () {
           close();
           input.value = displayText(box.dataset.value);
         }, 150);
       });
-      // 点击下拉箭头：展开/收起全部货币（桌面端入口）
+      // 点击下拉箭头：仅展开/收起列表，不进入输入编辑或唤起键盘。
       if (arrow) {
         arrow.addEventListener("click", function (e) {
           e.preventDefault();
           e.stopPropagation();
-          if (box.classList.contains("open")) { close(); }
-          else { open(); }
-        });
-      }
-      // 移动端原生 select 切换：同步值并换算
-      if (nativeSel) {
-        nativeSel.addEventListener("change", function () {
-          box.dataset.value = nativeSel.value;
-          input.value = displayText(nativeSel.value);
-          syncComboFlag(box);
-          syncSymbols();
-          syncHeroPair();
-          activePairSource = "";
-          syncQuickPairs();
-          rememberCurrentPair();
-          syncHistory();
-          convertDebounced();
+          if (box.classList.contains("open")) {
+            close();
+          } else {
+            open();
+            revealComboPanel(panel);
+          }
         });
       }
     }
@@ -479,9 +905,8 @@ export const HOME_CLIENT_CORE = String.raw`
     function closeAll(except) {
       document.querySelectorAll(".combobox.open").forEach(function (b) {
         if (b !== except) {
-          b.classList.remove("open");
-          var toggle = b.querySelector(".combo-arrow");
-          if (toggle) toggle.setAttribute("aria-expanded", "false");
+          if (typeof b._closeCombo === "function") b._closeCombo();
+          else b.classList.remove("open");
         }
       });
     }
@@ -489,6 +914,58 @@ export const HOME_CLIENT_CORE = String.raw`
     document.addEventListener("click", function (e) {
       if (!e.target.closest(".combobox")) closeAll(null);
     });
+
+    function rateCacheKey(base, quote) {
+      return base + ":" + quote + ":" + (dateEl.value || "latest");
+    }
+
+    function readCachedRate(key) {
+      var cached = rateCache.get(key);
+      if (!cached) return null;
+      if (Date.now() - cached.storedAt > 60 * 60 * 1000) {
+        rateCache.delete(key);
+        return null;
+      }
+      return cached.data;
+    }
+
+    function storeRate(data, requestedDate) {
+      var normalized = { from: data.from, to: data.to, rate: Number(data.rate), date: data.date };
+      rateCache.set(data.from + ":" + data.to + ":" + requestedDate, { data: normalized, storedAt: Date.now() });
+      if (Number(data.rate)) {
+        rateCache.set(data.to + ":" + data.from + ":" + requestedDate, {
+          data: { from: data.to, to: data.from, rate: 1 / Number(data.rate), date: data.date },
+          storedAt: Date.now()
+        });
+      }
+      return normalized;
+    }
+
+    function fetchUnitRate(base, quote, key) {
+      if (rateRequest && rateRequest.key === key) return rateRequest.promise;
+      if (rateRequest) rateRequest.controller.abort();
+      if (base === quote) {
+        return Promise.resolve({ from: base, to: quote, rate: 1, date: dateEl.value || new Date().toISOString().slice(0, 10) });
+      }
+      var controller = new AbortController();
+      var requestedDate = dateEl.value || "latest";
+      var url = "/convert?from=" + encodeURIComponent(base) + "&to=" + encodeURIComponent(quote) + "&amount=1";
+      if (dateEl.value) url += "&date=" + encodeURIComponent(dateEl.value);
+      var promise = fetch(url, { signal: controller.signal })
+        .then(function (response) { return response.json(); })
+        .then(function (data) { return data.error ? data : storeRate(data, requestedDate); })
+        .finally(function () {
+          if (rateRequest && rateRequest.promise === promise) rateRequest = null;
+        });
+      rateRequest = { key: key, controller: controller, promise: promise };
+      return promise;
+    }
+
+    function applyConversion(data, amount, outputEl) {
+      var rate = Number(data.rate);
+      outputEl.value = formatEditableAmount(+(amount * rate).toFixed(4));
+      rateEl.textContent = "1 " + data.from + " = " + formatHeroRate(rate) + " " + data.to + " · 数据日期 " + data.date;
+    }
 
     function convert() {
       var from = fromBox.dataset.value, to = toBox.dataset.value;
@@ -504,37 +981,53 @@ export const HOME_CLIENT_CORE = String.raw`
       }
       clearError();
       var currentRequest = ++requestId;
+      var key = rateCacheKey(base, quote);
+      if (base === quote) {
+        if (rateRequest) {
+          rateRequest.controller.abort();
+          rateRequest = null;
+        }
+        rateSummaryEl.classList.remove("is-loading");
+        applyConversion(
+          { from: base, to: quote, rate: 1, date: dateEl.value || new Date().toISOString().slice(0, 10) },
+          amount,
+          outputEl
+        );
+        return;
+      }
+      var cached = readCachedRate(key);
+      if (cached) {
+        if (rateRequest && rateRequest.key !== key) {
+          rateRequest.controller.abort();
+          rateRequest = null;
+        }
+        rateSummaryEl.classList.remove("is-loading");
+        applyConversion(cached, amount, outputEl);
+        return;
+      }
       rateSummaryEl.classList.add("is-loading");
       rateEl.textContent = dateEl.value ? "正在获取指定日期的参考汇率…" : "正在获取最新参考汇率…";
-      var url = "/convert?from=" + encodeURIComponent(base) + "&to=" + encodeURIComponent(quote) + "&amount=" + amount;
-      if (dateEl.value) url += "&date=" + encodeURIComponent(dateEl.value);
-      fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+      fetchUnitRate(base, quote, key).then(function (data) {
         if (currentRequest !== requestId) return;
         rateSummaryEl.classList.remove("is-loading");
         if (data.error) {
-          heroRateEl.textContent = "暂时无法获取参考汇率";
           showError(data.error);
           return;
         }
-        outputEl.value = formatEditableAmount(data.result);
-        rateEl.textContent = "1 " + data.from + " = " + data.rate + " " + data.to + " · 数据日期 " + data.date;
-        syncHeroRate(data);
-      }).catch(function () {
+        applyConversion(data, amount, outputEl);
+      }).catch(function (error) {
         if (currentRequest === requestId) {
           rateSummaryEl.classList.remove("is-loading");
-          heroRateEl.textContent = "暂时无法获取参考汇率";
+          if (error.name === "AbortError") return;
           showError("网络错误，请重试");
         }
       });
     }
 
-    var timer;
-    function convertDebounced() { clearTimeout(timer); timer = setTimeout(convert, 300); }
-
     fromAmountEl.addEventListener("focus", function () { activeSide = "from"; });
     toAmountEl.addEventListener("focus", function () { activeSide = "to"; });
-    fromAmountEl.addEventListener("input", function () { activeSide = "from"; formatAmountWhileTyping(fromAmountEl); convertDebounced(); });
-    toAmountEl.addEventListener("input", function () { activeSide = "to"; formatAmountWhileTyping(toAmountEl); convertDebounced(); });
+    fromAmountEl.addEventListener("input", function () { activeSide = "from"; formatAmountWhileTyping(fromAmountEl); convert(); });
+    toAmountEl.addEventListener("input", function () { activeSide = "to"; formatAmountWhileTyping(toAmountEl); convert(); });
     [fromAmountEl, toAmountEl].forEach(function (input) {
       input.addEventListener("blur", function () {
         var amount = parseAmount(input.value);
@@ -545,19 +1038,17 @@ export const HOME_CLIENT_CORE = String.raw`
     document.querySelectorAll(".currency-field").forEach(function (field) {
       field.addEventListener("click", function (event) {
         // 直接点数字时交给浏览器定位插入光标，避免二次 focus 把光标送到首位。
-        if (event.target.closest(".money-input, .combobox, .native-select")) return;
+        if (event.target.closest(".money-input, .combobox")) return;
         var isFrom = field.dataset.amountSide === "from";
         activeSide = isFrom ? "from" : "to";
         (isFrom ? fromAmountEl : toAmountEl).focus({ preventScroll: true });
       });
     });
-    // 同步某字段的 combobox 显示与原生 select 值
+    // 同步某字段的 combobox 显示。
     function syncDisplay(box) {
       var code = box.dataset.value;
       box.querySelector(".combo-input").value = displayText(code);
       syncComboFlag(box);
-      var sel = box.parentNode.querySelector(".native-select");
-      if (sel) sel.value = code;
     }
     function applyPair(from, to, remember, source) {
       fromBox.dataset.value = from;
@@ -629,5 +1120,40 @@ export const HOME_CLIENT_CORE = String.raw`
       writePairStore(store);
       renderSavedPairs();
     });
+
+    historyToggleEl.addEventListener("click", function () {
+      var opening = !historyEl.classList.contains("is-open");
+      if (opening) {
+        historyEl.hidden = false;
+        historyContentEl.inert = false;
+        requestAnimationFrame(function () { historyEl.classList.add("is-open"); });
+      } else {
+        historyEl.classList.remove("is-open");
+        historyContentEl.inert = true;
+        historyRequestId++;
+        if (historyRequestController) historyRequestController.abort();
+        if (window.CurrencyHistoryRenderer) window.CurrencyHistoryRenderer.suspend();
+        var floatingTooltip = $("history-tooltip");
+        if (floatingTooltip) floatingTooltip.classList.remove("is-visible");
+        setTimeout(function () { if (!historyEl.classList.contains("is-open")) historyEl.hidden = true; }, 400);
+      }
+      historyEl.setAttribute("aria-hidden", opening ? "false" : "true");
+      historyToggleEl.setAttribute("aria-expanded", opening ? "true" : "false");
+      if (opening) loadHistory("draw");
+    });
+    document.querySelectorAll(".history-range").forEach(function (button) {
+      button.addEventListener("click", function () {
+        historyRange = button.dataset.range;
+        document.querySelectorAll(".history-range").forEach(function (item) { item.setAttribute("aria-pressed", item === button ? "true" : "false"); });
+        loadHistory("morph");
+      });
+    });
+
+    syncComboFlag(fromBox);
+    syncComboFlag(toBox);
+    syncHeroPair();
+    convert();
+    loadCurrencies();
+    renderSavedPairs();
 
 `;

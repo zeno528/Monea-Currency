@@ -1,15 +1,17 @@
-export const HISTORY_CLIENT = String.raw`
-    function setHistoryLoading(message, loading) {
-      historyEl.classList.toggle("is-loading", Boolean(loading));
-      historyChartEl.innerHTML = '<div class="history-empty' + (loading ? ' is-loading' : '') + '" role="status">' + (loading ? '<span class="history-loading-indicator" aria-hidden="true"></span>' : '') + '<span>' + message + '</span></div>';
-    }
-    function renderHistory(points, from, to, animation) {
+  (function () {
+    var historyVisual = null;
+    var historyAnimationId = 0;
+    var historyInteractionController = null;
+
+    function renderHistory(points, from, to, animation, range) {
       if (!points || points.length < 2) { setHistoryLoading("该时间范围暂无可用参考数据"); return; }
       var animationId = ++historyAnimationId;
+      var mode = animation === "morph" && historyVisual && historyVisual.positions.length > 1 ? "morph" : "draw";
       var width = 640, height = 210, inset = { top: 20, right: 16, bottom: 30, left: 58 };
       var values = points.map(function (point) { return Number(point.rate); }).filter(function (value) { return isFinite(value); });
       if (values.length < 2) { setHistoryLoading("该时间范围暂无可用参考数据"); return; }
-      historyEl.classList.remove("is-loading");
+      historyEl.classList.remove("is-loading", "is-updating");
+      historyEl.setAttribute("aria-busy", "false");
       var rangeMin = Math.min.apply(null, values), rangeMax = Math.max.apply(null, values);
       var min = rangeMin, max = rangeMax, span = max - min || Math.max(max * 0.02, 0.01);
       min -= span * 0.12; max += span * 0.12;
@@ -27,7 +29,11 @@ export const HISTORY_CLIENT = String.raw`
       var dateIndexes = [0, Math.round((points.length - 1) / 3), Math.round((points.length - 1) * 2 / 3), points.length - 1].filter(function (index, position, list) { return list.indexOf(index) === position; });
       var dateLabels = dateIndexes.map(function (index, position) {
         var dateParts = points[index].date.split("-");
-        var label = historyRange === "1W" ? Number(dateParts[1]) + "月" + Number(dateParts[2]) + "日" : Number(dateParts[1]) + "月";
+        var label = range === "1D" || range === "1W"
+          ? Number(dateParts[1]) + "月" + Number(dateParts[2]) + "日"
+          : range === "2Y" || range === "5Y"
+            ? dateParts[0] + "年" + Number(dateParts[1]) + "月"
+            : Number(dateParts[1]) + "月";
         var anchor = position === 0 ? "start" : (position === dateIndexes.length - 1 ? "end" : "middle");
         var x = inset.left + innerWidth * index / (points.length - 1);
         return '<text x="' + x.toFixed(2) + '" y="' + (height - 8) + '" fill="#86868b" font-size="11" text-anchor="' + anchor + '">' + label + '</text>';
@@ -44,6 +50,8 @@ export const HISTORY_CLIENT = String.raw`
       var latestPosition = positions[positions.length - 1];
       historyQuoteEl.innerHTML = '<span class="history-quote-label">1 ' + from + ' =</span><strong class="history-quote-value">' + latestRate + " " + to + "</strong>";
       historyNoteEl.textContent = "参考区间 " + rangeMin.toFixed(4) + "–" + rangeMax.toFixed(4) + " · " + points[0].date + " 至 " + latest.date;
+      historyQuoteEl.hidden = false;
+      historyNoteEl.hidden = false;
       var oldTooltip = $("history-tooltip");
       if (oldTooltip) oldTooltip.remove();
       document.body.insertAdjacentHTML("beforeend", '<div id="history-tooltip" class="chart-tooltip" role="status"></div>');
@@ -86,9 +94,9 @@ export const HISTORY_CLIENT = String.raw`
         }
         requestAnimationFrame(frame);
       }
-      if (!reduceMotion && animation === "morph" && historyVisual && historyVisual.positions.length > 1) {
+      if (!reduceMotion && mode === "morph" && historyVisual && historyVisual.positions.length > 1) {
         animateCurve(resamplePositions(historyVisual.positions, positions.length), positions);
-      } else if (!reduceMotion && animation === "draw") {
+      } else if (!reduceMotion && mode === "draw") {
         // 从左端进入；先提交隐藏帧，避免浏览器合并起止状态。
         historyVisual = null;
         line.setAttribute("d", pathFromPositions(positions));
@@ -97,8 +105,8 @@ export const HISTORY_CLIENT = String.raw`
         line.style.transition = "none";
         line.style.strokeDasharray = String(lineLength);
         line.style.strokeDashoffset = String(lineLength);
-        areaReveal.setAttribute("width", "0");
-        latestDot.style.opacity = "0";
+            areaReveal.setAttribute("width", "0");
+            latestDot.style.opacity = "0";
         line.getBoundingClientRect();
         requestAnimationFrame(function () {
           requestAnimationFrame(function () {
@@ -106,6 +114,7 @@ export const HISTORY_CLIENT = String.raw`
             line.style.strokeDashoffset = "0";
             var areaStartedAt;
             function revealArea(now) {
+              if (animationId !== historyAnimationId) return;
               if (!areaStartedAt) areaStartedAt = now;
               var progress = Math.min(1, (now - areaStartedAt) / drawDuration);
               var eased = 1 - Math.pow(1 - progress, 4);
@@ -127,6 +136,9 @@ export const HISTORY_CLIENT = String.raw`
       var activeIndex = points.length - 1;
       var finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
       var tapStart = null;
+      if (historyInteractionController) historyInteractionController.abort();
+      historyInteractionController = new AbortController();
+      var listenerOptions = { signal: historyInteractionController.signal };
       function placeTooltip(clientX, clientY) {
         tooltip.style.left = clientX + "px";
         tooltip.style.top = clientY + "px";
@@ -176,12 +188,12 @@ export const HISTORY_CLIENT = String.raw`
             return;
           }
           showPoint(pointIndexAt(position), event.clientX, event.clientY);
-        });
-        svg.addEventListener("pointerleave", hidePoint);
+        }, listenerOptions);
+        svg.addEventListener("pointerleave", hidePoint, listenerOptions);
       } else {
         historyChartEl.addEventListener("pointerdown", function (event) {
           tapStart = { x: event.clientX, y: event.clientY };
-        });
+        }, listenerOptions);
         historyChartEl.addEventListener("pointerup", function (event) {
           if (!tapStart) return;
           var moved = Math.hypot(event.clientX - tapStart.x, event.clientY - tapStart.y) > 10;
@@ -193,47 +205,17 @@ export const HISTORY_CLIENT = String.raw`
             return;
           }
           showPoint(pointIndexAt(position), event.clientX, event.clientY);
-        });
-        historyChartEl.addEventListener("pointercancel", function () { tapStart = null; });
+        }, listenerOptions);
+        historyChartEl.addEventListener("pointercancel", function () { tapStart = null; }, listenerOptions);
       }
     }
-    function loadHistory(animation) {
-      var from = fromBox.dataset.value, to = toBox.dataset.value;
-      if (!from || !to) return;
-      var id = ++historyRequestId;
-      var mode = animation === "morph" && historyVisual && historyVisual.positions.length > 1 ? "morph" : "draw";
-      if (mode === "draw") setHistoryLoading("正在加载参考走势…", true);
-      fetch("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + historyRange).then(function (response) { return response.json(); }).then(function (data) {
-        if (id !== historyRequestId) return;
-        if (data.error) { setHistoryLoading(data.error); return; }
-        renderHistory(data.points, from, to, mode);
-      }).catch(function () { if (id === historyRequestId) setHistoryLoading("走势加载失败，请稍后重试"); });
-    }
-    historyToggleEl.addEventListener("click", function () {
-      var opening = !historyEl.classList.contains("is-open");
-      if (opening) {
-        historyEl.hidden = false;
-        historyContentEl.inert = false;
-        requestAnimationFrame(function () { historyEl.classList.add("is-open"); });
-      } else {
-        historyEl.classList.remove("is-open");
-        historyContentEl.inert = true;
-        var floatingTooltip = $("history-tooltip");
-        if (floatingTooltip) floatingTooltip.classList.remove("is-visible");
-        setTimeout(function () { if (!historyEl.classList.contains("is-open")) historyEl.hidden = true; }, 400);
-      }
-      historyEl.setAttribute("aria-hidden", opening ? "false" : "true");
-      historyToggleEl.setAttribute("aria-expanded", opening ? "true" : "false");
-      historyToggleEl.textContent = opening ? "收起汇率走势图" : "汇率走势图";
-      if (opening) loadHistory("draw");
-    });
-    document.querySelectorAll(".history-range").forEach(function (button) {
-      button.addEventListener("click", function () {
-        historyRange = button.dataset.range;
-        document.querySelectorAll(".history-range").forEach(function (item) { item.setAttribute("aria-pressed", item === button ? "true" : "false"); });
-        loadHistory("morph");
-      });
-    });
 
-    loadCurrencies();
-`;
+    window.CurrencyHistoryRenderer = {
+      render: renderHistory,
+      suspend: function () {
+        historyAnimationId++;
+        if (historyInteractionController) historyInteractionController.abort();
+        historyInteractionController = null;
+      }
+    };
+  })();

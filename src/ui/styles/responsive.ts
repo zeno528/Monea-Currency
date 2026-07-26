@@ -12,7 +12,8 @@ export const RESPONSIVE_STYLES = String.raw`
       align-items: stretch;
     }
     .currency-field { --combo-panel-offset: 26px; padding: 18px 20px; }
-    .combo-input { height: 52px; padding: 14px 80px 14px 52px; }
+    .combo-input { height: 52px; padding: 14px 64px 14px 52px; }
+    .combo-arrow { width: 56px; padding-right: 13px; }
     .combo-panel { --combo-panel-max-height: min(320px, 42dvh); }
     .rate-summary {
       box-sizing: border-box;
@@ -37,7 +38,6 @@ export const RESPONSIVE_STYLES = String.raw`
     .swap-btn:active { transform: rotate(90deg) scale(0.95); }
     /* 移动端保留可搜索输入框，方便快速筛选较长的货币列表。 */
     .currency-field .combobox { display: block; }
-    .native-select { display: none; }
   }
   @media (max-width: 600px) {
     .converter-wrap { padding: 0 12px 56px; }
@@ -47,6 +47,16 @@ export const RESPONSIVE_STYLES = String.raw`
     .date-control { flex: 1; justify-content: space-between; }
     .date-control input { min-height: 40px; flex: 1; min-width: 0; font-size: 14px; }
     .utility-btn { min-height: 40px; padding-inline: 12px; }
+    .rate-summary {
+      height: auto;
+      min-height: 68px;
+    }
+    .rate-text {
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+      line-height: 18px;
+    }
     .quick-pairs { flex-wrap: nowrap; overflow-x: auto; margin-bottom: 16px; padding: 0 0 4px; scrollbar-width: none; }
     .quick-pairs::-webkit-scrollbar { display: none; }
     .pair-chip { flex: 0 0 auto; min-height: 36px; }

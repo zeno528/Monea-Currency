@@ -36,12 +36,11 @@ export const BASE_STYLES = String.raw`
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* 浮动的半透明顶栏：提供位置感，但不抢占内容层级。 */
+  /* 普通文档流中的品牌栏：提供身份识别，不干预移动端键盘滚动。 */
   .global-nav {
-    position: sticky;
-    top: 0;
+    position: relative;
     z-index: 40;
-    background: rgba(20, 20, 22, 0.78);
+    background: linear-gradient(135deg, rgba(8, 20, 69, 0.78) 0%, rgba(4, 9, 44, 0.78) 60%, rgba(2, 8, 31, 0.78) 100%);
     backdrop-filter: saturate(180%) blur(20px);
     color: var(--color-on-dark);
     min-height: calc(44px + env(safe-area-inset-top, 0px));
@@ -70,15 +69,16 @@ export const BASE_STYLES = String.raw`
   .hero {
     /* Hero 与换算器共用同一画布，避免两段渐变产生色阶断层。 */
     background: var(--color-parchment);
-    padding: 76px 22px 38px;
+    padding: 32px 22px 20px;
     text-align: center;
   }
   .eyebrow {
     display: inline-flex;
     align-items: center;
+    gap: 6px;
     min-height: 28px;
     padding: 4px 11px;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
     color: #6e6e73;
     background: rgba(255, 255, 255, 0.72);
     border: 1px solid rgba(0, 0, 0, 0.06);
@@ -86,6 +86,12 @@ export const BASE_STYLES = String.raw`
     font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.01em;
+  }
+  .eyebrow-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-primary);
   }
   .hero h1 {
     font-family: var(--font-display);
@@ -96,15 +102,17 @@ export const BASE_STYLES = String.raw`
     max-width: 980px;
     margin: 0 auto;
   }
-  .hero .lead {
-    font-family: var(--font-display);
-    font-size: clamp(20px, 2.5vw, 26px);
+  .hero-meta {
+    font-size: 13px;
     font-weight: 400;
-    line-height: 1.14;
-    letter-spacing: -0.02em;
-    color: var(--color-ink-muted-80);
-    margin: 17px auto 0;
+    color: var(--color-ink-muted-48);
+    margin: 10px auto 0;
     max-width: 720px;
+  }
+  .hero-meta a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
   }
 
   /* 换算器是页面唯一的主操作面，输入与结果以深浅两层区分。 */
@@ -178,7 +186,8 @@ export const BASE_STYLES = String.raw`
   .utility-btn[aria-pressed="true"] { color: #0066cc; border-color: #b8d8ff; background: #e8f2ff; }
   .utility-btn:active { transform: scale(0.97); }
   .utility-btn:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
-  .quick-pairs { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 20px; }
+  .quick-pairs { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin: 0 0 20px; }
+  .quick-pairs-label { flex: 0 0 auto; color: var(--color-ink-muted-48); font-size: 13px; }
   .pair-chip {
     min-height: 30px;
     padding: 5px 10px;
@@ -234,6 +243,20 @@ export const BASE_STYLES = String.raw`
     gap: 14px;
     align-items: center;
   }
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  .field-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-ink-muted-72);
+    letter-spacing: 0.2px;
+    padding-left: 12px;
+  }
   .currency-field {
     --combo-panel-offset: 25px;
     min-width: 0;
@@ -247,14 +270,7 @@ export const BASE_STYLES = String.raw`
     border-color: var(--color-primary);
     box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.18);
   }
-  .currency-field[data-amount-side="to"] { background: linear-gradient(145deg, #f7fbff, #eef6ff); }
-  .currency-field label {
-    display: block;
-    font-size: 14px;
-    color: var(--color-ink-muted-48);
-    letter-spacing: -0.224px;
-    margin-bottom: 10px;
-  }
+  .field-group[data-amount-side="to"] .currency-field { background: linear-gradient(145deg, #f7fbff, #eef6ff); }
   .money-input-wrap {
     display: flex;
     align-items: baseline;
@@ -405,7 +421,7 @@ export const BASE_STYLES = String.raw`
   }
   .combo-item {
     display: grid;
-    grid-template-columns: 24px 34px minmax(0, 1fr) auto;
+    grid-template-columns: 24px 34px minmax(0, 1fr) auto 36px;
     align-items: center;
     gap: 12px;
     padding: 10px 14px;
@@ -441,36 +457,35 @@ export const BASE_STYLES = String.raw`
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     flex-shrink: 0;
   }
+  .combo-favorite {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    margin-right: -6px;
+    padding: 0;
+    place-items: center;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--color-ink-muted-48);
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform 120ms ease-out, background 160ms var(--ease-out), color 160ms var(--ease-out);
+  }
+  .combo-favorite svg { width: 18px; height: 18px; transition: fill 160ms var(--ease-out), stroke 160ms var(--ease-out); }
+  .combo-favorite[aria-pressed="true"] { background: rgba(0, 113, 227, 0.1); color: var(--color-primary); }
+  .combo-favorite[aria-pressed="true"] svg { fill: #ffcc00; stroke: #ffcc00; }
+  @media (hover: hover) {
+    .combo-favorite:hover { background: rgba(0, 113, 227, 0.08); color: var(--color-primary); }
+  }
+  .combo-favorite:active { transform: scale(0.9); }
+  .combo-favorite:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
   .combo-empty {
     padding: 18px;
     text-align: center;
     color: var(--color-ink-muted-48);
     font-size: 14px;
   }
-  /* 原生 select：移动端用（iOS 原生 picker，无键盘遮挡）；桌面隐藏 */
-  .native-select {
-    display: none;
-    font-family: var(--font-text);
-    font-size: 17px;
-    color: var(--color-ink);
-    background-color: var(--color-canvas);
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: var(--radius-pill);
-    padding: 12px 40px 12px 20px;
-    height: 44px;
-    width: 100%;
-    appearance: none;
-    -webkit-appearance: none;
-    cursor: pointer;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231d1d1f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
-    background-repeat: no-repeat;
-    background-position: right 16px center;
-  }
-  .native-select:focus {
-    outline: 2px solid var(--color-primary-focus);
-    outline-offset: 2px;
-  }
-
   /* 交换是唯一的圆形主控件，按下即反馈。 */
   .swap-btn {
     width: 48px;
@@ -525,7 +540,9 @@ export const BASE_STYLES = String.raw`
   .reset-btn:active { transform: scale(0.97); }
   @media (hover: hover) and (pointer: fine) { .reset-btn:hover { background: rgba(0, 102, 204, 0.08); } }
   .reset-btn:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
-  .history-btn { white-space: nowrap; }
+  .history-btn { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+  .history-toggle-icon { width: 14px; height: 14px; transition: transform 220ms var(--ease-out); }
+  .history-btn[aria-expanded="true"] .history-toggle-icon { transform: rotate(180deg); }
   .history {
     display: grid;
     grid-template-rows: 0fr;
@@ -564,8 +581,30 @@ export const BASE_STYLES = String.raw`
     transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
   }
   .history-range[aria-pressed="true"] { color: #0066cc; border-color: #b8d8ff; background: #e8f2ff; }
+  .history-range[aria-pressed="true"]::after {
+    content: "";
+    display: inline-block;
+    width: 0;
+    height: 10px;
+    margin-left: 0;
+    border: 0 solid transparent;
+    border-radius: 50%;
+    vertical-align: -1px;
+    opacity: 0;
+  }
+  .history.is-updating .history-range[aria-pressed="true"]::after {
+    width: 10px;
+    margin-left: 4px;
+    border-width: 1.5px;
+    border-color: rgba(0, 102, 204, 0.22);
+    border-top-color: #0066cc;
+    opacity: 1;
+    animation: history-loading-spin 720ms linear infinite;
+  }
   .history-range:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
   .history-chart { position: relative; height: 340px; }
+  .history.is-updating .history-chart { opacity: 0.58; }
+  .history-chart { transition: opacity 140ms ease; }
   .history.is-loading .history-chart { height: 148px; border: 1px solid rgba(0, 102, 204, 0.1); border-radius: 14px; background: linear-gradient(135deg, rgba(0, 113, 227, 0.06), rgba(0, 113, 227, 0.015)); }
   .history-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
   .chart-cursor { pointer-events: none; }
@@ -606,7 +645,7 @@ export const BASE_STYLES = String.raw`
 
   /* 信息区域仍然简洁，但用可扫读的统计卡片替代大片装饰。 */
   .features {
-    background: #1d1d1f;
+    background: linear-gradient(135deg, #081445 0%, #04092c 60%, #02081f 100%);
     color: var(--color-on-dark);
     padding: 92px 22px;
   }
@@ -648,61 +687,73 @@ export const BASE_STYLES = String.raw`
     letter-spacing: -0.224px;
   }
 
-  /* 开发者信息降级为次要任务，适合快速复制而不影响换算。 */
-  .api-section {
-    background: var(--color-canvas);
-    padding: 80px 22px;
-  }
-  .api-inner { max-width: 980px; margin: 0 auto; }
-  .api-section h2 {
-    font-family: var(--font-display);
-    font-size: 40px;
-    font-weight: 600;
-    line-height: 1.1;
-    margin-bottom: 24px;
-  }
-  .api-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-  .api-endpoint {
-    background: var(--color-parchment);
-    border-radius: var(--radius-lg);
-    padding: 24px;
-    margin: 0;
-  }
-  .api-endpoint h3 {
-    font-size: 17px;
-    font-weight: 600;
-    letter-spacing: -0.374px;
-    margin-bottom: 8px;
-  }
-  .api-code {
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 14px;
-    color: var(--color-ink-muted-80);
-    background: var(--color-canvas);
-    border: 1px solid var(--color-hairline);
-    border-radius: var(--radius-sm);
-    padding: 12px 17px;
-    overflow-x: auto;
-    word-break: break-all;
-  }
-  .api-code .method { color: var(--color-primary); font-weight: 600; }
-
-  /* footer: parchment */
+  /* Footer: identity, reference notice, and supporting information stay in distinct layers. */
   .footer {
     background: var(--color-parchment);
     color: var(--color-ink-muted-80);
-    padding: 48px 22px;
-    padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
-    font-size: 12px;
-    letter-spacing: -0.12px;
-    line-height: 1.5;
-    text-align: center;
+    padding: 42px 22px 28px;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
   }
-  .footer a { color: var(--color-primary); text-decoration: none; }
-  .footer-divider {
+  .footer-inner { max-width: 980px; margin: 0 auto; }
+  .footer-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .footer-identity { display: inline-flex; align-items: baseline; gap: 10px; }
+  .footer-brand {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-ink);
+  }
+  .footer-author-link {
+    font-weight: 500;
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: 13px;
+  }
+  .footer-author-link:hover { text-decoration: underline; }
+  .footer-links {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--color-ink-muted-48);
+  }
+  .footer-links a {
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+  .footer-links a:hover { text-decoration: underline; }
+  .footer-notice {
+    max-width: 640px;
+    margin: 22px 0 0;
+    font-size: 12px;
+    color: var(--color-ink-muted-48);
+    line-height: 1.65;
+  }
+  .footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 28px;
+    padding-top: 16px;
     border-top: 1px solid var(--color-hairline);
-    margin: 24px auto;
-    max-width: 980px;
+    color: var(--color-ink-muted-48);
+    font-size: 12px;
+  }
+  .footer-bottom a { color: var(--color-ink-muted-48); text-decoration: none; }
+  .footer-bottom a:hover { color: var(--color-primary); text-decoration: underline; }
+  @media (max-width: 640px) {
+    .footer { padding-top: 34px; text-align: center; }
+    .footer-top, .footer-bottom { flex-direction: column; gap: 14px; }
+    .footer-identity { justify-content: center; }
+    .footer-links { justify-content: center; gap: 12px 18px; }
+    .footer-notice { margin: 20px auto 0; }
+    .footer-bottom { margin-top: 24px; padding-top: 16px; }
   }
 
 `;

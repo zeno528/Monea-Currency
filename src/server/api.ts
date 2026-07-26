@@ -1,18 +1,42 @@
 /**
- * Currency Worker — 汇率换算 API + Apple 风格首页
+ * Monea Currency — 汇率换算 API + Apple 风格首页
  *
  * 数据源：Frankfurter v2 (https://frankfurter.dev) — 免费、无 API Key、201 种货币
- * 缓存：Cloudflare Cache API，边缘缓存 1 小时
+ * 缓存：Cloudflare Cache API；最新数据 1 小时，稳定数据按更长周期缓存
  * UI：按 Apple 品牌设计规范 (brands/apple/DESIGN.md) 实现
  */
 
 export const UPSTREAM = "https://api.frankfurter.dev/v2";
 export const CACHE_TTL_SECONDS = 3600; // 1 小时
+const DAY_SECONDS = 86400;
+// 回源超时：上游挂起（TCP 半开、TLS 卡死等）时及时中断，避免整个请求被无限拖死。
+const UPSTREAM_TIMEOUT_MS = 6000;
+
+type CachePolicy = {
+  name: "live-rate" | "dated-rate" | "history" | "currencies";
+  ttlSeconds: number;
+  staleTtlSeconds: number;
+};
+
+type CacheState = "HIT" | "MISS" | "STALE";
+
+interface CachedFetchResult {
+  response: Response;
+  cacheState: CacheState;
+}
+
+const CACHE_POLICIES: Record<CachePolicy["name"], CachePolicy> = {
+  "live-rate": { name: "live-rate", ttlSeconds: CACHE_TTL_SECONDS, staleTtlSeconds: DAY_SECONDS },
+  "dated-rate": { name: "dated-rate", ttlSeconds: DAY_SECONDS, staleTtlSeconds: DAY_SECONDS * 30 },
+  history: { name: "history", ttlSeconds: CACHE_TTL_SECONDS, staleTtlSeconds: DAY_SECONDS * 7 },
+  currencies: { name: "currencies", ttlSeconds: DAY_SECONDS, staleTtlSeconds: DAY_SECONDS * 7 },
+};
 
 export const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Expose-Headers": "X-Monea-Cache",
 };
 
 interface RateEntry {
@@ -32,27 +56,87 @@ interface Env {}
 
 // ---------- 工具函数 ----------
 
-export function json(data: unknown, status = 200): Response {
+export function json(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json;charset=utf-8", ...CORS_HEADERS },
+    headers: { "Content-Type": "application/json;charset=utf-8", ...CORS_HEADERS, ...headers },
   });
 }
 
-/** 带边缘缓存的 fetch：命中缓存直接返回，否则拉上游并写入缓存。 */
-async function cachedFetch(url: string, ctx: ExecutionContext): Promise<Response> {
+/**
+ * 带超时的上游 fetch：上游挂起（TCP 半开、TLS 卡死等）时在 timeoutMs 内中断，
+ * 避免 cachedFetch 进而整个请求被无限拖死。
+ */
+async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { headers: { "User-Agent": "Monea Currency/1.0" }, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * 带边缘缓存的 fetch：命中缓存直接返回；上游暂时不可用时，回退到同一边缘节点最近一次成功结果。
+ * Cache API 是机房本地缓存，回退结果会以 STALE 标记返回，且不会被客户端继续缓存。
+ */
+async function cachedFetch(url: string, ctx: ExecutionContext, policy: CachePolicy): Promise<CachedFetchResult> {
   const cache = caches.default;
   const cached = await cache.match(url);
-  if (cached) return cached;
+  if (cached) {
+    return { response: cached, cacheState: "HIT" };
+  }
 
-  const resp = await fetch(url, { headers: { "User-Agent": "currency-worker/1.0" } });
-  if (!resp.ok) return resp; // 透传上游错误
+  let resp: Response;
+  try {
+    resp = await fetchWithTimeout(url, UPSTREAM_TIMEOUT_MS);
+  } catch (error) {
+    // 超时或网络错误：优先返回同边缘节点最近一次成功结果（STALE）；都没有则返回 504，让客户端降级到直连上游。
+    const stale = await cache.match(staleCacheKey(url));
+    if (stale) {
+      console.warn(JSON.stringify({ event: "cache", state: "stale", resource: policy.name, reason: "timeout-or-network" }));
+      return { response: stale, cacheState: "STALE" };
+    }
+    return { response: json({ error: "Upstream unavailable" }, 504), cacheState: "MISS" };
+  }
+  if (!resp.ok) {
+    if (resp.status >= 500) return staleOrResponse(cache, url, policy, `upstream-${resp.status}`, resp);
+    return { response: resp, cacheState: "MISS" }; // 透传客户端可修正的上游错误
+  }
 
-  // body 只能读一次，克隆后存缓存
-  const forCache = new Response(resp.body, resp);
-  forCache.headers.set("Cache-Control", `public, max-age=${CACHE_TTL_SECONDS}`);
-  ctx.waitUntil(cache.put(url, forCache.clone()));
-  return forCache;
+  // 先把响应体物化为字符串再分发：frankfurter 时间序列响应是 chunked（无 Content-Length），
+  // 直接对原始流做 clone + cache.put + 下游 json() 多路消费，会在 workerd 里死锁（流永不结束）。
+  const bodyText = await resp.text();
+  const responseInit = { status: resp.status, statusText: resp.statusText, headers: { "Content-Type": resp.headers.get("Content-Type") || "application/json" } };
+  const forCache = new Response(bodyText, responseInit);
+  forCache.headers.set("Cache-Control", `public, max-age=${policy.ttlSeconds}`);
+  const stale = new Response(bodyText, responseInit);
+  stale.headers.set("Cache-Control", `public, max-age=${policy.staleTtlSeconds}`);
+  ctx.waitUntil(Promise.all([cache.put(url, forCache.clone()), cache.put(staleCacheKey(url), stale)]));
+  console.log(JSON.stringify({ event: "cache", state: "miss", resource: policy.name }));
+  return { response: forCache, cacheState: "MISS" };
+}
+
+function staleCacheKey(url: string): string {
+  const key = new URL(url);
+  key.searchParams.set("__monea_stale", "1");
+  return key.toString();
+}
+
+async function staleOrResponse(cache: Cache, url: string, policy: CachePolicy, reason: string, response: Response): Promise<CachedFetchResult> {
+  const stale = await cache.match(staleCacheKey(url));
+  if (stale) {
+    console.warn(JSON.stringify({ event: "cache", state: "stale", resource: policy.name, reason }));
+    return { response: stale, cacheState: "STALE" };
+  }
+  return { response, cacheState: "MISS" };
+}
+
+function responseCacheHeaders(ttlSeconds: number, cacheState: CacheState): Record<string, string> {
+  return cacheState === "STALE"
+    ? { "Cache-Control": "no-store", "X-Monea-Cache": cacheState }
+    : { "Cache-Control": `public, max-age=${ttlSeconds}`, "X-Monea-Cache": cacheState };
 }
 
 async function upstreamError(resp: Response): Promise<Response> {
@@ -68,8 +152,8 @@ export async function handleConvert(url: URL, ctx: ExecutionContext): Promise<Re
   const to = (url.searchParams.get("to") || "EUR").toUpperCase();
   const amountParam = url.searchParams.get("amount");
   const dateParam = url.searchParams.get("date") || undefined;
-  const amount = amountParam === null ? 1 : parseFloat(amountParam);
-  if (!Number.isFinite(amount) || amount < 0) {
+  const amount = parseNonNegativeAmount(amountParam);
+  if (amount === null) {
     return json({ error: "Invalid amount" }, 400);
   }
   if (dateParam && !isIsoDate(dateParam)) {
@@ -78,15 +162,24 @@ export async function handleConvert(url: URL, ctx: ExecutionContext): Promise<Re
 
   // 同币种直接返回，避免上游 404
   if (from === to) {
-    return json({ from, to, amount, rate: 1, result: amount, date: dateParam ?? today() });
+    return json(
+      { from, to, amount, rate: 1, result: amount, date: dateParam ?? today() },
+      200,
+      { "Cache-Control": `public, max-age=${dateParam ? 86400 : CACHE_TTL_SECONDS}` },
+    );
   }
 
   const params = dateParam ? `?date=${encodeURIComponent(dateParam)}` : "";
-  const resp = await cachedFetch(`${UPSTREAM}/rate/${from}/${to}${params}`, ctx);
+  const policy = dateParam ? CACHE_POLICIES["dated-rate"] : CACHE_POLICIES["live-rate"];
+  const { response: resp, cacheState } = await cachedFetch(`${UPSTREAM}/rate/${from}/${to}${params}`, ctx, policy);
   if (!resp.ok) return upstreamError(resp);
   const data: RateEntry = await resp.json();
   const result = +(amount * data.rate).toFixed(4);
-  return json({ from: data.base, to: data.quote, amount, rate: data.rate, result, date: data.date });
+  return json(
+    { from: data.base, to: data.quote, amount, rate: data.rate, result, date: data.date },
+    200,
+    responseCacheHeaders(policy.ttlSeconds, cacheState),
+  );
 }
 
 /** GET /history?from=USD&to=CNY&range=1M — 用于按需加载参考汇率走势。 */
@@ -95,10 +188,13 @@ export async function handleHistory(url: URL, ctx: ExecutionContext): Promise<Re
   const to = (url.searchParams.get("to") || "EUR").toUpperCase();
   const range = url.searchParams.get("range") || "1M";
   const presets: Record<string, { days: number; group?: "week" | "month" }> = {
+    "1D": { days: 1 },
     "1W": { days: 7 },
     "1M": { days: 30 },
-    "6M": { days: 183, group: "week" },
-    "1Y": { days: 365, group: "month" },
+    "6M": { days: 183 },
+    "1Y": { days: 365, group: "week" },
+    "2Y": { days: 730, group: "week" },
+    "5Y": { days: 1826, group: "month" },
   };
   const preset = presets[range];
   if (!preset) return json({ error: "Invalid range" }, 400);
@@ -106,51 +202,58 @@ export async function handleHistory(url: URL, ctx: ExecutionContext): Promise<Re
   const end = today();
   const start = daysBefore(preset.days);
   if (from === to) {
-    return json({ from, to, range, start, end, group: preset.group ?? "day", points: [{ date: start, rate: 1 }, { date: end, rate: 1 }] });
+    return json(
+      { from, to, range, start, end, group: preset.group ?? "day", points: [{ date: start, rate: 1 }, { date: end, rate: 1 }] },
+      200,
+      { "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}` },
+    );
   }
 
   const params = new URLSearchParams({ base: from, quotes: to, from: start, to: end });
   if (preset.group) params.set("group", preset.group);
-  const resp = await cachedFetch(`${UPSTREAM}/rates?${params}`, ctx);
+  const policy = CACHE_POLICIES.history;
+  const { response: resp, cacheState } = await cachedFetch(`${UPSTREAM}/rates?${params}`, ctx, policy);
   if (!resp.ok) return upstreamError(resp);
   const entries: RateEntry[] = await resp.json();
-  return json({
-    from,
-    to,
-    range,
-    start,
-    end,
-    group: preset.group ?? "day",
-    points: entries.filter((entry) => entry.base === from && entry.quote === to).map((entry) => ({ date: entry.date, rate: entry.rate })),
-  });
+  return json(
+    {
+      from,
+      to,
+      range,
+      start,
+      end,
+      group: preset.group ?? "day",
+      points: entries.filter((entry) => entry.base === from && entry.quote === to).map((entry) => ({ date: entry.date, rate: entry.rate })),
+    },
+    200,
+    responseCacheHeaders(policy.ttlSeconds, cacheState),
+  );
 }
 
-/** GET /latest?base=USD — 把上游数组折叠为 {base, date, rates:{CODE:rate}} */
+/** GET /latest?base=USD — 保留每个货币各自的数据日期。 */
 export async function handleLatest(url: URL, ctx: ExecutionContext): Promise<Response> {
   const base = (url.searchParams.get("base") || "EUR").toUpperCase();
-  const resp = await cachedFetch(`${UPSTREAM}/rates/latest?base=${base}`, ctx);
+  const policy = CACHE_POLICIES["live-rate"];
+  const { response: resp, cacheState } = await cachedFetch(`${UPSTREAM}/rates?base=${base}`, ctx, policy);
   if (!resp.ok) return upstreamError(resp);
   const arr: RateEntry[] = await resp.json();
 
-  const rates: Record<string, number> = {};
-  const dateCount: Record<string, number> = {};
+  const rates: Record<string, { rate: number; date: string }> = {};
   for (const e of arr) {
-    rates[e.quote] = e.rate;
-    dateCount[e.date] = (dateCount[e.date] || 0) + 1;
+    rates[e.quote] = { rate: e.rate, date: e.date };
   }
-  // 不同央行更新日期不一，取出现次数最多的作为整体日期
-  const date = Object.entries(dateCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? arr[0]?.date;
-  return json({ base, date, rates });
+  return json({ base, rates }, 200, responseCacheHeaders(policy.ttlSeconds, cacheState));
 }
 
 /** GET /currencies — 转为 {count, currencies:{CODE:{name,symbol}}} */
 export async function handleCurrencies(ctx: ExecutionContext): Promise<Response> {
-  const resp = await cachedFetch(`${UPSTREAM}/currencies`, ctx);
+  const policy = CACHE_POLICIES.currencies;
+  const { response: resp, cacheState } = await cachedFetch(`${UPSTREAM}/currencies`, ctx, policy);
   if (!resp.ok) return upstreamError(resp);
   const arr: CurrencyInfo[] = await resp.json();
   const currencies: Record<string, { name: string; symbol?: string }> = {};
   for (const c of arr) currencies[c.iso_code] = { name: c.name, symbol: c.symbol };
-  return json({ count: arr.length, currencies });
+  return json({ count: arr.length, currencies }, 200, responseCacheHeaders(policy.ttlSeconds, cacheState));
 }
 
 export function today(): string {
@@ -167,4 +270,11 @@ function isIsoDate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 }
 
+function parseNonNegativeAmount(value: string | null): number | null {
+  if (value === null) return 1;
+  const normalized = value.trim();
+  if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) return null;
+  const amount = Number(normalized);
+  return Number.isFinite(amount) && amount >= 0 ? amount : null;
+}
 

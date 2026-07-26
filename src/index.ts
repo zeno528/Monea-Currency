@@ -18,6 +18,9 @@ export default {
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: CORS_HEADERS });
     }
+    if (request.method !== "GET") {
+      return json({ error: "Method not allowed" }, 405, { Allow: "GET, OPTIONS" });
+    }
 
     const url = new URL(request.url);
 
@@ -39,7 +42,7 @@ export default {
           return json({ status: "ok", upstream: UPSTREAM, time: today() });
         case "/api":
           return json({
-            name: "currency-worker",
+            name: "Monea Currency",
             endpoints: {
               convert: "/convert?from=USD&to=CNY&amount=100",
               history: "/history?from=USD&to=CNY&range=1M",
