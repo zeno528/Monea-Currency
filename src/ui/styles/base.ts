@@ -235,6 +235,7 @@ export const BASE_STYLES = String.raw`
     align-items: center;
   }
   .currency-field {
+    --combo-panel-offset: 25px;
     min-width: 0;
     background: #fbfbfd;
     border: 1px solid rgba(0, 0, 0, 0.09);
@@ -335,7 +336,7 @@ export const BASE_STYLES = String.raw`
   .combo-panel {
     --combo-panel-max-height: 300px;
     position: absolute;
-    top: calc(100% + 6px);
+    top: calc(100% + var(--combo-panel-offset));
     left: 0;
     right: 0;
     max-height: var(--combo-panel-max-height);
@@ -345,7 +346,7 @@ export const BASE_STYLES = String.raw`
     border: 1px solid var(--color-hairline);
     border-radius: var(--radius-lg);
     box-shadow: 0 18px 35px rgba(0, 0, 0, 0.14);
-    padding: 10px 4px 10px 6px;
+    padding: 20px 4px 20px 6px;
     z-index: 50;
     display: block;
     opacity: 0;
@@ -357,7 +358,7 @@ export const BASE_STYLES = String.raw`
     will-change: opacity, transform;
   }
   .combo-scroll {
-    max-height: calc(var(--combo-panel-max-height) - 20px);
+    max-height: calc(var(--combo-panel-max-height) - 40px);
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
@@ -491,10 +492,8 @@ export const BASE_STYLES = String.raw`
     display: grid;
     grid-template-rows: 0fr;
     margin-top: 0;
-    padding: 0 18px;
-    border: 1px solid transparent;
-    border-radius: 18px;
-    background: #fbfbfd;
+    padding: 0;
+    border-top: 1px solid transparent;
     opacity: 0;
     transform: translateY(-8px) scale(0.99);
     pointer-events: none;
@@ -502,7 +501,7 @@ export const BASE_STYLES = String.raw`
     transition: grid-template-rows 380ms var(--ease-out), margin 380ms var(--ease-out), padding 380ms var(--ease-out), border-color 240ms ease, opacity 180ms ease, transform 380ms var(--ease-out);
   }
   .history[hidden] { display: grid; }
-  .history.is-open { grid-template-rows: 1fr; margin-top: 14px; padding: 18px; border-color: rgba(0, 0, 0, 0.08); opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+  .history.is-open { grid-template-rows: 1fr; margin-top: 18px; padding-top: 18px; border-color: rgba(0, 0, 0, 0.08); opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
   .history-content { min-height: 0; overflow: hidden; }
   .history-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; min-height: 72px; margin-bottom: 14px; }
   .history.is-loading .history-head { min-height: 0; margin-bottom: 10px; }

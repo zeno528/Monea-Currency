@@ -103,15 +103,27 @@ export const HOME_CLIENT_CORE = String.raw`
       updateSavedPairs(content);
       converterCardEl.style.height = "auto";
       var endHeight = converterCardEl.getBoundingClientRect().height;
+      // 高度无变化时不会触发 transition/transitionend，直接复位，
+      // 否则卡片会被钉死在固定像素高度，随后展开走势图便会溢出卡片背景。
+      if (Math.abs(endHeight - startHeight) < 0.5) {
+        converterCardEl.style.height = "";
+        return;
+      }
       converterCardEl.style.height = startHeight + "px";
       converterCardEl.classList.add("is-resizing");
       requestAnimationFrame(function () { converterCardEl.style.height = endHeight + "px"; });
-      converterCardEl.addEventListener("transitionend", function cleanup(event) {
-        if (event.propertyName !== "height") return;
+      var settled = false;
+      function cleanup() {
+        if (settled) return;
+        settled = true;
         converterCardEl.classList.remove("is-resizing");
         converterCardEl.style.height = "";
-        converterCardEl.removeEventListener("transitionend", cleanup);
-      });
+        converterCardEl.removeEventListener("transitionend", onEnd);
+      }
+      function onEnd(event) { if (event.propertyName === "height") cleanup(); }
+      converterCardEl.addEventListener("transitionend", onEnd);
+      // 安全兜底：即便 transitionend 因过渡被打断/合并而未触发，也保证复位（过渡时长 380ms）
+      setTimeout(cleanup, 500);
     }
     function renderSavedPairs() {
       var store = readPairStore();
@@ -245,6 +257,7 @@ export const HOME_CLIENT_CORE = String.raw`
       var listEl = panel.querySelector(".combo-scroll");
       var arrow = box.querySelector(".combo-arrow");
       var nativeSel = box.parentNode.querySelector(".native-select");
+      var lastTouchY = null;
       box.dataset.value = initialCode;
       input.value = displayText(initialCode);
       if (nativeSel) nativeSel.value = initialCode;
@@ -285,6 +298,28 @@ export const HOME_CLIENT_CORE = String.raw`
         box.classList.remove("open");
         if (arrow) arrow.setAttribute("aria-expanded", "false");
       }
+
+      // 浮层内列表滚到边界时，显式截断滚轮/触摸事件。
+      // 某些浏览器在 absolute 浮层中仍会把剩余滚动量传给页面，
+      // 单靠 CSS 的 overscroll-behavior 无法稳定阻止这个链路。
+      function preventScrollChaining(deltaY, event) {
+        var atTop = listEl.scrollTop <= 0;
+        var atBottom = listEl.scrollTop + listEl.clientHeight >= listEl.scrollHeight - 1;
+        if ((deltaY < 0 && atTop) || (deltaY > 0 && atBottom)) event.preventDefault();
+      }
+      listEl.addEventListener("wheel", function (event) {
+        preventScrollChaining(event.deltaY, event);
+      }, { passive: false });
+      listEl.addEventListener("touchstart", function (event) {
+        lastTouchY = event.touches[0] ? event.touches[0].clientY : null;
+      }, { passive: true });
+      listEl.addEventListener("touchmove", function (event) {
+        var touch = event.touches[0];
+        if (!touch || lastTouchY === null) return;
+        preventScrollChaining(lastTouchY - touch.clientY, event);
+        lastTouchY = touch.clientY;
+      }, { passive: false });
+      listEl.addEventListener("touchend", function () { lastTouchY = null; }, { passive: true });
 
       function selectCode(code) {
         box.dataset.value = code;
