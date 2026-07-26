@@ -11,7 +11,7 @@ export const HOME_MARKUP = String.raw`
   <section class="hero">
     <p class="eyebrow">
       <span class="eyebrow-dot" aria-hidden="true"></span>
-      <span>今日汇率</span>
+      <span>央行参考汇率 · 多源混合</span>
     </p>
     <h1 id="hero-title">美元兑换人民币</h1>
     <p id="hero-rate" class="hero-rate" aria-live="polite">正在获取最新参考汇率…</p>
@@ -133,7 +133,7 @@ export const HOME_MARKUP = String.raw`
       <a href="https://github.com/zeno528/Monea-Currency" target="_blank" rel="noopener">GitHub 仓库 ↗</a>
     </nav>
     <div class="footer-divider" aria-hidden="true"></div>
-    <p class="footer-meta">汇率仅供参考，不构成交易建议。<br>© 2026 Monea Currency</p>
+    <p class="footer-meta">默认显示 Frankfurter 汇聚的多家央行参考汇率，并非实时交易报价。<br>汇率仅供参考，不构成交易建议。<br>© 2026 Monea Currency</p>
   </footer>
 
 `;
