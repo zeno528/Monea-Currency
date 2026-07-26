@@ -91,7 +91,6 @@ export const HOME_CLIENT_CORE = String.raw`
     var savedPairsResizeCleanup = null; // 当前正在进行的卡片高度动画的清理器（模块级，保证同一时刻只有一个动画拥有共享卡片）
     // 移动端搜索货币时，键盘会缩小可视区域；记录原位置，避免输入框与下拉列表被键盘遮住。
     var comboKeyboardSession = null;
-    var comboScrollAnimation = null;
     var comboKeyboardSettleTimer = null;
 
     dateEl.max = new Date().toISOString().slice(0, 10);
@@ -104,60 +103,11 @@ export const HOME_CLIENT_CORE = String.raw`
       return window.visualViewport ? window.visualViewport.height : window.innerHeight;
     }
 
-    function stopComboScrollAnimation() {
-      if (!comboScrollAnimation) return;
-      cancelAnimationFrame(comboScrollAnimation.frame);
-      comboScrollAnimation = null;
-    }
-
     function cancelComboKeyboardAlignment() {
       if (comboKeyboardSettleTimer === null) return;
       clearTimeout(comboKeyboardSettleTimer);
       comboKeyboardSettleTimer = null;
     }
-
-    // 键盘避让不是手势拖拽：使用无回弹的临界阻尼弹簧，既平滑又不会抢走输入焦点。
-    function animateComboScrollTo(targetY, targetX) {
-      var maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-      var nextY = Math.max(0, Math.min(targetY, maxY));
-      var nextX = typeof targetX === "number" ? targetX : window.scrollX;
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        stopComboScrollAnimation();
-        window.scrollTo(nextX, nextY);
-        return;
-      }
-
-      var previous = comboScrollAnimation;
-      var velocity = previous ? previous.velocity : 0;
-      if (previous) cancelAnimationFrame(previous.frame);
-      var position = window.scrollY; // 从屏幕当前呈现的位置继续，避免键盘 resize 时跳帧。
-      var lastTime = performance.now();
-      var state = { frame: 0, velocity: velocity };
-      comboScrollAnimation = state;
-
-      function tick(now) {
-        if (comboScrollAnimation !== state) return;
-        var elapsed = Math.min(0.032, (now - lastTime) / 1000);
-        lastTime = now;
-        // 约 0.4s 的临界阻尼响应：对焦点移动克制、稳定，不出现装饰性弹跳。
-        var acceleration = (280 * (nextY - position)) - (34 * state.velocity);
-        state.velocity += acceleration * elapsed;
-        position += state.velocity * elapsed;
-        window.scrollTo(nextX, position);
-        if (Math.abs(nextY - position) < 0.5 && Math.abs(state.velocity) < 5) {
-          window.scrollTo(nextX, nextY);
-          comboScrollAnimation = null;
-          return;
-        }
-        state.frame = requestAnimationFrame(tick);
-      }
-      state.frame = requestAnimationFrame(tick);
-    }
-
-    document.addEventListener("pointerdown", function () {
-      // 用户开始手动操作时立即交回滚动控制权。
-      stopComboScrollAnimation();
-    }, { passive: true });
 
     function startComboKeyboardSession(input) {
       if (!isCompactViewport()) return;
@@ -190,9 +140,12 @@ export const HOME_CLIENT_CORE = String.raw`
       if (keyboardOpen) session.keyboardWasShown = true;
 
       var rect = input.getBoundingClientRect();
-      // 只在原生键盘避让后仍不理想时校正一次；不在键盘动画期间执行脚本滚动。
-      var targetTop = Math.max(64, Math.min(96, visibleHeight * 0.22));
-      var delta = rect.top - targetTop;
+      // 保留 iOS 已完成的原生上滑；仅在输入框仍被顶部导航或键盘遮挡时做最小校正。
+      var safeTop = 64;
+      var safeBottom = visibleHeight - 20;
+      var delta = rect.top < safeTop
+        ? rect.top - safeTop
+        : (rect.bottom > safeBottom ? rect.bottom - safeBottom : 0);
       if (Math.abs(delta) > 8) window.scrollTo(window.scrollX, window.scrollY + delta);
     }
 
@@ -213,7 +166,12 @@ export const HOME_CLIENT_CORE = String.raw`
         setTimeout(tryRestoreComboScroll, 120);
         return;
       }
-      animateComboScrollTo(session.scrollY, session.scrollX);
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        window.scrollTo(session.scrollX, session.scrollY);
+      } else {
+        // 交给浏览器的原生滚动实现，与 Safari 的键盘收起节奏保持一致。
+        window.scrollTo({ left: session.scrollX, top: session.scrollY, behavior: "smooth" });
+      }
       comboKeyboardSession = null;
     }
 
