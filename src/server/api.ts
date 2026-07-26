@@ -81,7 +81,7 @@ export async function handleConvert(url: URL, ctx: ExecutionContext): Promise<Re
     return json(
       { from, to, amount, rate: 1, result: amount, date: dateParam ?? today() },
       200,
-      { "Cache-Control": `public, max-age=${dateParam ? 86400 : 300}` },
+      { "Cache-Control": `public, max-age=${dateParam ? 86400 : CACHE_TTL_SECONDS}` },
     );
   }
 
@@ -93,7 +93,7 @@ export async function handleConvert(url: URL, ctx: ExecutionContext): Promise<Re
   return json(
     { from: data.base, to: data.quote, amount, rate: data.rate, result, date: data.date },
     200,
-    { "Cache-Control": `public, max-age=${dateParam ? 86400 : 300}` },
+    { "Cache-Control": `public, max-age=${dateParam ? 86400 : CACHE_TTL_SECONDS}` },
   );
 }
 
