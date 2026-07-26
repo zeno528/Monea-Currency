@@ -166,6 +166,8 @@ export const HOME_CLIENT_CORE = String.raw`
         setTimeout(tryRestoreComboScroll, 120);
         return;
       }
+      // iOS 可能在键盘收起后保留输入焦点；清掉它，下一次真实点击才能重新触发原生键盘。
+      if (document.activeElement === session.input) session.input.blur();
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         window.scrollTo(session.scrollX, session.scrollY);
       } else {
@@ -329,7 +331,7 @@ export const HOME_CLIENT_CORE = String.raw`
       if (!from || !to) return;
       var id = ++historyRequestId;
       var key = from + ":" + to + ":" + historyRange;
-      if (animation === "draw") setHistoryLoading("正在加载参考走势图…", true);
+      if (animation === "draw") setHistoryLoading("正在加载汇率走势图…", true);
       if (historyRequestController) historyRequestController.abort();
       historyRequestController = new AbortController();
       var signal = historyRequestController.signal;
@@ -683,8 +685,14 @@ export const HOME_CLIENT_CORE = String.raw`
         arrow.addEventListener("click", function (e) {
           e.preventDefault();
           e.stopPropagation();
-          if (box.classList.contains("open")) { close(); }
-          else { open(); }
+          if (box.classList.contains("open")) {
+            close();
+          } else if (isCompactViewport()) {
+            // 手机端箭头与输入框是同一个搜索入口，避免只展开列表却无法直接输入。
+            input.focus({ preventScroll: true });
+          } else {
+            open();
+          }
         });
       }
     }
