@@ -39,12 +39,10 @@ jobs:
 
       - name: Prepare deployment message
         shell: bash
-        run: |
-          subject=$(git log -1 --pretty=%s)
-          echo "DEPLOY_MESSAGE=${GITHUB_SHA::7} · $subject" >> "$GITHUB_ENV"
+        run: echo "DEPLOY_MESSAGE=$(git log -1 --pretty=%s)" >> "$GITHUB_ENV"
 
       - name: Deploy to Cloudflare
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm exec wrangler deploy --message "$DEPLOY_MESSAGE" --tag "$GITHUB_SHA"
+        run: pnpm exec wrangler deploy --message "$DEPLOY_MESSAGE"
