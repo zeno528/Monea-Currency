@@ -432,7 +432,7 @@ export const BASE_STYLES = String.raw`
   }
   .combo-item {
     display: grid;
-    grid-template-columns: 24px 34px minmax(0, 1fr) auto;
+    grid-template-columns: 24px 34px minmax(0, 1fr) auto 36px;
     align-items: center;
     gap: 12px;
     padding: 10px 14px;
@@ -468,6 +468,29 @@ export const BASE_STYLES = String.raw`
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     flex-shrink: 0;
   }
+  .combo-favorite {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    margin-right: -6px;
+    padding: 0;
+    place-items: center;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--color-ink-muted-48);
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform 120ms ease-out, background 160ms var(--ease-out), color 160ms var(--ease-out);
+  }
+  .combo-favorite svg { width: 18px; height: 18px; transition: fill 160ms var(--ease-out), stroke 160ms var(--ease-out); }
+  .combo-favorite[aria-pressed="true"] { background: rgba(0, 113, 227, 0.1); color: var(--color-primary); }
+  .combo-favorite[aria-pressed="true"] svg { fill: #ffcc00; stroke: #ffcc00; }
+  @media (hover: hover) {
+    .combo-favorite:hover { background: rgba(0, 113, 227, 0.08); color: var(--color-primary); }
+  }
+  .combo-favorite:active { transform: scale(0.9); }
+  .combo-favorite:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
   .combo-empty {
     padding: 18px;
     text-align: center;

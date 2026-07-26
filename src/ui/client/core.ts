@@ -89,6 +89,7 @@ export const HOME_CLIENT_CORE = String.raw`
     var historyCache = new Map();
     var historyClientPromise = null;
     var PAIR_STORAGE_KEY = "monea-currency:pairs:v1";
+    var CURRENCY_FAVORITES_STORAGE_KEY = "monea-currency:favorite-currencies:v1";
     var savedPairsInitialized = false;
     var savedPairsResizeCleanup = null; // 当前正在进行的卡片高度动画的清理器（模块级，保证同一时刻只有一个动画拥有共享卡片）
     // 移动端搜索货币时，键盘会缩小可视区域；记录原位置，避免输入框与下拉列表被键盘遮住。
@@ -205,6 +206,25 @@ export const HOME_CLIENT_CORE = String.raw`
     }
     function writePairStore(store) {
       try { localStorage.setItem(PAIR_STORAGE_KEY, JSON.stringify(store)); } catch (_) {}
+    }
+    function readFavoriteCurrencies() {
+      try {
+        var codes = JSON.parse(localStorage.getItem(CURRENCY_FAVORITES_STORAGE_KEY) || "[]");
+        return Array.isArray(codes) ? codes.filter(function (code) { return typeof code === "string"; }) : [];
+      } catch (_) { return []; }
+    }
+    function writeFavoriteCurrencies(codes) {
+      try { localStorage.setItem(CURRENCY_FAVORITES_STORAGE_KEY, JSON.stringify(codes)); } catch (_) {}
+    }
+    function isFavoriteCurrency(code) {
+      return readFavoriteCurrencies().indexOf(code) !== -1;
+    }
+    function toggleFavoriteCurrency(code) {
+      var favorites = readFavoriteCurrencies();
+      var index = favorites.indexOf(code);
+      if (index === -1) favorites.unshift(code);
+      else favorites.splice(index, 1);
+      writeFavoriteCurrencies(favorites);
     }
     function isFavorite(pair) {
       return readPairStore().favorites.some(function (item) { return pairId(item.from, item.to) === pairId(pair.from, pair.to); });
@@ -554,17 +574,27 @@ export const HOME_CLIENT_CORE = String.raw`
       var flagObserver = null;
       var renderedCurrencies = [];
       var renderedCount = 0;
+      // 当前输入的搜索词与输入框的“已选货币展示值”是两种状态，不能混用。
+      var searchQuery = "";
       box.dataset.value = initialCode;
       input.value = displayText(initialCode);
       syncComboFlag(box);
 
       function getFiltered(q) {
         q = (q || "").trim().toLowerCase();
-        if (!q) return CURRENCIES;
-        return CURRENCIES.filter(function (c) {
+        var matches = !q ? CURRENCIES : CURRENCIES.filter(function (c) {
           return c.code.toLowerCase().indexOf(q) >= 0
             || c.cn.toLowerCase().indexOf(q) >= 0
             || c.name.toLowerCase().indexOf(q) >= 0;
+        });
+        var favorites = readFavoriteCurrencies();
+        if (!favorites.length) return matches;
+        return matches.slice().sort(function (a, b) {
+          var aIndex = favorites.indexOf(a.code), bIndex = favorites.indexOf(b.code);
+          if (aIndex === -1 && bIndex === -1) return 0;
+          if (aIndex === -1) return 1;
+          if (bIndex === -1) return -1;
+          return aIndex - bIndex;
         });
       }
 
@@ -572,11 +602,14 @@ export const HOME_CLIENT_CORE = String.raw`
         var cur = box.dataset.value;
         return list.map(function (c) {
           var sel = c.code === cur ? " active" : "";
+          var favorite = isFavoriteCurrency(c.code);
+          var favoriteLabel = favorite ? "取消收藏 " + c.code : "收藏 " + c.code;
           return '<div class="combo-item' + sel + '" data-code="' + c.code + '">'
             + '<img class="combo-item-flag" data-src="' + currencyFlagSource(c.code) + '" alt="" width="24" height="18" decoding="async" fetchpriority="low">'
             + '<span class="combo-item-sym" aria-hidden="true">' + (c.symbol || "—") + '</span>'
             + '<span class="combo-item-cn">' + c.cn + '</span>'
             + '<span class="combo-item-code">' + c.code + '</span>'
+            + '<button class="combo-favorite" type="button" data-code="' + c.code + '" aria-label="' + favoriteLabel + '" aria-pressed="' + favorite + '" title="' + favoriteLabel + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m12 3.7 2.57 5.21 5.75.84-4.16 4.05.98 5.73L12 16.82l-5.14 2.71.98-5.73-4.16-4.05 5.75-.84L12 3.7Z"/></svg></button>'
             + '</div>';
         }).join("");
       }
@@ -601,6 +634,31 @@ export const HOME_CLIENT_CORE = String.raw`
         renderedCount += batch.length;
         listEl.insertAdjacentHTML("beforeend", currencyItemsHtml(batch));
         observePendingFlags();
+      }
+
+      function updateFavoriteButton(button, favorite) {
+        var label = favorite ? "取消收藏 " + button.dataset.code : "收藏 " + button.dataset.code;
+        button.setAttribute("aria-pressed", String(favorite));
+        button.setAttribute("aria-label", label);
+        button.setAttribute("title", label);
+      }
+
+      function reorderVisibleCurrencyItems() {
+        var allMatches = getFiltered(searchQuery);
+        var byCode = {};
+        var rank = {};
+        allMatches.forEach(function (currency, index) { byCode[currency.code] = currency; rank[currency.code] = index; });
+        var items = Array.from(listEl.querySelectorAll(".combo-item"));
+        items.sort(function (a, b) { return rank[a.dataset.code] - rank[b.dataset.code]; });
+        items.forEach(function (item) { listEl.appendChild(item); });
+        // 保留已渲染节点，后续滚动继续追加未出现的项目，避免重建图片造成闪烁。
+        var visibleCodes = {};
+        var visibleCurrencies = items.map(function (item) {
+          visibleCodes[item.dataset.code] = true;
+          return byCode[item.dataset.code];
+        });
+        renderedCurrencies = visibleCurrencies.concat(allMatches.filter(function (currency) { return !visibleCodes[currency.code]; }));
+        renderedCount = visibleCurrencies.length;
       }
 
       function render(list) {
@@ -632,11 +690,12 @@ export const HOME_CLIENT_CORE = String.raw`
         closeAll(box);
         box.classList.add("open");
         if (arrow) arrow.setAttribute("aria-expanded", "true");
-        render(getFiltered(""));
+        render(getFiltered(searchQuery));
       }
       function close() {
         box.classList.remove("open");
         if (arrow) arrow.setAttribute("aria-expanded", "false");
+        searchQuery = "";
         if (flagObserver) flagObserver.disconnect();
         flagObserver = null;
         renderedCurrencies = [];
@@ -690,12 +749,13 @@ export const HOME_CLIENT_CORE = String.raw`
         if (!box.classList.contains("open")) open();
       });
       input.addEventListener("input", function () {
+        searchQuery = input.value;
         if (!box.classList.contains("open")) {
           closeAll(box);
           box.classList.add("open");
           if (arrow) arrow.setAttribute("aria-expanded", "true");
         }
-        render(getFiltered(input.value));
+        render(getFiltered(searchQuery));
       });
       input.addEventListener("keydown", function (e) {
         var items = panel.querySelectorAll(".combo-item");
@@ -728,8 +788,21 @@ export const HOME_CLIENT_CORE = String.raw`
         }
       });
       panel.addEventListener("click", function (e) {
+        var favoriteButton = e.target.closest(".combo-favorite");
+        if (favoriteButton) {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleFavoriteCurrency(favoriteButton.dataset.code);
+          updateFavoriteButton(favoriteButton, isFavoriteCurrency(favoriteButton.dataset.code));
+          reorderVisibleCurrencyItems();
+          return;
+        }
         var item = e.target.closest(".combo-item");
         if (item) selectCode(item.dataset.code);
+      });
+      // 点按星标时不让输入框失焦，避免移动端键盘和列表在状态切换中收起。
+      panel.addEventListener("pointerdown", function (e) {
+        if (e.target.closest(".combo-favorite")) e.preventDefault();
       });
       // 失焦延迟关闭，让选项点击先触发；并恢复当前选中值的显示
       input.addEventListener("blur", function () {
