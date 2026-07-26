@@ -1,6 +1,7 @@
 export const HISTORY_CLIENT = String.raw`
-    function setHistoryLoading(message) {
-      historyChartEl.innerHTML = '<div class="history-empty">' + message + '</div>';
+    function setHistoryLoading(message, loading) {
+      historyEl.classList.toggle("is-loading", Boolean(loading));
+      historyChartEl.innerHTML = '<div class="history-empty' + (loading ? ' is-loading' : '') + '" role="status">' + (loading ? '<span class="history-loading-indicator" aria-hidden="true"></span>' : '') + '<span>' + message + '</span></div>';
     }
     function renderHistory(points, from, to, animation) {
       if (!points || points.length < 2) { setHistoryLoading("该时间范围暂无可用参考数据"); return; }
@@ -8,6 +9,7 @@ export const HISTORY_CLIENT = String.raw`
       var width = 640, height = 210, inset = { top: 20, right: 16, bottom: 30, left: 58 };
       var values = points.map(function (point) { return Number(point.rate); }).filter(function (value) { return isFinite(value); });
       if (values.length < 2) { setHistoryLoading("该时间范围暂无可用参考数据"); return; }
+      historyEl.classList.remove("is-loading");
       var rangeMin = Math.min.apply(null, values), rangeMax = Math.max.apply(null, values);
       var min = rangeMin, max = rangeMax, span = max - min || Math.max(max * 0.02, 0.01);
       min -= span * 0.12; max += span * 0.12;
@@ -200,7 +202,7 @@ export const HISTORY_CLIENT = String.raw`
       if (!from || !to) return;
       var id = ++historyRequestId;
       var mode = animation === "morph" && historyVisual && historyVisual.positions.length > 1 ? "morph" : "draw";
-      if (mode === "draw") setHistoryLoading("正在加载参考走势…");
+      if (mode === "draw") setHistoryLoading("正在加载参考走势…", true);
       fetch("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + historyRange).then(function (response) { return response.json(); }).then(function (data) {
         if (id !== historyRequestId) return;
         if (data.error) { setHistoryLoading(data.error); return; }
@@ -222,7 +224,7 @@ export const HISTORY_CLIENT = String.raw`
       }
       historyEl.setAttribute("aria-hidden", opening ? "false" : "true");
       historyToggleEl.setAttribute("aria-expanded", opening ? "true" : "false");
-      historyToggleEl.textContent = opening ? "收起走势" : "走势";
+      historyToggleEl.textContent = opening ? "收起汇率走势图" : "汇率走势图";
       if (opening) loadHistory("draw");
     });
     document.querySelectorAll(".history-range").forEach(function (button) {

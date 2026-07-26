@@ -40,6 +40,7 @@ export const HOME_CLIENT_CORE = String.raw`
     var fromAmountEl = $("from-amount"), toAmountEl = $("to-amount");
     var fromSymbolEl = $("from-symbol"), toSymbolEl = $("to-symbol");
     var rateEl = $("result-rate");
+    var heroTitleEl = $("hero-title"), heroRateEl = $("hero-rate");
     var errEl = $("error"), swapBtn = $("swap"), resetBtn = $("reset");
     var dateEl = $("rate-date"), favoriteBtn = $("favorite-pair");
     var savedPairsEl = $("saved-pairs"), historyEl = $("history"), historyContentEl = $("history-content"), historyToggleEl = $("history-toggle");
@@ -148,6 +149,32 @@ export const HOME_CLIENT_CORE = String.raw`
       return code || "";
     }
 
+    function currencyName(code) {
+      for (var i = 0; i < CURRENCIES.length; i++) {
+        if (CURRENCIES[i].code === code) return CURRENCIES[i].cn;
+      }
+      return CURRENCY_CN[code] || code || "";
+    }
+
+    function formatHeroRate(rate) {
+      return Number(rate).toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 6 });
+    }
+
+    function syncHeroPair() {
+      var from = fromBox.dataset.value, to = toBox.dataset.value;
+      if (!from || !to) return;
+      requestId++;
+      heroTitleEl.textContent = currencyName(from) + "兑换" + currencyName(to);
+      heroRateEl.textContent = "正在获取" + (dateEl.value ? "指定日期" : "最新") + "参考汇率…";
+    }
+
+    function syncHeroRate(data) {
+      var from = fromBox.dataset.value, to = toBox.dataset.value;
+      var rate = data.from === from && data.to === to ? Number(data.rate) : 1 / Number(data.rate);
+      if (!isFinite(rate)) return;
+      heroRateEl.textContent = "1 " + currencyName(from) + " = " + formatHeroRate(rate) + " " + currencyName(to) + " · 数据日期 " + data.date;
+    }
+
     function formatEditableAmount(amount) {
       return Number(amount).toLocaleString("en-US", { useGrouping: true, maximumFractionDigits: 4 });
     }
@@ -195,10 +222,8 @@ export const HOME_CLIENT_CORE = String.raw`
           var info = data.currencies[code];
           return { code: code, name: info.name, cn: CURRENCY_CN[code] || info.name, symbol: info.symbol || "" };
         });
-        var n = String(CURRENCIES.length);
-        var hc = $("hero-count"), cc = $("currency-count");
-        if (hc) hc.textContent = n;
-        if (cc) cc.textContent = n;
+        var cc = $("currency-count");
+        if (cc) cc.textContent = String(CURRENCIES.length);
         // 填充原生 select（移动端用），选项格式：符号 中文名 (代码)
         var optHtml = CURRENCIES.map(function (c) {
           return '<option value="' + c.code + '">' + (c.symbol ? c.symbol + " " : "") + c.cn + " (" + c.code + ")</option>";
@@ -207,6 +232,7 @@ export const HOME_CLIENT_CORE = String.raw`
         initCombobox(fromBox, "USD");
         initCombobox(toBox, "CNY");
         syncSymbols();
+        syncHeroPair();
         renderSavedPairs();
         convert();
       }).catch(function () { showError("无法加载货币列表"); });
@@ -265,6 +291,7 @@ export const HOME_CLIENT_CORE = String.raw`
         if (nativeSel) nativeSel.value = code;
         close();
         syncSymbols();
+        syncHeroPair();
         syncQuickPairs();
         rememberCurrentPair();
         syncHistory();
@@ -329,6 +356,7 @@ export const HOME_CLIENT_CORE = String.raw`
           box.dataset.value = nativeSel.value;
           input.value = displayText(nativeSel.value);
           syncSymbols();
+          syncHeroPair();
           syncQuickPairs();
           rememberCurrentPair();
           syncHistory();
@@ -372,12 +400,18 @@ export const HOME_CLIENT_CORE = String.raw`
       fetch(url).then(function (r) { return r.json(); }).then(function (data) {
         if (currentRequest !== requestId) return;
         rateSummaryEl.classList.remove("is-loading");
-        if (data.error) { showError(data.error); return; }
+        if (data.error) {
+          heroRateEl.textContent = "暂时无法获取参考汇率";
+          showError(data.error);
+          return;
+        }
         outputEl.value = formatEditableAmount(data.result);
         rateEl.textContent = "1 " + data.from + " = " + data.rate + " " + data.to + " · 数据日期 " + data.date;
+        syncHeroRate(data);
       }).catch(function () {
         if (currentRequest === requestId) {
           rateSummaryEl.classList.remove("is-loading");
+          heroRateEl.textContent = "暂时无法获取参考汇率";
           showError("网络错误，请重试");
         }
       });
@@ -419,6 +453,7 @@ export const HOME_CLIENT_CORE = String.raw`
       syncDisplay(fromBox);
       syncDisplay(toBox);
       syncSymbols();
+      syncHeroPair();
       syncQuickPairs();
       activeSide = "from";
       if (remember) rememberCurrentPair(); else renderSavedPairs();
@@ -447,6 +482,7 @@ export const HOME_CLIENT_CORE = String.raw`
       toAmountEl.value = amount;
       activeSide = "from";
       syncSymbols();
+      syncHeroPair();
       syncQuickPairs();
       rememberCurrentPair();
       syncHistory();
@@ -461,6 +497,7 @@ export const HOME_CLIENT_CORE = String.raw`
       syncDisplay(fromBox);
       syncDisplay(toBox);
       syncSymbols();
+      syncHeroPair();
       syncQuickPairs();
       renderSavedPairs();
       syncHistory();
@@ -469,7 +506,7 @@ export const HOME_CLIENT_CORE = String.raw`
       fromAmountEl.focus({ preventScroll: true });
     });
 
-    dateEl.addEventListener("change", function () { convert(); });
+    dateEl.addEventListener("change", function () { syncHeroPair(); convert(); });
     favoriteBtn.addEventListener("click", function () {
       var store = readPairStore(), pair = currentPair(), id = pairId(pair.from, pair.to);
       var exists = store.favorites.some(function (item) { return pairId(item.from, item.to) === id; });

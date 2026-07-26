@@ -10,8 +10,8 @@ export const HOME_MARKUP = String.raw`
 
   <section class="hero">
     <p class="eyebrow">参考汇率</p>
-    <h1>全球货币，轻松换算。</h1>
-    <p class="lead">基于 Frankfurter 的货币目录，支持 <span id="hero-count">165</span> 种货币的搜索与参考换算，结果附带数据日期。</p>
+    <h1 id="hero-title">美元兑换人民币</h1>
+    <p id="hero-rate" class="lead" aria-live="polite">正在获取最新参考汇率…</p>
   </section>
 
   <div class="converter-wrap">
@@ -64,7 +64,7 @@ export const HOME_MARKUP = String.raw`
       <div class="rate-summary">
         <span id="result-rate" class="rate-text" aria-live="polite">输入金额后将自动换算</span>
         <div class="summary-actions">
-          <button id="history-toggle" class="reset-btn history-btn" type="button" aria-expanded="false">走势</button>
+          <button id="history-toggle" class="reset-btn history-btn" type="button" aria-expanded="false">汇率走势图</button>
           <button id="reset" class="reset-btn" type="button" title="恢复默认换算" aria-label="重置为 100 美元换算人民币">↺ 重置</button>
         </div>
       </div>
@@ -142,4 +142,3 @@ export const HOME_MARKUP = String.raw`
   </footer>
 
 `;
-

@@ -496,6 +496,8 @@ export const BASE_STYLES = String.raw`
   .history.is-open { grid-template-rows: 1fr; margin-top: 14px; padding: 18px; border-color: rgba(0, 0, 0, 0.08); opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
   .history-content { min-height: 0; overflow: hidden; }
   .history-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; min-height: 72px; margin-bottom: 14px; }
+  .history.is-loading .history-head { min-height: 0; margin-bottom: 10px; }
+  .history.is-loading .history-quote, .history.is-loading .history-note, .history.is-loading .history-ranges { display: none; }
   .history-title { font-size: 15px; font-weight: 600; }
   .history-quote { display: grid; gap: 1px; margin: 7px 0 0; }
   .history-quote-label { color: var(--color-ink-muted-48); font-size: 12px; line-height: 1.2; }
@@ -518,6 +520,7 @@ export const BASE_STYLES = String.raw`
   .history-range[aria-pressed="true"] { color: #0066cc; border-color: #b8d8ff; background: #e8f2ff; }
   .history-range:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
   .history-chart { position: relative; height: 340px; }
+  .history.is-loading .history-chart { height: 148px; border: 1px solid rgba(0, 102, 204, 0.1); border-radius: 14px; background: linear-gradient(135deg, rgba(0, 113, 227, 0.06), rgba(0, 113, 227, 0.015)); }
   .history-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
   .chart-cursor { pointer-events: none; }
   .chart-cursor[hidden] { display: none; }
@@ -550,6 +553,9 @@ export const BASE_STYLES = String.raw`
   .chart-tooltip.is-left { transform: translate(calc(-100% - 14px), -50%) scale(0.98); }
   .chart-tooltip.is-left.is-visible { transform: translate(calc(-100% - 14px), -50%) scale(1); }
   .history-empty { display: grid; height: 100%; place-items: center; color: var(--color-ink-muted-48); font-size: 13px; text-align: center; }
+  .history-empty.is-loading { align-content: center; gap: 10px; color: #6e6e73; font-weight: 500; }
+  .history-loading-indicator { width: 18px; height: 18px; border: 2px solid rgba(0, 113, 227, 0.16); border-top-color: #0071e3; border-radius: 50%; animation: history-loading-spin 720ms linear infinite; }
+  @keyframes history-loading-spin { to { transform: rotate(360deg); } }
   .error { color: #d33; font-size: 14px; margin-top: 12px; letter-spacing: -0.224px; }
 
   /* 信息区域仍然简洁，但用可扫读的统计卡片替代大片装饰。 */

@@ -62,6 +62,7 @@ export const RESPONSIVE_STYLES = String.raw`
     .history-ranges::-webkit-scrollbar { display: none; }
     .history-range { min-height: 36px; }
     .history-chart { height: 250px; }
+    .history.is-loading .history-chart { height: 132px; }
   }
   @media (max-width: 419px) {
     .hero { padding: 44px 20px 30px; }
@@ -79,12 +80,13 @@ export const RESPONSIVE_STYLES = String.raw`
     .history-ranges { margin-top: 10px; }
     .history-note { white-space: normal; }
     .history-chart { height: 220px; }
+    .history.is-loading .history-chart { height: 124px; }
     .rate-summary { align-items: flex-start; }
     .summary-actions { margin-left: 0; }
     .quick-pairs { margin-bottom: 16px; }
     .features, .api-section { padding: 56px 22px; }
   }
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+    *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
   }
 `;
