@@ -126,29 +126,27 @@ const HOME_HTML = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>汇率换算 · Currency</title>
 <link rel="icon" href="/currency-logo.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --color-primary: #0066cc;
-    --color-primary-focus: #0071e3;
+    --color-primary: #0071e3;
+    --color-primary-focus: #0a84ff;
     --color-primary-on-dark: #2997ff;
     --color-ink: #1d1d1f;
     --color-ink-muted-80: #333333;
     --color-ink-muted-48: #7a7a7a;
     --color-canvas: #ffffff;
     --color-parchment: #f5f5f7;
-    --color-pearl: #fafafc;
-    --color-hairline: #e0e0e0;
-    --color-divider-soft: #f0f0f0;
+    --color-pearl: #fbfbfd;
+    --color-hairline: rgba(0, 0, 0, 0.12);
+    --color-divider-soft: rgba(0, 0, 0, 0.06);
     --color-black: #000000;
     --color-on-dark: #ffffff;
     --color-body-muted: #cccccc;
     --color-tile-dark: #272729;
     --radius-sm: 8px;
-    --radius-lg: 18px;
+    --radius-lg: 24px;
     --radius-pill: 9999px;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
     --font-display: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
     --font-text: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
   }
@@ -160,15 +158,19 @@ const HOME_HTML = `<!DOCTYPE html>
     background: var(--color-canvas);
     font-size: 17px;
     line-height: 1.47;
-    letter-spacing: -0.374px;
+    letter-spacing: -0.018em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* global-nav: surface-black, 44px */
+  /* 浮动的半透明顶栏：提供位置感，但不抢占内容层级。 */
   .global-nav {
-    background: var(--color-black);
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: rgba(20, 20, 22, 0.78);
+    backdrop-filter: saturate(180%) blur(20px);
     color: var(--color-on-dark);
     min-height: calc(44px + env(safe-area-inset-top, 0px));
     display: flex;
@@ -189,65 +191,110 @@ const HOME_HTML = `<!DOCTYPE html>
   .brand img { width: 20px; height: 20px; }
   .brand span { opacity: 0.92; }
 
-  /* hero tile: parchment */
+  .brand { min-height: 44px; }
+  .brand:focus-visible { outline: 2px solid #fff; outline-offset: 4px; border-radius: 6px; }
+
+  /* 单一、清晰的任务入口。 */
   .hero {
-    background: var(--color-parchment);
-    padding: 80px 22px 56px;
+    background: radial-gradient(circle at 50% 0%, #ffffff 0, #f5f5f7 52%, #ececf1 100%);
+    padding: 76px 22px 38px;
     text-align: center;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 11px;
+    margin-bottom: 15px;
+    color: #6e6e73;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: var(--radius-pill);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
   }
   .hero h1 {
     font-family: var(--font-display);
-    font-size: 56px;
+    font-size: clamp(42px, 5vw, 64px);
     font-weight: 600;
     line-height: 1.07;
-    letter-spacing: -0.28px;
+    letter-spacing: -0.045em;
     max-width: 980px;
     margin: 0 auto;
   }
   .hero .lead {
     font-family: var(--font-display);
-    font-size: 28px;
+    font-size: clamp(20px, 2.5vw, 26px);
     font-weight: 400;
     line-height: 1.14;
-    letter-spacing: 0.196px;
+    letter-spacing: -0.02em;
     color: var(--color-ink-muted-80);
     margin: 17px auto 0;
     max-width: 720px;
   }
 
-  /* converter card: store-utility-card */
+  /* 换算器是页面唯一的主操作面，输入与结果以深浅两层区分。 */
   .converter-wrap {
-    background: var(--color-parchment);
-    padding: 0 22px 80px;
+    background: linear-gradient(#f5f5f7, #ffffff 84%);
+    padding: 0 22px 96px;
     display: flex;
     justify-content: center;
   }
   .converter-card {
     background: var(--color-canvas);
-    border: 1px solid var(--color-hairline);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: var(--radius-lg);
-    padding: 24px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.09), 0 2px 8px rgba(0, 0, 0, 0.04);
+    padding: 26px;
     width: 100%;
-    max-width: 880px;
+    max-width: 820px;
   }
+  .converter-topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  .converter-title { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+  .converter-hint { color: var(--color-ink-muted-48); font-size: 13px; }
+  .quick-pairs { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 20px; }
+  .pair-chip {
+    min-height: 30px;
+    padding: 5px 10px;
+    border: 1px solid rgba(0, 0, 0, 0.09);
+    border-radius: var(--radius-pill);
+    color: #515154;
+    background: #fff;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 100ms ease-out;
+  }
+  .pair-chip[aria-pressed="true"] { background: #e8f2ff; border-color: #b8d8ff; color: #0066cc; }
+  .pair-chip:active { transform: scale(0.97); }
+  .pair-chip:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
+  @media (hover: hover) and (pointer: fine) { .pair-chip:hover { border-color: #9fc9ff; color: #0066cc; } }
   .pair-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr);
-    gap: 12px;
+    gap: 14px;
     align-items: center;
   }
   .currency-field {
     min-width: 0;
-    background: var(--color-canvas);
-    border: 1px solid var(--color-hairline);
+    background: #fbfbfd;
+    border: 1px solid rgba(0, 0, 0, 0.09);
     border-radius: 20px;
-    padding: 18px 20px 16px;
+    padding: 19px 20px 17px;
     cursor: text;
   }
   .currency-field:focus-within {
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-focus);
+    box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.18);
   }
+  .currency-field[data-amount-side="to"] { background: linear-gradient(145deg, #f7fbff, #eef6ff); }
   .currency-field label {
     display: block;
     font-size: 14px;
@@ -262,7 +309,7 @@ const HOME_HTML = `<!DOCTYPE html>
   }
   .money-symbol {
     font-family: var(--font-display);
-    font-size: 34px;
+    font-size: 36px;
     font-weight: 600;
     line-height: 1.1;
     color: var(--color-ink);
@@ -271,7 +318,7 @@ const HOME_HTML = `<!DOCTYPE html>
   }
   .money-input {
     font-family: var(--font-display);
-    font-size: 36px;
+    font-size: clamp(36px, 4vw, 46px);
     font-weight: 600;
     line-height: 1.1;
     color: var(--color-ink);
@@ -295,7 +342,7 @@ const HOME_HTML = `<!DOCTYPE html>
     font-size: 17px;
     color: var(--color-ink);
     background-color: var(--color-canvas);
-    border: 1px solid rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: var(--radius-pill);
     padding: 12px 56px 12px 20px;
     height: 44px;
@@ -333,12 +380,13 @@ const HOME_HTML = `<!DOCTYPE html>
     right: 0;
     max-height: 300px;
     overflow-y: auto;
-    background: var(--color-canvas);
+    /* 下拉菜单必须是独立实底层，避免与金额卡片叠色。 */
+    background: #ffffff;
     border: 1px solid var(--color-hairline);
     border-radius: var(--radius-lg);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 18px 35px rgba(0, 0, 0, 0.14);
     padding: 6px;
-    z-index: 30;
+    z-index: 50;
     display: none;
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
@@ -408,37 +456,40 @@ const HOME_HTML = `<!DOCTYPE html>
     outline-offset: 2px;
   }
 
-  /* swap button: icon-circular (pearl variant for light bg) */
+  /* 交换是唯一的圆形主控件，按下即反馈。 */
   .swap-btn {
     width: 48px;
     height: 48px;
     border-radius: 9999px;
-    background: var(--color-pearl);
-    border: 1px solid var(--color-divider-soft);
-    color: var(--color-ink);
+    background: var(--color-primary);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    color: white;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.15s ease;
+    box-shadow: 0 7px 16px rgba(0, 113, 227, 0.28);
+    transition: transform 160ms var(--ease-out), background-color 160ms ease, box-shadow 160ms ease;
   }
-  .swap-btn:active { transform: scale(0.95); }
+  .swap-btn:active { transform: scale(0.95) rotate(180deg); }
+  .swap-btn:focus-visible { outline: 3px solid rgba(10, 132, 255, 0.3); outline-offset: 3px; }
   .swap-btn svg { width: 18px; height: 18px; }
 
   .rate-summary {
-    background: var(--color-parchment);
-    border-radius: 14px;
-    padding: 13px 16px;
+    background: #f5f5f7;
+    border-radius: 16px;
+    padding: 14px 16px;
     margin-top: 16px;
     display: flex;
     align-items: center;
     gap: 12px;
-    font-size: 14px;
+    font-size: 13px;
     color: var(--color-ink-muted-48);
     letter-spacing: -0.224px;
     word-break: keep-all;
   }
   .rate-text { min-width: 0; }
+  .rate-summary.is-loading .rate-text { color: #86868b; }
   .reset-btn {
     margin-left: auto;
     flex: 0 0 auto;
@@ -451,15 +502,16 @@ const HOME_HTML = `<!DOCTYPE html>
     font: inherit;
     cursor: pointer;
   }
-  .reset-btn:hover { background: rgba(0, 102, 204, 0.08); }
+  .reset-btn:active { transform: scale(0.97); }
+  @media (hover: hover) and (pointer: fine) { .reset-btn:hover { background: rgba(0, 102, 204, 0.08); } }
   .reset-btn:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
   .error { color: #d33; font-size: 14px; margin-top: 12px; letter-spacing: -0.224px; }
 
-  /* features tile: dark */
+  /* 信息区域仍然简洁，但用可扫读的统计卡片替代大片装饰。 */
   .features {
-    background: var(--color-tile-dark);
+    background: #1d1d1f;
     color: var(--color-on-dark);
-    padding: 80px 22px;
+    padding: 92px 22px;
   }
   .features h2 {
     font-family: var(--font-display);
@@ -475,9 +527,9 @@ const HOME_HTML = `<!DOCTYPE html>
     margin: 0 auto;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 24px;
+    gap: 14px;
   }
-  .feature { text-align: center; }
+  .feature { text-align: center; padding: 28px 20px; border-radius: 20px; background: rgba(255, 255, 255, 0.07); }
   .feature-num {
     font-family: var(--font-display);
     font-size: 48px;
@@ -499,7 +551,7 @@ const HOME_HTML = `<!DOCTYPE html>
     letter-spacing: -0.224px;
   }
 
-  /* API section: light */
+  /* 开发者信息降级为次要任务，适合快速复制而不影响换算。 */
   .api-section {
     background: var(--color-canvas);
     padding: 80px 22px;
@@ -512,11 +564,12 @@ const HOME_HTML = `<!DOCTYPE html>
     line-height: 1.1;
     margin-bottom: 24px;
   }
+  .api-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
   .api-endpoint {
     background: var(--color-parchment);
     border-radius: var(--radius-lg);
     padding: 24px;
-    margin-bottom: 17px;
+    margin: 0;
   }
   .api-endpoint h3 {
     font-size: 17px;
@@ -557,26 +610,49 @@ const HOME_HTML = `<!DOCTYPE html>
 
   /* responsive */
   @media (max-width: 833px) {
-    .hero h1 { font-size: 40px; }
+    .hero { padding-top: 54px; }
+    .hero h1 { font-size: 42px; }
     .feature-grid { grid-template-columns: 1fr; gap: 32px; }
-    .pair-row { grid-template-columns: 1fr; gap: 12px; align-items: stretch; }
+    .api-grid { grid-template-columns: 1fr; }
+    .pair-row {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 24px auto;
+      gap: 0;
+      align-items: stretch;
+    }
     .currency-field { padding: 18px 20px; }
     .combo-input { height: 52px; padding: 14px 60px 14px 20px; }
     .combo-panel { max-height: min(320px, 42dvh); }
     .rate-summary { font-size: 13px; }
-    .swap-btn { margin: -4px auto; transform: rotate(90deg); z-index: 1; }
-    .swap-btn:active { transform: rotate(90deg) scale(0.95); }
+    /* 在两张卡片的分界线上，而非任一侧的边缘。 */
+    .swap-btn {
+      grid-row: 2;
+      justify-self: center;
+      align-self: center;
+      margin: 0;
+      transform: rotate(90deg);
+      z-index: 2;
+    }
+    .swap-btn:active { transform: rotate(270deg) scale(0.95); }
     /* 移动端保留可搜索输入框，方便快速筛选较长的货币列表。 */
     .currency-field .combobox { display: block; }
     .native-select { display: none; }
   }
   @media (max-width: 419px) {
-    .hero { padding: 48px 22px 32px; }
-    .hero h1 { font-size: 28px; }
+    .hero { padding: 44px 20px 30px; }
+    .hero h1 { font-size: 34px; }
     .hero .lead { font-size: 21px; }
     .money-input { font-size: 32px; }
     .money-symbol { font-size: 30px; }
-    .features, .api-section { padding: 48px 22px; }
+    .converter-wrap { padding: 0 14px 64px; }
+    .converter-card { padding: 18px; border-radius: 20px; }
+    .converter-topline { margin-bottom: 14px; }
+    .converter-hint { display: none; }
+    .quick-pairs { margin-bottom: 16px; }
+    .features, .api-section { padding: 56px 22px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
   }
 </style>
 </head>
@@ -589,18 +665,29 @@ const HOME_HTML = `<!DOCTYPE html>
   </nav>
 
   <section class="hero">
+    <p class="eyebrow">参考汇率</p>
     <h1>全球货币，轻松换算。</h1>
     <p class="lead">基于 Frankfurter 开源数据，覆盖 <span id="hero-count">165</span> 种货币，免费、无需 API Key。</p>
   </section>
 
   <div class="converter-wrap">
     <div class="converter-card">
+      <div class="converter-topline">
+        <h2 class="converter-title">开始换算</h2>
+        <p class="converter-hint">修改金额或选择货币，结果自动更新</p>
+      </div>
+      <div class="quick-pairs" aria-label="常用货币组合">
+        <button class="pair-chip" type="button" data-from="USD" data-to="CNY" aria-pressed="true">美元 · 人民币</button>
+        <button class="pair-chip" type="button" data-from="CNY" data-to="USD" aria-pressed="false">人民币 · 美元</button>
+        <button class="pair-chip" type="button" data-from="EUR" data-to="CNY" aria-pressed="false">欧元 · 人民币</button>
+        <button class="pair-chip" type="button" data-from="JPY" data-to="CNY" aria-pressed="false">日元 · 人民币</button>
+      </div>
       <div class="pair-row">
         <div class="currency-field" data-amount-side="from">
           <label>从</label>
           <div class="money-input-wrap">
             <span id="from-symbol" class="money-symbol" aria-hidden="true">$</span>
-            <input id="from-amount" class="money-input" type="number" inputmode="decimal" value="100" min="0" step="0.01" placeholder="0" aria-label="从货币金额">
+            <input id="from-amount" class="money-input" type="number" inputmode="decimal" value="100" min="0" step="any" placeholder="0" aria-label="从货币金额">
           </div>
           <div class="combobox" data-field="from">
             <input type="text" class="combo-input" placeholder="搜索货币…" autocomplete="off" spellcheck="false" aria-label="从货币">
@@ -616,7 +703,7 @@ const HOME_HTML = `<!DOCTYPE html>
           <label>到</label>
           <div class="money-input-wrap">
             <span id="to-symbol" class="money-symbol" aria-hidden="true">¥</span>
-            <input id="to-amount" class="money-input" type="number" inputmode="decimal" value="" min="0" step="0.01" placeholder="0" aria-label="到货币金额">
+            <input id="to-amount" class="money-input" type="number" inputmode="decimal" value="" min="0" step="any" placeholder="0" aria-label="到货币金额">
           </div>
           <div class="combobox" data-field="to">
             <input type="text" class="combo-input" placeholder="搜索货币…" autocomplete="off" spellcheck="false" aria-label="到货币">
@@ -658,21 +745,23 @@ const HOME_HTML = `<!DOCTYPE html>
   <section class="api-section">
     <div class="api-inner">
       <h2>API 端点</h2>
-      <div class="api-endpoint">
-        <h3>换算</h3>
-        <div class="api-code"><span class="method">GET</span> /convert?from=USD&amp;to=CNY&amp;amount=100</div>
-      </div>
-      <div class="api-endpoint">
-        <h3>最新汇率</h3>
-        <div class="api-code"><span class="method">GET</span> /latest?base=USD</div>
-      </div>
-      <div class="api-endpoint">
-        <h3>货币列表</h3>
-        <div class="api-code"><span class="method">GET</span> /currencies</div>
-      </div>
-      <div class="api-endpoint">
-        <h3>健康检查</h3>
-        <div class="api-code"><span class="method">GET</span> /health</div>
+      <div class="api-grid">
+        <div class="api-endpoint">
+          <h3>换算</h3>
+          <div class="api-code"><span class="method">GET</span> /convert?from=USD&amp;to=CNY&amp;amount=100</div>
+        </div>
+        <div class="api-endpoint">
+          <h3>最新汇率</h3>
+          <div class="api-code"><span class="method">GET</span> /latest?base=USD</div>
+        </div>
+        <div class="api-endpoint">
+          <h3>货币列表</h3>
+          <div class="api-code"><span class="method">GET</span> /currencies</div>
+        </div>
+        <div class="api-endpoint">
+          <h3>健康检查</h3>
+          <div class="api-code"><span class="method">GET</span> /health</div>
+        </div>
       </div>
     </div>
   </section>
@@ -726,6 +815,7 @@ const HOME_HTML = `<!DOCTYPE html>
     var fromSymbolEl = $("from-symbol"), toSymbolEl = $("to-symbol");
     var rateEl = $("result-rate");
     var errEl = $("error"), swapBtn = $("swap"), resetBtn = $("reset");
+    var rateSummaryEl = document.querySelector(".rate-summary");
     var fromBox = document.querySelector('[data-field="from"]');
     var toBox = document.querySelector('[data-field="to"]');
     var CURRENCIES = []; // {code, name, cn}
@@ -759,6 +849,13 @@ const HOME_HTML = `<!DOCTYPE html>
       toSymbolEl.textContent = currencySymbol(toBox.dataset.value);
     }
 
+    function syncQuickPairs() {
+      document.querySelectorAll(".pair-chip").forEach(function (chip) {
+        var selected = chip.dataset.from === fromBox.dataset.value && chip.dataset.to === toBox.dataset.value;
+        chip.setAttribute("aria-pressed", selected ? "true" : "false");
+      });
+    }
+
     function showError(msg) { errEl.textContent = msg; errEl.hidden = false; }
     function clearError() { errEl.hidden = true; }
 
@@ -781,6 +878,7 @@ const HOME_HTML = `<!DOCTYPE html>
         initCombobox(fromBox, "USD");
         initCombobox(toBox, "CNY");
         syncSymbols();
+        syncQuickPairs();
         convert();
       }).catch(function () { showError("无法加载货币列表"); });
     }
@@ -838,6 +936,7 @@ const HOME_HTML = `<!DOCTYPE html>
         if (nativeSel) nativeSel.value = code;
         close();
         syncSymbols();
+        syncQuickPairs();
         convertDebounced();
       }
 
@@ -932,14 +1031,20 @@ const HOME_HTML = `<!DOCTYPE html>
       }
       clearError();
       var currentRequest = ++requestId;
+      rateSummaryEl.classList.add("is-loading");
+      rateEl.textContent = "正在获取最新参考汇率…";
       var url = "/convert?from=" + encodeURIComponent(base) + "&to=" + encodeURIComponent(quote) + "&amount=" + amount;
       fetch(url).then(function (r) { return r.json(); }).then(function (data) {
         if (currentRequest !== requestId) return;
+        rateSummaryEl.classList.remove("is-loading");
         if (data.error) { showError(data.error); return; }
         outputEl.value = formatEditableAmount(data.result);
         rateEl.textContent = "1 " + data.from + " = " + data.rate + " " + data.to + " · 更新于 " + data.date;
       }).catch(function () {
-        if (currentRequest === requestId) showError("网络错误，请重试");
+        if (currentRequest === requestId) {
+          rateSummaryEl.classList.remove("is-loading");
+          showError("网络错误，请重试");
+        }
       });
     }
 
@@ -967,6 +1072,18 @@ const HOME_HTML = `<!DOCTYPE html>
       var sel = box.parentNode.querySelector(".native-select");
       if (sel) sel.value = code;
     }
+    document.querySelectorAll(".pair-chip").forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        fromBox.dataset.value = chip.dataset.from;
+        toBox.dataset.value = chip.dataset.to;
+        syncDisplay(fromBox);
+        syncDisplay(toBox);
+        syncSymbols();
+        syncQuickPairs();
+        activeSide = "from";
+        convert();
+      });
+    });
     swapBtn.addEventListener("click", function () {
       var f = fromBox.dataset.value;
       fromBox.dataset.value = toBox.dataset.value;
@@ -978,6 +1095,7 @@ const HOME_HTML = `<!DOCTYPE html>
       toAmountEl.value = amount;
       activeSide = "from";
       syncSymbols();
+      syncQuickPairs();
       convert();
     });
     resetBtn.addEventListener("click", function () {
@@ -989,6 +1107,7 @@ const HOME_HTML = `<!DOCTYPE html>
       syncDisplay(fromBox);
       syncDisplay(toBox);
       syncSymbols();
+      syncQuickPairs();
       clearError();
       convert();
       fromAmountEl.focus({ preventScroll: true });
