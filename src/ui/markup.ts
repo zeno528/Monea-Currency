@@ -13,8 +13,7 @@ export const HOME_MARKUP = String.raw`
       <span class="eyebrow-dot" aria-hidden="true"></span>
       <span>央行参考汇率 · 多源混合</span>
     </p>
-    <h1 id="hero-title">美元兑换人民币</h1>
-    <p id="hero-rate" class="hero-rate" aria-live="polite">正在获取最新参考汇率…</p>
+    <h1 id="hero-title">USD 兑换 CNY</h1>
   </section>
 
   <div class="converter-wrap">

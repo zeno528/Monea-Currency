@@ -9,6 +9,8 @@
 export const UPSTREAM = "https://api.frankfurter.dev/v2";
 export const CACHE_TTL_SECONDS = 3600; // 1 小时
 const DAY_SECONDS = 86400;
+// 回源超时：上游挂起（TCP 半开、TLS 卡死等）时及时中断，避免整个请求被无限拖死。
+const UPSTREAM_TIMEOUT_MS = 6000;
 
 type CachePolicy = {
   name: "live-rate" | "dated-rate" | "history" | "currencies";
@@ -62,6 +64,20 @@ export function json(data: unknown, status = 200, headers: Record<string, string
 }
 
 /**
+ * 带超时的上游 fetch：上游挂起（TCP 半开、TLS 卡死等）时在 timeoutMs 内中断，
+ * 避免 cachedFetch 进而整个请求被无限拖死。
+ */
+async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { headers: { "User-Agent": "Monea Currency/1.0" }, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * 带边缘缓存的 fetch：命中缓存直接返回；上游暂时不可用时，回退到同一边缘节点最近一次成功结果。
  * Cache API 是机房本地缓存，回退结果会以 STALE 标记返回，且不会被客户端继续缓存。
  */
@@ -74,19 +90,28 @@ async function cachedFetch(url: string, ctx: ExecutionContext, policy: CachePoli
 
   let resp: Response;
   try {
-    resp = await fetch(url, { headers: { "User-Agent": "Monea Currency/1.0" } });
+    resp = await fetchWithTimeout(url, UPSTREAM_TIMEOUT_MS);
   } catch (error) {
-    return staleOrThrow(cache, url, policy, "network", error);
+    // 超时或网络错误：优先返回同边缘节点最近一次成功结果（STALE）；都没有则返回 504，让客户端降级到直连上游。
+    const stale = await cache.match(staleCacheKey(url));
+    if (stale) {
+      console.warn(JSON.stringify({ event: "cache", state: "stale", resource: policy.name, reason: "timeout-or-network" }));
+      return { response: stale, cacheState: "STALE" };
+    }
+    return { response: json({ error: "Upstream unavailable" }, 504), cacheState: "MISS" };
   }
   if (!resp.ok) {
     if (resp.status >= 500) return staleOrResponse(cache, url, policy, `upstream-${resp.status}`, resp);
     return { response: resp, cacheState: "MISS" }; // 透传客户端可修正的上游错误
   }
 
-  // body 只能读一次，克隆后存缓存
-  const forCache = new Response(resp.body, resp);
+  // 先把响应体物化为字符串再分发：frankfurter 时间序列响应是 chunked（无 Content-Length），
+  // 直接对原始流做 clone + cache.put + 下游 json() 多路消费，会在 workerd 里死锁（流永不结束）。
+  const bodyText = await resp.text();
+  const responseInit = { status: resp.status, statusText: resp.statusText, headers: { "Content-Type": resp.headers.get("Content-Type") || "application/json" } };
+  const forCache = new Response(bodyText, responseInit);
   forCache.headers.set("Cache-Control", `public, max-age=${policy.ttlSeconds}`);
-  const stale = forCache.clone();
+  const stale = new Response(bodyText, responseInit);
   stale.headers.set("Cache-Control", `public, max-age=${policy.staleTtlSeconds}`);
   ctx.waitUntil(Promise.all([cache.put(url, forCache.clone()), cache.put(staleCacheKey(url), stale)]));
   console.log(JSON.stringify({ event: "cache", state: "miss", resource: policy.name }));
@@ -97,15 +122,6 @@ function staleCacheKey(url: string): string {
   const key = new URL(url);
   key.searchParams.set("__monea_stale", "1");
   return key.toString();
-}
-
-async function staleOrThrow(cache: Cache, url: string, policy: CachePolicy, reason: string, error: unknown): Promise<CachedFetchResult> {
-  const stale = await cache.match(staleCacheKey(url));
-  if (stale) {
-    console.warn(JSON.stringify({ event: "cache", state: "stale", resource: policy.name, reason }));
-    return { response: stale, cacheState: "STALE" };
-  }
-  throw error;
 }
 
 async function staleOrResponse(cache: Cache, url: string, policy: CachePolicy, reason: string, response: Response): Promise<CachedFetchResult> {

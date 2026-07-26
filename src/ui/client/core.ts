@@ -67,7 +67,7 @@ export const HOME_CLIENT_CORE = String.raw`
     var fromAmountEl = $("from-amount"), toAmountEl = $("to-amount");
     var fromSymbolEl = $("from-symbol"), toSymbolEl = $("to-symbol");
     var rateEl = $("result-rate");
-    var heroTitleEl = $("hero-title"), heroRateEl = $("hero-rate");
+    var heroTitleEl = $("hero-title");
     var errEl = $("error"), swapBtn = $("swap"), resetBtn = $("reset");
     var dateEl = $("rate-date"), favoriteBtn = $("favorite-pair");
     var savedPairsEl = $("saved-pairs"), historyEl = $("history"), historyContentEl = $("history-content"), historyToggleEl = $("history-toggle");
@@ -87,6 +87,8 @@ export const HOME_CLIENT_CORE = String.raw`
     var historyRequestId = 0;
     var historyRequestController = null;
     var historyCache = new Map();
+    var historyStoreLoaded = false;
+    var HISTORY_STORAGE_KEY = "monea-currency:history:v1";
     var historyClientPromise = null;
     var PAIR_STORAGE_KEY = "monea-currency:pairs:v1";
     var CURRENCY_FAVORITES_STORAGE_KEY = "monea-currency:favorite-currencies:v1";
@@ -347,7 +349,35 @@ export const HOME_CLIENT_CORE = String.raw`
       return historyClientPromise;
     }
 
+    function loadHistoryStore() {
+      if (historyStoreLoaded) return;
+      historyStoreLoaded = true;
+      try {
+        var raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+        if (!raw) return;
+        var entries = JSON.parse(raw);
+        if (!entries || typeof entries !== "object") return;
+        var cutoff = Date.now() - 60 * 60 * 1000;
+        Object.keys(entries).forEach(function (storeKey) {
+          var entry = entries[storeKey];
+          if (entry && entry.storedAt > cutoff) historyCache.set(storeKey, entry);
+        });
+      } catch (_) {}
+    }
+
+    function persistHistoryStore() {
+      try {
+        var keys = Array.from(historyCache.keys());
+        // 仅保留最近 24 条，避免长期使用后无限增长
+        if (keys.length > 24) keys = keys.slice(keys.length - 24);
+        var entries = {};
+        keys.forEach(function (storeKey) { entries[storeKey] = historyCache.get(storeKey); });
+        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(entries));
+      } catch (_) {}
+    }
+
     function readHistoryCache(key) {
+      loadHistoryStore();
       var cached = historyCache.get(key);
       if (!cached) return null;
       if (Date.now() - cached.storedAt > 60 * 60 * 1000) {
@@ -409,14 +439,15 @@ export const HOME_CLIENT_CORE = String.raw`
       if (!from || !to) return;
       var id = ++historyRequestId;
       var key = from + ":" + to + ":" + historyRange;
-      if (animation === "draw") setHistoryLoading("正在加载汇率走势图…", true);
+      // morph 通常保留旧曲线静默过渡；但若没有可过渡的旧曲线（首次打开后即切换、上次加载失败），同样显示加载态，避免空着像卡住。
+      if (animation === "draw" || (animation === "morph" && !historyChartEl.querySelector("#history-svg"))) setHistoryLoading("正在加载汇率走势图…", true);
       if (historyRequestController) historyRequestController.abort();
       historyRequestController = new AbortController();
       var signal = historyRequestController.signal;
       var cached = readHistoryCache(key);
       var dataPromise = cached
         ? Promise.resolve(cached)
-        : fetchJsonWithin("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + historyRange, signal, 1500)
+        : fetchJsonWithin("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + historyRange, signal, 2000)
           .then(function (data) {
             if (data.error) throw new Error("history-response");
             return data;
@@ -426,7 +457,10 @@ export const HOME_CLIENT_CORE = String.raw`
             return fetchOfficialHistory(from, to, historyRange, signal);
           })
           .then(function (data) {
-            if (!data.error) historyCache.set(key, { data: data, storedAt: Date.now() });
+            if (!data.error) {
+              historyCache.set(key, { data: data, storedAt: Date.now() });
+              persistHistoryStore();
+            }
             return data;
           });
       Promise.all([ensureHistoryClient(), dataPromise]).then(function (result) {
@@ -496,15 +530,7 @@ export const HOME_CLIENT_CORE = String.raw`
       var from = fromBox.dataset.value, to = toBox.dataset.value;
       if (!from || !to) return;
       requestId++;
-      heroTitleEl.textContent = currencyName(from) + "兑换" + currencyName(to);
-      heroRateEl.textContent = "正在获取" + (dateEl.value ? "指定日期" : "最新") + "参考汇率…";
-    }
-
-    function syncHeroRate(data) {
-      var from = fromBox.dataset.value, to = toBox.dataset.value;
-      var rate = data.from === from && data.to === to ? Number(data.rate) : 1 / Number(data.rate);
-      if (!isFinite(rate)) return;
-      heroRateEl.textContent = "1 " + currencyName(from) + " = " + formatHeroRate(rate) + " " + currencyName(to) + " · 数据日期 " + data.date;
+      heroTitleEl.textContent = from + " 兑换 " + to;
     }
 
     function formatEditableAmount(amount) {
@@ -899,7 +925,6 @@ export const HOME_CLIENT_CORE = String.raw`
       var rate = Number(data.rate);
       outputEl.value = formatEditableAmount(+(amount * rate).toFixed(4));
       rateEl.textContent = "1 " + data.from + " = " + formatHeroRate(rate) + " " + data.to + " · 数据日期 " + data.date;
-      syncHeroRate(data);
     }
 
     function convert() {
@@ -946,7 +971,6 @@ export const HOME_CLIENT_CORE = String.raw`
         if (currentRequest !== requestId) return;
         rateSummaryEl.classList.remove("is-loading");
         if (data.error) {
-          heroRateEl.textContent = "暂时无法获取参考汇率";
           showError(data.error);
           return;
         }
@@ -955,7 +979,6 @@ export const HOME_CLIENT_CORE = String.raw`
         if (currentRequest === requestId) {
           rateSummaryEl.classList.remove("is-loading");
           if (error.name === "AbortError") return;
-          heroRateEl.textContent = "暂时无法获取参考汇率";
           showError("网络错误，请重试");
         }
       });
