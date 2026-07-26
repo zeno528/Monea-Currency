@@ -68,8 +68,8 @@ export async function handleConvert(url: URL, ctx: ExecutionContext): Promise<Re
   const to = (url.searchParams.get("to") || "EUR").toUpperCase();
   const amountParam = url.searchParams.get("amount");
   const dateParam = url.searchParams.get("date") || undefined;
-  const amount = amountParam === null ? 1 : parseFloat(amountParam);
-  if (!Number.isFinite(amount) || amount < 0) {
+  const amount = parseNonNegativeAmount(amountParam);
+  if (amount === null) {
     return json({ error: "Invalid amount" }, 400);
   }
   if (dateParam && !isIsoDate(dateParam)) {
@@ -144,22 +144,18 @@ export async function handleHistory(url: URL, ctx: ExecutionContext): Promise<Re
   );
 }
 
-/** GET /latest?base=USD — 把上游数组折叠为 {base, date, rates:{CODE:rate}} */
+/** GET /latest?base=USD — 保留每个货币各自的数据日期。 */
 export async function handleLatest(url: URL, ctx: ExecutionContext): Promise<Response> {
   const base = (url.searchParams.get("base") || "EUR").toUpperCase();
-  const resp = await cachedFetch(`${UPSTREAM}/rates/latest?base=${base}`, ctx);
+  const resp = await cachedFetch(`${UPSTREAM}/rates?base=${base}`, ctx);
   if (!resp.ok) return upstreamError(resp);
   const arr: RateEntry[] = await resp.json();
 
-  const rates: Record<string, number> = {};
-  const dateCount: Record<string, number> = {};
+  const rates: Record<string, { rate: number; date: string }> = {};
   for (const e of arr) {
-    rates[e.quote] = e.rate;
-    dateCount[e.date] = (dateCount[e.date] || 0) + 1;
+    rates[e.quote] = { rate: e.rate, date: e.date };
   }
-  // 不同央行更新日期不一，取出现次数最多的作为整体日期
-  const date = Object.entries(dateCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? arr[0]?.date;
-  return json({ base, date, rates }, 200, { "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}` });
+  return json({ base, rates }, 200, { "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}` });
 }
 
 /** GET /currencies — 转为 {count, currencies:{CODE:{name,symbol}}} */
@@ -184,6 +180,14 @@ function daysBefore(days: number): string {
 
 function isIsoDate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
+}
+
+function parseNonNegativeAmount(value: string | null): number | null {
+  if (value === null) return 1;
+  const normalized = value.trim();
+  if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) return null;
+  const amount = Number(normalized);
+  return Number.isFinite(amount) && amount >= 0 ? amount : null;
 }
 
 

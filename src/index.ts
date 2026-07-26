@@ -18,6 +18,9 @@ export default {
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: CORS_HEADERS });
     }
+    if (request.method !== "GET") {
+      return json({ error: "Method not allowed" }, 405, { Allow: "GET, OPTIONS" });
+    }
 
     const url = new URL(request.url);
 
