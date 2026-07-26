@@ -652,33 +652,40 @@ export const BASE_STYLES = String.raw`
     letter-spacing: -0.224px;
   }
 
-  /* footer: parchment */
+  /* Footer: identity, reference notice, and supporting information stay in distinct layers. */
   .footer {
     background: var(--color-parchment);
     color: var(--color-ink-muted-80);
-    padding: 56px 22px 40px;
-    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
-    text-align: center;
+    padding: 42px 22px 28px;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
   }
+  .footer-inner { max-width: 980px; margin: 0 auto; }
+  .footer-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .footer-identity { display: inline-flex; align-items: baseline; gap: 10px; }
   .footer-brand {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     color: var(--color-ink);
-    margin-bottom: 18px;
   }
   .footer-author-link {
     font-weight: 500;
     color: var(--color-primary);
     text-decoration: none;
+    font-size: 13px;
   }
   .footer-author-link:hover { text-decoration: underline; }
   .footer-links {
     display: flex;
     align-items: center;
-    justify-content: center;
     flex-wrap: wrap;
-    gap: 8px 10px;
-    font-size: 12px;
+    justify-content: flex-end;
+    gap: 16px;
+    font-size: 13px;
     color: var(--color-ink-muted-48);
   }
   .footer-links a {
@@ -686,16 +693,32 @@ export const BASE_STYLES = String.raw`
     text-decoration: none;
   }
   .footer-links a:hover { text-decoration: underline; }
-  .footer-dot { color: rgba(0, 0, 0, 0.2); user-select: none; }
-  .footer-divider {
-    border-top: 1px solid var(--color-hairline);
-    margin: 28px auto;
-    max-width: 980px;
-  }
-  .footer-meta {
+  .footer-notice {
+    max-width: 640px;
+    margin: 22px 0 0;
     font-size: 12px;
     color: var(--color-ink-muted-48);
-    line-height: 1.7;
+    line-height: 1.65;
+  }
+  .footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-hairline);
+    color: var(--color-ink-muted-48);
+    font-size: 12px;
+  }
+  .footer-bottom a { color: var(--color-ink-muted-48); text-decoration: none; }
+  .footer-bottom a:hover { color: var(--color-primary); text-decoration: underline; }
+  @media (max-width: 640px) {
+    .footer { padding-top: 34px; text-align: center; }
+    .footer-top, .footer-bottom { flex-direction: column; gap: 14px; }
+    .footer-identity { justify-content: center; }
+    .footer-links { justify-content: center; gap: 12px 18px; }
+    .footer-notice { margin: 20px auto 0; }
+    .footer-bottom { margin-top: 24px; padding-top: 16px; }
   }
 
 `;

@@ -112,28 +112,31 @@ export const HOME_MARKUP = String.raw`
         <div class="feature-desc">数据由 Frankfurter 汇聚多家中央银行公开参考汇率提供，默认显示综合参考结果。</div>
       </div>
       <div class="feature">
-        <div class="feature-num">1h</div>
-        <div class="feature-title">智能缓存</div>
-        <div class="feature-desc">相同查询最多缓存一小时，减少重复请求，让查看与换算更顺畅。</div>
+        <div class="feature-num">Daily</div>
+        <div class="feature-title">参考数据更新</div>
+        <div class="feature-desc">参考汇率通常按日更新，数据日期可见。<br>相同查询最长缓存 1 小时。</div>
       </div>
     </div>
   </section>
 
   <footer class="footer">
-    <div class="footer-brand">
-      <span>Monea Currency</span>
-      <span class="footer-dot" aria-hidden="true">·</span>
-      <a href="https://github.com/zeno528/" target="_blank" rel="noopener" class="footer-author-link">作者 Scott</a>
+    <div class="footer-inner">
+      <div class="footer-top">
+        <div class="footer-identity">
+          <div class="footer-brand">Monea Currency</div>
+          <a href="https://github.com/zeno528/" target="_blank" rel="noopener" class="footer-author-link">by Scott</a>
+        </div>
+        <nav class="footer-links" aria-label="页脚链接">
+          <a href="https://frankfurter.dev" target="_blank" rel="noopener">数据来源 Frankfurter ↗</a>
+          <a href="https://github.com/zeno528/Monea-Currency" target="_blank" rel="noopener">GitHub ↗</a>
+        </nav>
+      </div>
+      <p class="footer-notice">参考汇率由 Frankfurter 汇聚的多家中央银行公开数据提供，并非实时交易报价；仅供参考，不构成交易建议。</p>
+      <div class="footer-bottom">
+        <span>© 2026 Monea Currency</span>
+        <a href="https://dash.cloudflare.com/?to=/:account/workers" target="_blank" rel="noopener">运行于 Cloudflare Workers ↗</a>
+      </div>
     </div>
-    <nav class="footer-links" aria-label="页脚链接">
-      <a href="https://frankfurter.dev" target="_blank" rel="noopener">数据由 Frankfurter 提供 ↗</a>
-      <span class="footer-dot" aria-hidden="true">·</span>
-      <span>部署于 Cloudflare Workers</span>
-      <span class="footer-dot" aria-hidden="true">·</span>
-      <a href="https://github.com/zeno528/Monea-Currency" target="_blank" rel="noopener">GitHub 仓库 ↗</a>
-    </nav>
-    <div class="footer-divider" aria-hidden="true"></div>
-    <p class="footer-meta">默认显示 Frankfurter 汇聚的多家央行参考汇率，并非实时交易报价。<br>汇率仅供参考，不构成交易建议。<br>© 2026 Monea Currency</p>
   </footer>
 
 `;
