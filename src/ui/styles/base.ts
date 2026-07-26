@@ -197,7 +197,8 @@ export const BASE_STYLES = String.raw`
   .utility-btn[aria-pressed="true"] { color: #0066cc; border-color: #b8d8ff; background: #e8f2ff; }
   .utility-btn:active { transform: scale(0.97); }
   .utility-btn:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
-  .quick-pairs { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 20px; }
+  .quick-pairs { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin: 0 0 20px; }
+  .quick-pairs-label { flex: 0 0 auto; color: var(--color-ink-muted-48); font-size: 13px; }
   .pair-chip {
     min-height: 30px;
     padding: 5px 10px;
