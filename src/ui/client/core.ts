@@ -108,6 +108,27 @@ export const HOME_CLIENT_CORE = String.raw`
       return window.visualViewport ? window.visualViewport.height : window.innerHeight;
     }
 
+    function revealComboPanel(panel) {
+      if (!isCompactViewport()) return;
+      // 等浮层进入布局后再量尺寸；不聚焦输入框，因此不会触发键盘或键盘回弹逻辑。
+      requestAnimationFrame(function () {
+        var rect = panel.getBoundingClientRect();
+        var visibleHeight = comboViewportHeight();
+        var safeTop = 16;
+        var safeBottom = visibleHeight - 16;
+        var delta = rect.top < safeTop
+          ? rect.top - safeTop
+          : (rect.bottom > safeBottom ? rect.bottom - safeBottom : 0);
+        if (Math.abs(delta) <= 8) return;
+        var targetTop = Math.max(0, window.scrollY + delta);
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          window.scrollTo(window.scrollX, targetTop);
+        } else {
+          window.scrollTo({ left: window.scrollX, top: targetTop, behavior: "smooth" });
+        }
+      });
+    }
+
     function cancelComboKeyboardAlignment() {
       if (comboKeyboardSettleTimer === null) return;
       clearTimeout(comboKeyboardSettleTimer);
@@ -776,10 +797,15 @@ export const HOME_CLIENT_CORE = String.raw`
         convert();
       }
 
-      input.addEventListener("focus", function () {
+      function activateTextSearch() {
         startComboKeyboardSession(input);
         input.select();
         if (!box.classList.contains("open")) open();
+      }
+      input.addEventListener("focus", activateTextSearch);
+      // 输入框已持有焦点、但列表刚被收起时，focus 不会再次触发；点击文本仍须恢复编辑状态。
+      input.addEventListener("click", function () {
+        if (!box.classList.contains("open")) activateTextSearch();
       });
       input.addEventListener("input", function () {
         searchQuery = input.value;
@@ -845,18 +871,16 @@ export const HOME_CLIENT_CORE = String.raw`
           input.value = displayText(box.dataset.value);
         }, 150);
       });
-      // 点击下拉箭头：展开/收起全部货币（桌面端入口）
+      // 点击下拉箭头：仅展开/收起列表，不进入输入编辑或唤起键盘。
       if (arrow) {
         arrow.addEventListener("click", function (e) {
           e.preventDefault();
           e.stopPropagation();
           if (box.classList.contains("open")) {
             close();
-          } else if (isCompactViewport()) {
-            // 手机端箭头与输入框是同一个搜索入口，避免只展开列表却无法直接输入。
-            input.focus({ preventScroll: true });
           } else {
             open();
+            revealComboPanel(panel);
           }
         });
       }
