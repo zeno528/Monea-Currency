@@ -41,7 +41,7 @@ export const BASE_STYLES = String.raw`
     position: sticky;
     top: 0;
     z-index: 40;
-    background: rgba(20, 20, 22, 0.78);
+    background: linear-gradient(135deg, rgba(8, 20, 69, 0.78) 0%, rgba(4, 9, 44, 0.78) 60%, rgba(2, 8, 31, 0.78) 100%);
     backdrop-filter: saturate(180%) blur(20px);
     color: var(--color-on-dark);
     min-height: calc(44px + env(safe-area-inset-top, 0px));
@@ -608,7 +608,7 @@ export const BASE_STYLES = String.raw`
 
   /* 信息区域仍然简洁，但用可扫读的统计卡片替代大片装饰。 */
   .features {
-    background: #1d1d1f;
+    background: linear-gradient(135deg, #081445 0%, #04092c 60%, #02081f 100%);
     color: var(--color-on-dark);
     padding: 92px 22px;
   }
