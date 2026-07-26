@@ -30,33 +30,37 @@ export const HOME_MARKUP = String.raw`
       </div>
       <div id="saved-pairs" class="saved-pairs" aria-label="收藏和最近使用的货币组合"></div>
       <div class="pair-row">
-        <div class="currency-field" data-amount-side="from">
-          <label>从</label>
-          <div class="money-input-wrap">
-            <span id="from-symbol" class="money-symbol" aria-hidden="true">$</span>
-            <input id="from-amount" class="money-input" type="text" inputmode="decimal" value="100" placeholder="0" aria-label="从货币金额">
-          </div>
-          <div class="combobox" data-field="from" data-value="USD">
-            <span class="combo-selected-flag" aria-hidden="true"></span>
-            <input type="text" class="combo-input" value="$ 美元 (USD)" placeholder="搜索货币…" autocomplete="off" spellcheck="false" aria-label="从货币">
-            <button class="combo-arrow" type="button" aria-label="展开从货币列表" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
-            <div class="combo-panel" role="listbox"><div class="combo-scroll"></div></div>
+        <div class="field-group" data-amount-side="from">
+          <label class="field-label" for="from-amount">金额</label>
+          <div class="currency-field">
+            <div class="money-input-wrap">
+              <span id="from-symbol" class="money-symbol" aria-hidden="true">$</span>
+              <input id="from-amount" class="money-input" type="text" inputmode="decimal" value="100" placeholder="0" aria-label="从货币金额">
+            </div>
+            <div class="combobox" data-field="from" data-value="USD">
+              <span class="combo-selected-flag" aria-hidden="true"></span>
+              <input type="text" class="combo-input" value="$ 美元 (USD)" placeholder="搜索货币…" autocomplete="off" spellcheck="false" aria-label="从货币">
+              <button class="combo-arrow" type="button" aria-label="展开从货币列表" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+              <div class="combo-panel" role="listbox"><div class="combo-scroll"></div></div>
+            </div>
           </div>
         </div>
         <button id="swap" class="swap-btn" type="button" title="交换货币" aria-label="交换货币">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14M14 5l4 3-4 3M20 16H6M10 13l-4 3 4 3"/></svg>
         </button>
-        <div class="currency-field" data-amount-side="to">
-          <label>到</label>
-          <div class="money-input-wrap">
-            <span id="to-symbol" class="money-symbol" aria-hidden="true">¥</span>
-            <input id="to-amount" class="money-input" type="text" inputmode="decimal" value="" placeholder="0" aria-label="到货币金额">
-          </div>
-          <div class="combobox" data-field="to" data-value="CNY">
-            <span class="combo-selected-flag" aria-hidden="true"></span>
-            <input type="text" class="combo-input" value="¥ 人民币 (CNY)" placeholder="搜索货币…" autocomplete="off" spellcheck="false" aria-label="到货币">
-            <button class="combo-arrow" type="button" aria-label="展开到货币列表" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
-            <div class="combo-panel" role="listbox"><div class="combo-scroll"></div></div>
+        <div class="field-group" data-amount-side="to">
+          <label class="field-label" for="to-amount">换算为</label>
+          <div class="currency-field">
+            <div class="money-input-wrap">
+              <span id="to-symbol" class="money-symbol" aria-hidden="true">¥</span>
+              <input id="to-amount" class="money-input" type="text" inputmode="decimal" value="" placeholder="0" aria-label="到货币金额">
+            </div>
+            <div class="combobox" data-field="to" data-value="CNY">
+              <span class="combo-selected-flag" aria-hidden="true"></span>
+              <input type="text" class="combo-input" value="¥ 人民币 (CNY)" placeholder="搜索货币…" autocomplete="off" spellcheck="false" aria-label="到货币">
+              <button class="combo-arrow" type="button" aria-label="展开到货币列表" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+              <div class="combo-panel" role="listbox"><div class="combo-scroll"></div></div>
+            </div>
           </div>
         </div>
       </div>
