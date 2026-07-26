@@ -67,21 +67,62 @@ async function handleConvert(url: URL, ctx: ExecutionContext): Promise<Response>
   const from = (url.searchParams.get("from") || "USD").toUpperCase();
   const to = (url.searchParams.get("to") || "EUR").toUpperCase();
   const amountParam = url.searchParams.get("amount");
+  const dateParam = url.searchParams.get("date") || undefined;
   const amount = amountParam === null ? 1 : parseFloat(amountParam);
   if (!Number.isFinite(amount) || amount < 0) {
     return json({ error: "Invalid amount" }, 400);
   }
+  if (dateParam && !isIsoDate(dateParam)) {
+    return json({ error: "Invalid date" }, 400);
+  }
 
   // 同币种直接返回，避免上游 404
   if (from === to) {
-    return json({ from, to, amount, rate: 1, result: amount, date: today() });
+    return json({ from, to, amount, rate: 1, result: amount, date: dateParam ?? today() });
   }
 
-  const resp = await cachedFetch(`${UPSTREAM}/rate/${from}/${to}`, ctx);
+  const params = dateParam ? `?date=${encodeURIComponent(dateParam)}` : "";
+  const resp = await cachedFetch(`${UPSTREAM}/rate/${from}/${to}${params}`, ctx);
   if (!resp.ok) return upstreamError(resp);
   const data: RateEntry = await resp.json();
   const result = +(amount * data.rate).toFixed(4);
   return json({ from: data.base, to: data.quote, amount, rate: data.rate, result, date: data.date });
+}
+
+/** GET /history?from=USD&to=CNY&range=1M — 用于按需加载参考汇率走势。 */
+async function handleHistory(url: URL, ctx: ExecutionContext): Promise<Response> {
+  const from = (url.searchParams.get("from") || "USD").toUpperCase();
+  const to = (url.searchParams.get("to") || "EUR").toUpperCase();
+  const range = url.searchParams.get("range") || "1M";
+  const presets: Record<string, { days: number; group?: "week" | "month" }> = {
+    "1W": { days: 7 },
+    "1M": { days: 30 },
+    "6M": { days: 183, group: "week" },
+    "1Y": { days: 365, group: "month" },
+  };
+  const preset = presets[range];
+  if (!preset) return json({ error: "Invalid range" }, 400);
+
+  const end = today();
+  const start = daysBefore(preset.days);
+  if (from === to) {
+    return json({ from, to, range, start, end, group: preset.group ?? "day", points: [{ date: start, rate: 1 }, { date: end, rate: 1 }] });
+  }
+
+  const params = new URLSearchParams({ base: from, quotes: to, from: start, to: end });
+  if (preset.group) params.set("group", preset.group);
+  const resp = await cachedFetch(`${UPSTREAM}/rates?${params}`, ctx);
+  if (!resp.ok) return upstreamError(resp);
+  const entries: RateEntry[] = await resp.json();
+  return json({
+    from,
+    to,
+    range,
+    start,
+    end,
+    group: preset.group ?? "day",
+    points: entries.filter((entry) => entry.base === from && entry.quote === to).map((entry) => ({ date: entry.date, rate: entry.rate })),
+  });
 }
 
 /** GET /latest?base=USD — 把上游数组折叠为 {base, date, rates:{CODE:rate}} */
@@ -114,6 +155,16 @@ async function handleCurrencies(ctx: ExecutionContext): Promise<Response> {
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function daysBefore(days: number): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - days);
+  return date.toISOString().slice(0, 10);
+}
+
+function isIsoDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 }
 
 // ---------- 首页 HTML（Apple 设计规范） ----------
@@ -260,6 +311,41 @@ const HOME_HTML = `<!DOCTYPE html>
   }
   .converter-title { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
   .converter-hint { color: var(--color-ink-muted-48); font-size: 13px; }
+  .converter-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+  .date-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--color-ink-muted-48);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .date-control input {
+    min-height: 32px;
+    padding: 4px 7px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    color: var(--color-ink);
+    font: inherit;
+    font-size: 12px;
+  }
+  .date-control input:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
+  .utility-btn {
+    min-height: 32px;
+    padding: 5px 9px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: var(--radius-pill);
+    background: #fff;
+    color: #515154;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 100ms ease-out;
+  }
+  .utility-btn[aria-pressed="true"] { color: #0066cc; border-color: #b8d8ff; background: #e8f2ff; }
+  .utility-btn:active { transform: scale(0.97); }
+  .utility-btn:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
   .quick-pairs { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 20px; }
   .pair-chip {
     min-height: 30px;
@@ -277,6 +363,19 @@ const HOME_HTML = `<!DOCTYPE html>
   .pair-chip:active { transform: scale(0.97); }
   .pair-chip:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
   @media (hover: hover) and (pointer: fine) { .pair-chip:hover { border-color: #9fc9ff; color: #0066cc; } }
+  .saved-pairs {
+    display: grid;
+    grid-template-rows: 0fr;
+    margin: -8px 0 0;
+    opacity: 0;
+    transform: translateY(-5px);
+    transition: grid-template-rows 360ms var(--ease-out), margin 360ms var(--ease-out), opacity 180ms ease, transform 360ms var(--ease-out);
+  }
+  .saved-pairs.has-content { grid-template-rows: 1fr; margin-bottom: 20px; opacity: 1; transform: translateY(0); }
+  .saved-pairs-inner { min-height: 0; overflow: hidden; }
+  .saved-pairs-content { display: grid; gap: 8px; }
+  .saved-pair-row { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+  .saved-pair-label { min-width: 26px; color: var(--color-ink-muted-48); font-size: 12px; }
   .pair-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr);
@@ -511,8 +610,8 @@ const HOME_HTML = `<!DOCTYPE html>
   }
   .rate-text { min-width: 0; }
   .rate-summary.is-loading .rate-text { color: #86868b; }
+  .summary-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: 0 0 auto; }
   .reset-btn {
-    margin-left: auto;
     flex: 0 0 auto;
     min-height: 32px;
     padding: 5px 7px;
@@ -526,6 +625,72 @@ const HOME_HTML = `<!DOCTYPE html>
   .reset-btn:active { transform: scale(0.97); }
   @media (hover: hover) and (pointer: fine) { .reset-btn:hover { background: rgba(0, 102, 204, 0.08); } }
   .reset-btn:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
+  .history-btn { white-space: nowrap; }
+  .history {
+    display: grid;
+    grid-template-rows: 0fr;
+    margin-top: 0;
+    padding: 0 18px;
+    border: 1px solid transparent;
+    border-radius: 18px;
+    background: #fbfbfd;
+    opacity: 0;
+    transform: translateY(-8px) scale(0.99);
+    pointer-events: none;
+    transition: grid-template-rows 380ms var(--ease-out), margin 380ms var(--ease-out), padding 380ms var(--ease-out), border-color 240ms ease, opacity 180ms ease, transform 380ms var(--ease-out);
+  }
+  .history[hidden] { display: grid; }
+  .history.is-open { grid-template-rows: 1fr; margin-top: 14px; padding: 18px; border-color: rgba(0, 0, 0, 0.08); opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+  .history-content { min-height: 0; overflow: hidden; }
+  .history-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+  .history-title { font-size: 15px; font-weight: 600; }
+  .history-note { margin-top: 2px; color: var(--color-ink-muted-48); font-size: 12px; }
+  .history-ranges { display: flex; gap: 5px; }
+  .history-range {
+    min-width: 38px;
+    min-height: 28px;
+    padding: 3px 7px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: var(--radius-pill);
+    background: #fff;
+    color: #515154;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+  }
+  .history-range[aria-pressed="true"] { color: #0066cc; border-color: #b8d8ff; background: #e8f2ff; }
+  .history-range:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
+  .history-chart { position: relative; min-height: 180px; }
+  .history-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .history-chart svg:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 4px; border-radius: 8px; }
+  .chart-cursor { pointer-events: none; }
+  .chart-tooltip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 70;
+    min-width: max-content;
+    max-width: calc(100vw - 24px);
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: rgba(29, 29, 31, 0.96);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+    color: #fff;
+    font-size: 11px;
+    line-height: 1.35;
+    letter-spacing: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    transform: translate(14px, -50%) scale(0.98);
+    opacity: 0;
+    transition: opacity 120ms ease, transform 180ms var(--ease-out);
+    will-change: transform, opacity;
+  }
+  .chart-tooltip.is-visible { opacity: 1; transform: translate(14px, -50%) scale(1); }
+  .chart-tooltip.is-left { transform: translate(calc(-100% - 14px), -50%) scale(0.98); }
+  .chart-tooltip.is-left.is-visible { transform: translate(calc(-100% - 14px), -50%) scale(1); }
+  .history-empty { display: grid; min-height: 180px; place-items: center; color: var(--color-ink-muted-48); font-size: 13px; text-align: center; }
   .error { color: #d33; font-size: 14px; margin-top: 12px; letter-spacing: -0.224px; }
 
   /* 信息区域仍然简洁，但用可扫读的统计卡片替代大片装饰。 */
@@ -645,6 +810,8 @@ const HOME_HTML = `<!DOCTYPE html>
     .combo-input { height: 52px; padding: 14px 60px 14px 20px; }
     .combo-panel { max-height: min(320px, 42dvh); }
     .rate-summary { font-size: 13px; }
+    .converter-topline { align-items: flex-start; }
+    .converter-actions { flex-wrap: wrap; justify-content: flex-end; }
     /* 在两张卡片的分界线上，而非任一侧的边缘。 */
     .swap-btn {
       grid-row: 2;
@@ -669,6 +836,12 @@ const HOME_HTML = `<!DOCTYPE html>
     .converter-card { padding: 18px; border-radius: 20px; }
     .converter-topline { margin-bottom: 14px; }
     .converter-hint { display: none; }
+    .converter-actions { gap: 6px; }
+    .date-control span { display: none; }
+    .history-head { display: block; }
+    .history-ranges { margin-top: 10px; }
+    .rate-summary { align-items: flex-start; }
+    .summary-actions { margin-left: 0; }
     .quick-pairs { margin-bottom: 16px; }
     .features, .api-section { padding: 56px 22px; }
   }
@@ -695,7 +868,10 @@ const HOME_HTML = `<!DOCTYPE html>
     <div class="converter-card">
       <div class="converter-topline">
         <h2 class="converter-title">开始换算</h2>
-        <p class="converter-hint">修改金额或选择货币，结果自动更新</p>
+        <div class="converter-actions">
+          <label class="date-control"><span>参考日期</span><input id="rate-date" type="date" aria-label="参考日期，留空则使用最新数据"></label>
+          <button id="favorite-pair" class="utility-btn" type="button" aria-pressed="false">收藏组合</button>
+        </div>
       </div>
       <div class="quick-pairs" aria-label="常用货币组合">
         <button class="pair-chip" type="button" data-from="USD" data-to="CNY" aria-pressed="true">美元 · 人民币</button>
@@ -703,6 +879,7 @@ const HOME_HTML = `<!DOCTYPE html>
         <button class="pair-chip" type="button" data-from="EUR" data-to="CNY" aria-pressed="false">欧元 · 人民币</button>
         <button class="pair-chip" type="button" data-from="JPY" data-to="CNY" aria-pressed="false">日元 · 人民币</button>
       </div>
+      <div id="saved-pairs" class="saved-pairs" aria-label="收藏和最近使用的货币组合"></div>
       <div class="pair-row">
         <div class="currency-field" data-amount-side="from">
           <label>从</label>
@@ -736,9 +913,26 @@ const HOME_HTML = `<!DOCTYPE html>
       </div>
       <div class="rate-summary">
         <span id="result-rate" class="rate-text" aria-live="polite">输入金额后将自动换算</span>
-        <button id="reset" class="reset-btn" type="button" title="恢复默认换算" aria-label="重置为 100 美元换算人民币">↺ 重置</button>
+        <div class="summary-actions">
+          <button id="history-toggle" class="reset-btn history-btn" type="button" aria-expanded="false">走势</button>
+          <button id="reset" class="reset-btn" type="button" title="恢复默认换算" aria-label="重置为 100 美元换算人民币">↺ 重置</button>
+        </div>
       </div>
       <div id="error" class="error" hidden></div>
+      <section id="history" class="history" aria-label="参考汇率走势" aria-hidden="true" hidden>
+        <div id="history-content" class="history-content" inert>
+          <div class="history-head">
+            <div><h3 class="history-title">参考汇率走势</h3><p id="history-note" class="history-note">按需加载，不影响首屏。</p></div>
+            <div class="history-ranges" aria-label="走势时间范围">
+              <button class="history-range" type="button" data-range="1W" aria-pressed="false">1周</button>
+              <button class="history-range" type="button" data-range="1M" aria-pressed="true">1月</button>
+              <button class="history-range" type="button" data-range="6M" aria-pressed="false">6月</button>
+              <button class="history-range" type="button" data-range="1Y" aria-pressed="false">1年</button>
+            </div>
+          </div>
+          <div id="history-chart" class="history-chart" aria-live="polite"></div>
+        </div>
+      </section>
     </div>
   </div>
 
@@ -751,9 +945,9 @@ const HOME_HTML = `<!DOCTYPE html>
         <div class="feature-desc">货币目录从上游动态加载，可按中文名称、英文名称或 ISO 代码搜索。</div>
       </div>
       <div class="feature">
-        <div class="feature-num">4</div>
+        <div class="feature-num">5</div>
         <div class="feature-title">JSON 端点</div>
-        <div class="feature-desc">同一个 Worker 提供换算、最新汇率、货币目录与健康检查接口。</div>
+        <div class="feature-desc">同一个 Worker 提供换算、历史走势、最新汇率、货币目录与健康检查接口。</div>
       </div>
       <div class="feature">
         <div class="feature-num">1h</div>
@@ -774,6 +968,10 @@ const HOME_HTML = `<!DOCTYPE html>
         <div class="api-endpoint">
           <h3>最新汇率</h3>
           <div class="api-code"><span class="method">GET</span> /latest?base=USD</div>
+        </div>
+        <div class="api-endpoint">
+          <h3>历史走势</h3>
+          <div class="api-code"><span class="method">GET</span> /history?from=USD&amp;to=CNY&amp;range=1M</div>
         </div>
         <div class="api-endpoint">
           <h3>货币列表</h3>
@@ -836,12 +1034,64 @@ const HOME_HTML = `<!DOCTYPE html>
     var fromSymbolEl = $("from-symbol"), toSymbolEl = $("to-symbol");
     var rateEl = $("result-rate");
     var errEl = $("error"), swapBtn = $("swap"), resetBtn = $("reset");
+    var dateEl = $("rate-date"), favoriteBtn = $("favorite-pair");
+    var savedPairsEl = $("saved-pairs"), historyEl = $("history"), historyContentEl = $("history-content"), historyToggleEl = $("history-toggle");
+    var historyChartEl = $("history-chart"), historyNoteEl = $("history-note");
     var rateSummaryEl = document.querySelector(".rate-summary");
     var fromBox = document.querySelector('[data-field="from"]');
     var toBox = document.querySelector('[data-field="to"]');
     var CURRENCIES = []; // {code, name, cn}
     var activeSide = "from";
     var requestId = 0;
+    var historyRange = "1M";
+    var historyRequestId = 0;
+    var PAIR_STORAGE_KEY = "currency-worker:pairs:v1";
+
+    dateEl.max = new Date().toISOString().slice(0, 10);
+
+    function pairId(from, to) { return from + ":" + to; }
+    function currentPair() { return { from: fromBox.dataset.value, to: toBox.dataset.value }; }
+    function readPairStore() {
+      try {
+        var data = JSON.parse(localStorage.getItem(PAIR_STORAGE_KEY) || "{}");
+        return { favorites: Array.isArray(data.favorites) ? data.favorites : [], recent: Array.isArray(data.recent) ? data.recent : [] };
+      } catch (_) { return { favorites: [], recent: [] }; }
+    }
+    function writePairStore(store) {
+      try { localStorage.setItem(PAIR_STORAGE_KEY, JSON.stringify(store)); } catch (_) {}
+    }
+    function isFavorite(pair) {
+      return readPairStore().favorites.some(function (item) { return pairId(item.from, item.to) === pairId(pair.from, pair.to); });
+    }
+    function pairLabel(pair) {
+      var fromName = displayText(pair.from).replace(/^\\S+\\s/, "").replace(/ \\([A-Z]{3}\\)$/, "");
+      var toName = displayText(pair.to).replace(/^\\S+\\s/, "").replace(/ \\([A-Z]{3}\\)$/, "");
+      return fromName + " · " + toName;
+    }
+    function renderPairs(items, label) {
+      if (!items.length) return "";
+      return '<div class="saved-pair-row"><span class="saved-pair-label">' + label + '</span>' + items.map(function (pair) {
+        return '<button class="pair-chip" type="button" data-from="' + pair.from + '" data-to="' + pair.to + '" aria-pressed="false">' + pairLabel(pair) + '</button>';
+      }).join("") + '</div>';
+    }
+    function renderSavedPairs() {
+      var store = readPairStore();
+      var content = renderPairs(store.favorites, "收藏") + renderPairs(store.recent, "最近");
+      savedPairsEl.classList.toggle("has-content", Boolean(content));
+      savedPairsEl.innerHTML = '<div class="saved-pairs-inner"><div class="saved-pairs-content">' + content + '</div></div>';
+      syncQuickPairs();
+      favoriteBtn.setAttribute("aria-pressed", isFavorite(currentPair()) ? "true" : "false");
+      favoriteBtn.textContent = isFavorite(currentPair()) ? "已收藏" : "收藏组合";
+    }
+    function rememberCurrentPair() {
+      var store = readPairStore(), pair = currentPair(), id = pairId(pair.from, pair.to);
+      store.recent = [pair].concat(store.recent.filter(function (item) { return pairId(item.from, item.to) !== id; })).slice(0, 4);
+      writePairStore(store);
+      renderSavedPairs();
+    }
+    function syncHistory() {
+      if (historyEl.classList.contains("is-open")) loadHistory();
+    }
 
     // 展示文本：符号 中文名 (代码)
     function displayText(code) {
@@ -899,7 +1149,7 @@ const HOME_HTML = `<!DOCTYPE html>
         initCombobox(fromBox, "USD");
         initCombobox(toBox, "CNY");
         syncSymbols();
-        syncQuickPairs();
+        renderSavedPairs();
         convert();
       }).catch(function () { showError("无法加载货币列表"); });
     }
@@ -958,6 +1208,8 @@ const HOME_HTML = `<!DOCTYPE html>
         close();
         syncSymbols();
         syncQuickPairs();
+        rememberCurrentPair();
+        syncHistory();
         convertDebounced();
       }
 
@@ -1019,6 +1271,9 @@ const HOME_HTML = `<!DOCTYPE html>
           box.dataset.value = nativeSel.value;
           input.value = displayText(nativeSel.value);
           syncSymbols();
+          syncQuickPairs();
+          rememberCurrentPair();
+          syncHistory();
           convertDebounced();
         });
       }
@@ -1053,14 +1308,15 @@ const HOME_HTML = `<!DOCTYPE html>
       clearError();
       var currentRequest = ++requestId;
       rateSummaryEl.classList.add("is-loading");
-      rateEl.textContent = "正在获取最新参考汇率…";
+      rateEl.textContent = dateEl.value ? "正在获取指定日期的参考汇率…" : "正在获取最新参考汇率…";
       var url = "/convert?from=" + encodeURIComponent(base) + "&to=" + encodeURIComponent(quote) + "&amount=" + amount;
+      if (dateEl.value) url += "&date=" + encodeURIComponent(dateEl.value);
       fetch(url).then(function (r) { return r.json(); }).then(function (data) {
         if (currentRequest !== requestId) return;
         rateSummaryEl.classList.remove("is-loading");
         if (data.error) { showError(data.error); return; }
         outputEl.value = formatEditableAmount(data.result);
-        rateEl.textContent = "1 " + data.from + " = " + data.rate + " " + data.to + " · 更新于 " + data.date;
+        rateEl.textContent = "1 " + data.from + " = " + data.rate + " " + data.to + " · 数据日期 " + data.date;
       }).catch(function () {
         if (currentRequest === requestId) {
           rateSummaryEl.classList.remove("is-loading");
@@ -1093,17 +1349,21 @@ const HOME_HTML = `<!DOCTYPE html>
       var sel = box.parentNode.querySelector(".native-select");
       if (sel) sel.value = code;
     }
-    document.querySelectorAll(".pair-chip").forEach(function (chip) {
-      chip.addEventListener("click", function () {
-        fromBox.dataset.value = chip.dataset.from;
-        toBox.dataset.value = chip.dataset.to;
-        syncDisplay(fromBox);
-        syncDisplay(toBox);
-        syncSymbols();
-        syncQuickPairs();
-        activeSide = "from";
-        convert();
-      });
+    function applyPair(from, to, remember) {
+      fromBox.dataset.value = from;
+      toBox.dataset.value = to;
+      syncDisplay(fromBox);
+      syncDisplay(toBox);
+      syncSymbols();
+      syncQuickPairs();
+      activeSide = "from";
+      if (remember) rememberCurrentPair(); else renderSavedPairs();
+      syncHistory();
+      convert();
+    }
+    document.addEventListener("click", function (event) {
+      var chip = event.target.closest(".pair-chip");
+      if (chip) applyPair(chip.dataset.from, chip.dataset.to, true);
     });
     swapBtn.addEventListener("click", function () {
       var f = fromBox.dataset.value;
@@ -1117,6 +1377,8 @@ const HOME_HTML = `<!DOCTYPE html>
       activeSide = "from";
       syncSymbols();
       syncQuickPairs();
+      rememberCurrentPair();
+      syncHistory();
       convert();
     });
     resetBtn.addEventListener("click", function () {
@@ -1129,9 +1391,121 @@ const HOME_HTML = `<!DOCTYPE html>
       syncDisplay(toBox);
       syncSymbols();
       syncQuickPairs();
+      renderSavedPairs();
+      syncHistory();
       clearError();
       convert();
       fromAmountEl.focus({ preventScroll: true });
+    });
+
+    dateEl.addEventListener("change", function () { convert(); });
+    favoriteBtn.addEventListener("click", function () {
+      var store = readPairStore(), pair = currentPair(), id = pairId(pair.from, pair.to);
+      var exists = store.favorites.some(function (item) { return pairId(item.from, item.to) === id; });
+      store.favorites = exists ? store.favorites.filter(function (item) { return pairId(item.from, item.to) !== id; }) : [pair].concat(store.favorites).slice(0, 6);
+      writePairStore(store);
+      renderSavedPairs();
+    });
+
+    function setHistoryLoading(message) {
+      historyChartEl.innerHTML = '<div class="history-empty">' + message + '</div>';
+    }
+    function renderHistory(points, from, to) {
+      if (!points || points.length < 2) { setHistoryLoading("该时间范围暂无可用参考数据"); return; }
+      var width = 640, height = 210, inset = { top: 14, right: 12, bottom: 30, left: 56 };
+      var values = points.map(function (point) { return Number(point.rate); }).filter(function (value) { return isFinite(value); });
+      if (values.length < 2) { setHistoryLoading("该时间范围暂无可用参考数据"); return; }
+      var min = Math.min.apply(null, values), max = Math.max.apply(null, values), span = max - min || Math.max(max * 0.02, 0.01);
+      min -= span * 0.12; max += span * 0.12;
+      var innerWidth = width - inset.left - inset.right, innerHeight = height - inset.top - inset.bottom;
+      var path = points.map(function (point, index) {
+        var x = inset.left + innerWidth * index / (points.length - 1);
+        var y = inset.top + (max - Number(point.rate)) / (max - min) * innerHeight;
+        return (index ? "L" : "M") + x.toFixed(2) + " " + y.toFixed(2);
+      }).join(" ");
+      var latest = points[points.length - 1];
+      historyNoteEl.textContent = from + " → " + to + " · " + points[0].date + " 至 " + latest.date + " · 最新 " + Number(latest.rate).toFixed(4);
+      var oldTooltip = $("history-tooltip");
+      if (oldTooltip) oldTooltip.remove();
+      document.body.insertAdjacentHTML("beforeend", '<div id="history-tooltip" class="chart-tooltip" role="status"></div>');
+      historyChartEl.innerHTML = '<svg id="history-svg" viewBox="0 0 ' + width + ' ' + height + '" role="img" tabindex="0" aria-label="' + from + " 到 " + to + ' 的参考汇率走势。鼠标移动或按左右方向键查看每个日期的价格。"><line x1="' + inset.left + '" y1="' + inset.top + '" x2="' + inset.left + '" y2="' + (height - inset.bottom) + '" stroke="rgba(0,0,0,.12)"/><line x1="' + inset.left + '" y1="' + (height - inset.bottom) + '" x2="' + (width - inset.right) + '" y2="' + (height - inset.bottom) + '" stroke="rgba(0,0,0,.12)"/><path d="' + path + '" fill="none" stroke="#0071e3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><g id="history-cursor" class="chart-cursor" hidden><line id="history-cursor-line" y1="' + inset.top + '" y2="' + (height - inset.bottom) + '" stroke="#0071e3" stroke-width="1" stroke-dasharray="3 3"/><circle id="history-cursor-dot" r="5" fill="#fff" stroke="#0071e3" stroke-width="3"/></g><text x="4" y="' + (inset.top + 5) + '" fill="#6e6e73" font-size="11">' + max.toFixed(4) + '</text><text x="4" y="' + (height - inset.bottom) + '" fill="#6e6e73" font-size="11">' + min.toFixed(4) + '</text><text x="' + inset.left + '" y="' + (height - 8) + '" fill="#6e6e73" font-size="11">' + points[0].date + '</text><text x="' + (width - inset.right) + '" y="' + (height - 8) + '" fill="#6e6e73" font-size="11" text-anchor="end">' + latest.date + '</text></svg>';
+      var svg = $("history-svg"), tooltip = $("history-tooltip"), cursor = $("history-cursor"), cursorLine = $("history-cursor-line"), cursorDot = $("history-cursor-dot");
+      var activeIndex = points.length - 1;
+      function placeTooltip(clientX, clientY) {
+        tooltip.style.left = clientX + "px";
+        tooltip.style.top = clientY + "px";
+        tooltip.classList.remove("is-left");
+        var tooltipWidth = tooltip.offsetWidth;
+        if (clientX + tooltipWidth + 20 > window.innerWidth) tooltip.classList.add("is-left");
+      }
+      function showPoint(index, clientX, clientY) {
+        activeIndex = Math.max(0, Math.min(points.length - 1, index));
+        var point = points[activeIndex];
+        var x = inset.left + innerWidth * activeIndex / (points.length - 1);
+        var y = inset.top + (max - Number(point.rate)) / (max - min) * innerHeight;
+        cursor.hidden = false;
+        cursorLine.setAttribute("x1", x); cursorLine.setAttribute("x2", x);
+        cursorDot.setAttribute("cx", x); cursorDot.setAttribute("cy", y);
+        tooltip.textContent = point.date + " · 1 " + from + " = " + Number(point.rate).toFixed(4) + " " + to;
+        tooltip.classList.add("is-visible");
+        if (clientX === undefined || clientY === undefined) {
+          var svgRect = svg.getBoundingClientRect();
+          clientX = svgRect.left + x / width * svgRect.width;
+          clientY = svgRect.top + y / height * svgRect.height;
+        }
+        placeTooltip(clientX, clientY);
+      }
+      function hidePoint() { cursor.hidden = true; tooltip.classList.remove("is-visible"); }
+      svg.addEventListener("pointermove", function (event) {
+        var rect = svg.getBoundingClientRect();
+        var x = (event.clientX - rect.left) / rect.width * width;
+        showPoint(Math.round((x - inset.left) / innerWidth * (points.length - 1)), event.clientX, event.clientY);
+      });
+      svg.addEventListener("pointerleave", hidePoint);
+      svg.addEventListener("focus", function () { showPoint(activeIndex); });
+      svg.addEventListener("blur", hidePoint);
+      svg.addEventListener("keydown", function (event) {
+        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+          event.preventDefault();
+          showPoint(activeIndex + (event.key === "ArrowLeft" ? -1 : 1));
+        }
+      });
+    }
+    function loadHistory() {
+      var from = fromBox.dataset.value, to = toBox.dataset.value;
+      if (!from || !to) return;
+      var id = ++historyRequestId;
+      setHistoryLoading("正在加载参考走势…");
+      fetch("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + historyRange).then(function (response) { return response.json(); }).then(function (data) {
+        if (id !== historyRequestId) return;
+        if (data.error) { setHistoryLoading(data.error); return; }
+        renderHistory(data.points, from, to);
+      }).catch(function () { if (id === historyRequestId) setHistoryLoading("走势加载失败，请稍后重试"); });
+    }
+    historyToggleEl.addEventListener("click", function () {
+      var opening = !historyEl.classList.contains("is-open");
+      if (opening) {
+        historyEl.hidden = false;
+        historyContentEl.inert = false;
+        requestAnimationFrame(function () { historyEl.classList.add("is-open"); });
+      } else {
+        historyEl.classList.remove("is-open");
+        historyContentEl.inert = true;
+        var floatingTooltip = $("history-tooltip");
+        if (floatingTooltip) floatingTooltip.classList.remove("is-visible");
+        setTimeout(function () { if (!historyEl.classList.contains("is-open")) historyEl.hidden = true; }, 400);
+      }
+      historyEl.setAttribute("aria-hidden", opening ? "false" : "true");
+      historyToggleEl.setAttribute("aria-expanded", opening ? "true" : "false");
+      historyToggleEl.textContent = opening ? "收起走势" : "走势";
+      if (opening) loadHistory();
+    });
+    document.querySelectorAll(".history-range").forEach(function (button) {
+      button.addEventListener("click", function () {
+        historyRange = button.dataset.range;
+        document.querySelectorAll(".history-range").forEach(function (item) { item.setAttribute("aria-pressed", item === button ? "true" : "false"); });
+        loadHistory();
+      });
     });
 
     loadCurrencies();
@@ -1158,6 +1532,8 @@ export default {
           });
         case "/convert":
           return await handleConvert(url, ctx);
+        case "/history":
+          return await handleHistory(url, ctx);
         case "/latest":
           return await handleLatest(url, ctx);
         case "/currencies":
@@ -1169,6 +1545,7 @@ export default {
             name: "currency-worker",
             endpoints: {
               convert: "/convert?from=USD&to=CNY&amount=100",
+              history: "/history?from=USD&to=CNY&range=1M",
               latest: "/latest?base=USD",
               currencies: "/currencies",
               health: "/health",
