@@ -300,8 +300,9 @@ const HOME_HTML = `<!DOCTYPE html>
     box-shadow: 0 18px 50px rgba(0, 0, 0, 0.09), 0 2px 8px rgba(0, 0, 0, 0.04);
     padding: 26px;
     width: 100%;
-    max-width: 900px;
+    max-width: 1040px;
   }
+  .converter-card.is-resizing { transition: height 380ms var(--ease-out); }
   .converter-topline {
     display: flex;
     align-items: center;
@@ -309,7 +310,25 @@ const HOME_HTML = `<!DOCTYPE html>
     gap: 16px;
     margin-bottom: 18px;
   }
+  .converter-title, .history-title { display: inline-flex; align-items: center; gap: 7px; }
   .converter-title { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+  .title-icon {
+    width: 20px;
+    height: 20px;
+    padding: 3px;
+    border-radius: 6px;
+    background: #e8f2ff;
+    color: #0066cc;
+    flex: 0 0 auto;
+  }
+  .currency-title-icon {
+    display: inline-grid;
+    place-items: center;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1;
+  }
   .converter-hint { color: var(--color-ink-muted-48); font-size: 13px; }
   .converter-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
   .date-control {
@@ -376,6 +395,20 @@ const HOME_HTML = `<!DOCTYPE html>
   .saved-pairs-content { display: grid; gap: 8px; }
   .saved-pair-row { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
   .saved-pair-label { min-width: 26px; color: var(--color-ink-muted-48); font-size: 12px; }
+  .clear-recent-btn {
+    min-height: 28px;
+    padding: 4px 6px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-primary);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .clear-recent-btn:active { transform: scale(0.97); }
+  .clear-recent-btn:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
+  @media (hover: hover) and (pointer: fine) { .clear-recent-btn:hover { background: rgba(0, 102, 204, 0.08); } }
   .pair-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr);
@@ -662,9 +695,8 @@ const HOME_HTML = `<!DOCTYPE html>
   }
   .history-range[aria-pressed="true"] { color: #0066cc; border-color: #b8d8ff; background: #e8f2ff; }
   .history-range:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
-  .history-chart { position: relative; height: 266px; }
+  .history-chart { position: relative; height: 340px; }
   .history-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
-  .history-chart svg:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 4px; border-radius: 8px; }
   .chart-cursor { pointer-events: none; }
   .chart-cursor[hidden] { display: none; }
   .chart-tooltip {
@@ -843,7 +875,7 @@ const HOME_HTML = `<!DOCTYPE html>
     .history-head { display: block; min-height: 0; }
     .history-ranges { margin-top: 10px; }
     .history-note { white-space: normal; }
-    .history-chart { height: 180px; }
+    .history-chart { height: 220px; }
     .rate-summary { align-items: flex-start; }
     .summary-actions { margin-left: 0; }
     .quick-pairs { margin-bottom: 16px; }
@@ -871,7 +903,7 @@ const HOME_HTML = `<!DOCTYPE html>
   <div class="converter-wrap">
     <div class="converter-card">
       <div class="converter-topline">
-        <h2 class="converter-title">开始换算</h2>
+        <h2 class="converter-title"><span class="title-icon currency-title-icon" aria-hidden="true">¤</span>开始换算</h2>
         <div class="converter-actions">
           <label class="date-control"><span>参考日期</span><input id="rate-date" type="date" aria-label="参考日期，留空则使用最新数据"></label>
           <button id="favorite-pair" class="utility-btn" type="button" aria-pressed="false">收藏组合</button>
@@ -889,7 +921,7 @@ const HOME_HTML = `<!DOCTYPE html>
           <label>从</label>
           <div class="money-input-wrap">
             <span id="from-symbol" class="money-symbol" aria-hidden="true">$</span>
-            <input id="from-amount" class="money-input" type="number" inputmode="decimal" value="100" min="0" step="any" placeholder="0" aria-label="从货币金额">
+            <input id="from-amount" class="money-input" type="text" inputmode="decimal" value="100" placeholder="0" aria-label="从货币金额">
           </div>
           <div class="combobox" data-field="from">
             <input type="text" class="combo-input" placeholder="搜索货币…" autocomplete="off" spellcheck="false" aria-label="从货币">
@@ -905,7 +937,7 @@ const HOME_HTML = `<!DOCTYPE html>
           <label>到</label>
           <div class="money-input-wrap">
             <span id="to-symbol" class="money-symbol" aria-hidden="true">¥</span>
-            <input id="to-amount" class="money-input" type="number" inputmode="decimal" value="" min="0" step="any" placeholder="0" aria-label="到货币金额">
+            <input id="to-amount" class="money-input" type="text" inputmode="decimal" value="" placeholder="0" aria-label="到货币金额">
           </div>
           <div class="combobox" data-field="to">
             <input type="text" class="combo-input" placeholder="搜索货币…" autocomplete="off" spellcheck="false" aria-label="到货币">
@@ -926,7 +958,7 @@ const HOME_HTML = `<!DOCTYPE html>
       <section id="history" class="history" aria-label="参考汇率走势" aria-hidden="true" hidden>
         <div id="history-content" class="history-content" inert>
           <div class="history-head">
-            <div><h3 class="history-title">参考汇率走势</h3><p id="history-note" class="history-note">按需加载，不影响首屏。</p></div>
+            <div><h3 class="history-title"><svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 3 7-8"/><path d="M16 7h4v4"/></svg>参考汇率走势</h3><p id="history-note" class="history-note">按需加载，不影响首屏。</p></div>
             <div class="history-ranges" aria-label="走势时间范围">
               <button class="history-range" type="button" data-range="1W" aria-pressed="false">1周</button>
               <button class="history-range" type="button" data-range="1M" aria-pressed="true">1月</button>
@@ -1042,6 +1074,7 @@ const HOME_HTML = `<!DOCTYPE html>
     var savedPairsEl = $("saved-pairs"), historyEl = $("history"), historyContentEl = $("history-content"), historyToggleEl = $("history-toggle");
     var historyChartEl = $("history-chart"), historyNoteEl = $("history-note");
     var rateSummaryEl = document.querySelector(".rate-summary");
+    var converterCardEl = document.querySelector(".converter-card");
     var fromBox = document.querySelector('[data-field="from"]');
     var toBox = document.querySelector('[data-field="to"]');
     var CURRENCIES = []; // {code, name, cn}
@@ -1051,6 +1084,7 @@ const HOME_HTML = `<!DOCTYPE html>
     var historyRequestId = 0;
     var historyVisual = null;
     var PAIR_STORAGE_KEY = "currency-worker:pairs:v1";
+    var savedPairsInitialized = false;
 
     dateEl.max = new Date().toISOString().slice(0, 10);
 
@@ -1075,15 +1109,40 @@ const HOME_HTML = `<!DOCTYPE html>
     }
     function renderPairs(items, label) {
       if (!items.length) return "";
+      var clear = label === "最近" ? '<button id="clear-recent" class="clear-recent-btn" type="button">清除</button>' : "";
       return '<div class="saved-pair-row"><span class="saved-pair-label">' + label + '</span>' + items.map(function (pair) {
         return '<button class="pair-chip" type="button" data-from="' + pair.from + '" data-to="' + pair.to + '" aria-pressed="false">' + pairLabel(pair) + '</button>';
-      }).join("") + '</div>';
+      }).join("") + clear + '</div>';
+    }
+    function updateSavedPairs(content) {
+      savedPairsEl.classList.toggle("has-content", Boolean(content));
+      savedPairsEl.innerHTML = '<div class="saved-pairs-inner"><div class="saved-pairs-content">' + content + '</div></div>';
+    }
+    function animateSavedPairsUpdate(content) {
+      if (!savedPairsInitialized || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        updateSavedPairs(content);
+        savedPairsInitialized = true;
+        return;
+      }
+      var startHeight = converterCardEl.getBoundingClientRect().height;
+      converterCardEl.style.height = startHeight + "px";
+      updateSavedPairs(content);
+      converterCardEl.style.height = "auto";
+      var endHeight = converterCardEl.getBoundingClientRect().height;
+      converterCardEl.style.height = startHeight + "px";
+      converterCardEl.classList.add("is-resizing");
+      requestAnimationFrame(function () { converterCardEl.style.height = endHeight + "px"; });
+      converterCardEl.addEventListener("transitionend", function cleanup(event) {
+        if (event.propertyName !== "height") return;
+        converterCardEl.classList.remove("is-resizing");
+        converterCardEl.style.height = "";
+        converterCardEl.removeEventListener("transitionend", cleanup);
+      });
     }
     function renderSavedPairs() {
       var store = readPairStore();
       var content = renderPairs(store.favorites, "收藏") + renderPairs(store.recent, "最近");
-      savedPairsEl.classList.toggle("has-content", Boolean(content));
-      savedPairsEl.innerHTML = '<div class="saved-pairs-inner"><div class="saved-pairs-content">' + content + '</div></div>';
+      animateSavedPairsUpdate(content);
       syncQuickPairs();
       favoriteBtn.setAttribute("aria-pressed", isFavorite(currentPair()) ? "true" : "false");
       favoriteBtn.textContent = isFavorite(currentPair()) ? "已收藏" : "收藏组合";
@@ -1117,7 +1176,28 @@ const HOME_HTML = `<!DOCTYPE html>
     }
 
     function formatEditableAmount(amount) {
-      return Number(amount).toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 4 });
+      return Number(amount).toLocaleString("en-US", { useGrouping: true, maximumFractionDigits: 4 });
+    }
+
+    function parseAmount(value) { return parseFloat(String(value).replace(/,/g, "")); }
+
+    function formatAmountWhileTyping(input) {
+      var previous = input.value;
+      var caret = input.selectionStart === null ? previous.length : input.selectionStart;
+      var raw = previous.replace(/,/g, "");
+      var rawBeforeCaret = previous.slice(0, caret).replace(/,/g, "");
+      var dots = raw.split(".");
+      if (dots.length > 2 || raw.split("").some(function (char) { return char !== "." && (char < "0" || char > "9"); })) return;
+      var whole = dots[0], groups = [];
+      for (var end = whole.length; end > 0; end -= 3) groups.unshift(whole.slice(Math.max(0, end - 3), end));
+      var formatted = groups.join(",") + (dots.length === 2 ? "." + dots[1] : "");
+      input.value = formatted;
+      var seen = 0, nextCaret = 0;
+      while (nextCaret < formatted.length && seen < rawBeforeCaret.length) {
+        if (formatted[nextCaret] !== ",") seen++;
+        nextCaret++;
+      }
+      input.setSelectionRange(nextCaret, nextCaret);
     }
 
     function syncSymbols() {
@@ -1304,7 +1384,7 @@ const HOME_HTML = `<!DOCTYPE html>
       var outputEl = activeSide === "from" ? toAmountEl : fromAmountEl;
       var base = activeSide === "from" ? from : to;
       var quote = activeSide === "from" ? to : from;
-      var amount = parseFloat(inputEl.value);
+      var amount = parseAmount(inputEl.value);
       if (!from || !to || !isFinite(amount) || amount < 0) {
         outputEl.value = "";
         rateEl.textContent = "输入金额后将自动换算";
@@ -1335,8 +1415,14 @@ const HOME_HTML = `<!DOCTYPE html>
 
     fromAmountEl.addEventListener("focus", function () { activeSide = "from"; });
     toAmountEl.addEventListener("focus", function () { activeSide = "to"; });
-    fromAmountEl.addEventListener("input", function () { activeSide = "from"; convertDebounced(); });
-    toAmountEl.addEventListener("input", function () { activeSide = "to"; convertDebounced(); });
+    fromAmountEl.addEventListener("input", function () { activeSide = "from"; formatAmountWhileTyping(fromAmountEl); convertDebounced(); });
+    toAmountEl.addEventListener("input", function () { activeSide = "to"; formatAmountWhileTyping(toAmountEl); convertDebounced(); });
+    [fromAmountEl, toAmountEl].forEach(function (input) {
+      input.addEventListener("blur", function () {
+        var amount = parseAmount(input.value);
+        if (isFinite(amount)) input.value = formatEditableAmount(amount);
+      });
+    });
     // 整张金额卡片都是输入热区；货币选择控件维持自己的点击语义。
     document.querySelectorAll(".currency-field").forEach(function (field) {
       field.addEventListener("click", function (event) {
@@ -1367,6 +1453,13 @@ const HOME_HTML = `<!DOCTYPE html>
       convert();
     }
     document.addEventListener("click", function (event) {
+      if (event.target.closest("#clear-recent")) {
+        var store = readPairStore();
+        store.recent = [];
+        writePairStore(store);
+        renderSavedPairs();
+        return;
+      }
       var chip = event.target.closest(".pair-chip");
       if (chip) applyPair(chip.dataset.from, chip.dataset.to, true);
     });
@@ -1417,10 +1510,11 @@ const HOME_HTML = `<!DOCTYPE html>
     }
     function renderHistory(points, from, to, animation) {
       if (!points || points.length < 2) { setHistoryLoading("该时间范围暂无可用参考数据"); return; }
-      var width = 640, height = 210, inset = { top: 14, right: 12, bottom: 30, left: 56 };
+      var width = 640, height = 210, inset = { top: 14, right: 16, bottom: 30, left: 16 };
       var values = points.map(function (point) { return Number(point.rate); }).filter(function (value) { return isFinite(value); });
       if (values.length < 2) { setHistoryLoading("该时间范围暂无可用参考数据"); return; }
-      var min = Math.min.apply(null, values), max = Math.max.apply(null, values), span = max - min || Math.max(max * 0.02, 0.01);
+      var rangeMin = Math.min.apply(null, values), rangeMax = Math.max.apply(null, values);
+      var min = rangeMin, max = rangeMax, span = max - min || Math.max(max * 0.02, 0.01);
       min -= span * 0.12; max += span * 0.12;
       var innerWidth = width - inset.left - inset.right, innerHeight = height - inset.top - inset.bottom;
       var path = points.map(function (point, index) {
@@ -1432,11 +1526,11 @@ const HOME_HTML = `<!DOCTYPE html>
         return { x: inset.left + innerWidth * index / (points.length - 1), y: inset.top + (max - Number(point.rate)) / (max - min) * innerHeight };
       });
       var latest = points[points.length - 1];
-      historyNoteEl.textContent = from + " → " + to + " · " + points[0].date + " 至 " + latest.date + " · 最新 " + Number(latest.rate).toFixed(4);
+      historyNoteEl.textContent = from + " → " + to + " · 范围 " + rangeMin.toFixed(4) + "–" + rangeMax.toFixed(4) + " · 最新 " + Number(latest.rate).toFixed(4);
       var oldTooltip = $("history-tooltip");
       if (oldTooltip) oldTooltip.remove();
       document.body.insertAdjacentHTML("beforeend", '<div id="history-tooltip" class="chart-tooltip" role="status"></div>');
-      historyChartEl.innerHTML = '<svg id="history-svg" viewBox="0 0 ' + width + ' ' + height + '" role="img" tabindex="0" aria-label="' + from + " 到 " + to + ' 的参考汇率走势。鼠标移动或按左右方向键查看每个日期的价格。"><line x1="' + inset.left + '" y1="' + inset.top + '" x2="' + inset.left + '" y2="' + (height - inset.bottom) + '" stroke="rgba(0,0,0,.12)"/><line x1="' + inset.left + '" y1="' + (height - inset.bottom) + '" x2="' + (width - inset.right) + '" y2="' + (height - inset.bottom) + '" stroke="rgba(0,0,0,.12)"/><path id="history-line" d="' + path + '" fill="none" stroke="#0071e3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><g id="history-cursor" class="chart-cursor" hidden><line id="history-cursor-line" y1="' + inset.top + '" y2="' + (height - inset.bottom) + '" stroke="#0071e3" stroke-width="1" stroke-dasharray="3 3"/><circle id="history-cursor-dot" r="5" fill="#fff" stroke="#0071e3" stroke-width="3"/></g><text x="4" y="' + (inset.top + 5) + '" fill="#6e6e73" font-size="11">' + max.toFixed(4) + '</text><text x="4" y="' + (height - inset.bottom) + '" fill="#6e6e73" font-size="11">' + min.toFixed(4) + '</text><text x="' + inset.left + '" y="' + (height - 8) + '" fill="#6e6e73" font-size="11">' + points[0].date + '</text><text x="' + (width - inset.right) + '" y="' + (height - 8) + '" fill="#6e6e73" font-size="11" text-anchor="end">' + latest.date + '</text></svg>';
+      historyChartEl.innerHTML = '<svg id="history-svg" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="' + from + " 到 " + to + ' 的参考汇率走势。移动鼠标查看每个日期的价格。"><line x1="' + inset.left + '" y1="' + (height - inset.bottom) + '" x2="' + (width - inset.right) + '" y2="' + (height - inset.bottom) + '" stroke="rgba(0,0,0,.12)"/><path id="history-line" d="' + path + '" fill="none" stroke="#0071e3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><g id="history-cursor" class="chart-cursor" hidden><line id="history-cursor-line" y1="' + inset.top + '" y2="' + (height - inset.bottom) + '" stroke="#0071e3" stroke-width="1" stroke-dasharray="3 3"/><circle id="history-cursor-dot" r="5" fill="#fff" stroke="#0071e3" stroke-width="3"/></g><text x="' + inset.left + '" y="' + (height - 8) + '" fill="#6e6e73" font-size="11">' + points[0].date + '</text><text x="' + (width - inset.right) + '" y="' + (height - 8) + '" fill="#6e6e73" font-size="11" text-anchor="end">' + latest.date + '</text></svg>';
       var svg = $("history-svg"), line = $("history-line"), tooltip = $("history-tooltip"), cursor = $("history-cursor"), cursorLine = $("history-cursor-line"), cursorDot = $("history-cursor-dot");
       var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       function pathFromPositions(list) {
@@ -1467,11 +1561,19 @@ const HOME_HTML = `<!DOCTYPE html>
       if (!reduceMotion && animation === "morph" && historyVisual && historyVisual.positions.length > 1) {
         animateCurve(resamplePositions(historyVisual.positions, positions.length), positions);
       } else if (!reduceMotion && animation === "draw") {
+        // 从左端进入；先提交隐藏帧，避免浏览器合并起止状态。
+        line.setAttribute("d", pathFromPositions(positions));
         var lineLength = line.getTotalLength();
+        line.style.transition = "none";
         line.style.strokeDasharray = String(lineLength);
         line.style.strokeDashoffset = String(lineLength);
-        line.style.transition = "stroke-dashoffset 1500ms var(--ease-out)";
-        requestAnimationFrame(function () { line.style.strokeDashoffset = "0"; });
+        line.getBoundingClientRect();
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            line.style.transition = "stroke-dashoffset 2200ms cubic-bezier(0.45, 0, 0.55, 1)";
+            line.style.strokeDashoffset = "0";
+          });
+        });
       }
       historyVisual = { pair: from + ":" + to, positions: positions };
       var activeIndex = points.length - 1;
@@ -1511,14 +1613,6 @@ const HOME_HTML = `<!DOCTYPE html>
         showPoint(Math.round((x - inset.left) / innerWidth * (points.length - 1)), event.clientX, event.clientY);
       });
       svg.addEventListener("pointerleave", hidePoint);
-      svg.addEventListener("focus", function () { showPoint(activeIndex); });
-      svg.addEventListener("blur", hidePoint);
-      svg.addEventListener("keydown", function (event) {
-        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-          event.preventDefault();
-          showPoint(activeIndex + (event.key === "ArrowLeft" ? -1 : 1));
-        }
-      });
     }
     function loadHistory(animation) {
       var from = fromBox.dataset.value, to = toBox.dataset.value;
