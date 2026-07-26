@@ -234,6 +234,20 @@ export const BASE_STYLES = String.raw`
     gap: 14px;
     align-items: center;
   }
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  .field-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-ink-muted-72);
+    letter-spacing: 0.2px;
+    padding-left: 12px;
+  }
   .currency-field {
     --combo-panel-offset: 25px;
     min-width: 0;
@@ -247,14 +261,7 @@ export const BASE_STYLES = String.raw`
     border-color: var(--color-primary);
     box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.18);
   }
-  .currency-field[data-amount-side="to"] { background: linear-gradient(145deg, #f7fbff, #eef6ff); }
-  .currency-field label {
-    display: block;
-    font-size: 14px;
-    color: var(--color-ink-muted-48);
-    letter-spacing: -0.224px;
-    margin-bottom: 10px;
-  }
+  .field-group[data-amount-side="to"] .currency-field { background: linear-gradient(145deg, #f7fbff, #eef6ff); }
   .money-input-wrap {
     display: flex;
     align-items: baseline;
