@@ -25,7 +25,6 @@ export const HOME_MARKUP = String.raw`
       </div>
       <div class="quick-pairs" aria-label="常用货币组合">
         <button class="pair-chip" type="button" data-from="USD" data-to="CNY" aria-pressed="true">美元 · 人民币</button>
-        <button class="pair-chip" type="button" data-from="CNY" data-to="USD" aria-pressed="false">人民币 · 美元</button>
         <button class="pair-chip" type="button" data-from="EUR" data-to="CNY" aria-pressed="false">欧元 · 人民币</button>
         <button class="pair-chip" type="button" data-from="JPY" data-to="CNY" aria-pressed="false">日元 · 人民币</button>
       </div>

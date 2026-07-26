@@ -77,9 +77,8 @@ export const HOME_CLIENT_CORE = String.raw`
       return readPairStore().favorites.some(function (item) { return pairId(item.from, item.to) === pairId(pair.from, pair.to); });
     }
     function pairLabel(pair) {
-      var fromName = displayText(pair.from).replace(/^\\S+\\s/, "").replace(/ \\([A-Z]{3}\\)$/, "");
-      var toName = displayText(pair.to).replace(/^\\S+\\s/, "").replace(/ \\([A-Z]{3}\\)$/, "");
-      return fromName + " · " + toName;
+      // 胶囊只留中文名：直接复用 currencyName（返回 cn），避免脆弱的符号/代码 strip 正则。
+      return currencyName(pair.from) + " · " + currencyName(pair.to);
     }
     function renderPairs(items, label) {
       if (!items.length) return "";
