@@ -767,7 +767,7 @@ const HOME_HTML = `<!DOCTYPE html>
   </section>
 
   <footer class="footer">
-    数据由 <a href="https://frankfurter.dev" target="_blank" rel="noopener">Frankfurter</a> 提供 · 部署于 Cloudflare Workers
+    数据由 <a href="https://frankfurter.dev" target="_blank" rel="noopener">Frankfurter</a> 提供 · 部署于 Cloudflare Workers · <a href="https://github.com/zeno528/currency-worker" target="_blank" rel="noopener">GitHub 仓库</a>
     <div class="footer-divider"></div>
     汇率仅供参考，不构成交易建议。© 2026 Currency Worker
   </footer>
