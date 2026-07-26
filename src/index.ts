@@ -196,7 +196,8 @@ const HOME_HTML = `<!DOCTYPE html>
 
   /* 单一、清晰的任务入口。 */
   .hero {
-    background: radial-gradient(circle at 50% 0%, #ffffff 0, #f5f5f7 52%, #ececf1 100%);
+    /* Hero 与换算器共用同一画布，避免两段渐变产生色阶断层。 */
+    background: var(--color-parchment);
     padding: 76px 22px 38px;
     text-align: center;
   }
@@ -236,7 +237,7 @@ const HOME_HTML = `<!DOCTYPE html>
 
   /* 换算器是页面唯一的主操作面，输入与结果以深浅两层区分。 */
   .converter-wrap {
-    background: linear-gradient(#f5f5f7, #ffffff 84%);
+    background: var(--color-parchment);
     padding: 0 22px 96px;
     display: flex;
     justify-content: center;
@@ -248,7 +249,7 @@ const HOME_HTML = `<!DOCTYPE html>
     box-shadow: 0 18px 50px rgba(0, 0, 0, 0.09), 0 2px 8px rgba(0, 0, 0, 0.04);
     padding: 26px;
     width: 100%;
-    max-width: 820px;
+    max-width: 900px;
   }
   .converter-topline {
     display: flex;
@@ -372,7 +373,14 @@ const HOME_HTML = `<!DOCTYPE html>
     place-items: center;
   }
   .combo-arrow:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; border-radius: 50%; }
-  .combo-arrow svg { width: 18px; height: 18px; pointer-events: none; }
+  .combo-arrow svg {
+    width: 18px;
+    height: 18px;
+    pointer-events: none;
+    transform-origin: center;
+    transition: transform 180ms var(--ease-out);
+  }
+  .combobox.open .combo-arrow svg { transform: rotate(180deg); }
   .combo-panel {
     position: absolute;
     top: calc(100% + 6px);
@@ -387,7 +395,14 @@ const HOME_HTML = `<!DOCTYPE html>
     box-shadow: 0 18px 35px rgba(0, 0, 0, 0.14);
     padding: 6px;
     z-index: 50;
-    display: none;
+    display: block;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-6px) scale(0.98);
+    transform-origin: top center;
+    transition: opacity 160ms var(--ease-out), transform 180ms var(--ease-out), visibility 0s linear 180ms;
+    will-change: opacity, transform;
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
   }
@@ -399,7 +414,13 @@ const HOME_HTML = `<!DOCTYPE html>
     border-radius: 4px;
   }
   .combo-panel::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.28); }
-  .combobox.open .combo-panel { display: block; }
+  .combobox.open .combo-panel {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+    transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out), visibility 0s;
+  }
   .combo-item {
     display: flex;
     align-items: center;
@@ -667,7 +688,7 @@ const HOME_HTML = `<!DOCTYPE html>
   <section class="hero">
     <p class="eyebrow">参考汇率</p>
     <h1>全球货币，轻松换算。</h1>
-    <p class="lead">基于 Frankfurter 开源数据，覆盖 <span id="hero-count">165</span> 种货币，免费、无需 API Key。</p>
+    <p class="lead">基于 Frankfurter 的货币目录，支持 <span id="hero-count">165</span> 种货币的搜索与参考换算，结果附带数据日期。</p>
   </section>
 
   <div class="converter-wrap">
@@ -722,22 +743,22 @@ const HOME_HTML = `<!DOCTYPE html>
   </div>
 
   <section class="features">
-    <h2>为何选择它</h2>
+    <h2>为换算，也为接入</h2>
     <div class="feature-grid">
       <div class="feature">
         <div class="feature-num" id="currency-count">165</div>
-        <div class="feature-title">种货币</div>
-        <div class="feature-desc">覆盖全球主要与新兴市场货币，来自 84 个央行参考汇率。</div>
+        <div class="feature-title">种可选货币</div>
+        <div class="feature-desc">货币目录从上游动态加载，可按中文名称、英文名称或 ISO 代码搜索。</div>
       </div>
       <div class="feature">
-        <div class="feature-num">0</div>
-        <div class="feature-title">API Key</div>
-        <div class="feature-desc">完全开放，无需注册，无需密钥，直接调用。</div>
+        <div class="feature-num">4</div>
+        <div class="feature-title">JSON 端点</div>
+        <div class="feature-desc">同一个 Worker 提供换算、最新汇率、货币目录与健康检查接口。</div>
       </div>
       <div class="feature">
         <div class="feature-num">1h</div>
-        <div class="feature-title">边缘缓存</div>
-        <div class="feature-desc">Cloudflare 边缘节点缓存一小时，响应低延迟。</div>
+        <div class="feature-title">缓存上限</div>
+        <div class="feature-desc">相同的上游请求由 Cloudflare Cache API 缓存最长一小时，减少重复请求。</div>
       </div>
     </div>
   </section>
