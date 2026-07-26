@@ -113,38 +113,17 @@ export const HOME_MARKUP = String.raw`
     </div>
   </section>
 
-  <section class="api-section">
-    <div class="api-inner">
-      <h2>API 端点</h2>
-      <div class="api-grid">
-        <div class="api-endpoint">
-          <h3>换算</h3>
-          <div class="api-code"><span class="method">GET</span> /convert?from=USD&amp;to=CNY&amp;amount=100</div>
-        </div>
-        <div class="api-endpoint">
-          <h3>最新汇率</h3>
-          <div class="api-code"><span class="method">GET</span> /latest?base=USD</div>
-        </div>
-        <div class="api-endpoint">
-          <h3>历史走势</h3>
-          <div class="api-code"><span class="method">GET</span> /history?from=USD&amp;to=CNY&amp;range=1M</div>
-        </div>
-        <div class="api-endpoint">
-          <h3>货币列表</h3>
-          <div class="api-code"><span class="method">GET</span> /currencies</div>
-        </div>
-        <div class="api-endpoint">
-          <h3>健康检查</h3>
-          <div class="api-code"><span class="method">GET</span> /health</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <footer class="footer">
-    数据由 <a href="https://frankfurter.dev" target="_blank" rel="noopener">Frankfurter</a> 提供 · 部署于 Cloudflare Workers · <a href="https://github.com/zeno528/Monea-Currency" target="_blank" rel="noopener">GitHub 仓库</a>
-    <div class="footer-divider"></div>
-    汇率仅供参考，不构成交易建议。© 2026 Monea Currency
+    <div class="footer-brand">Monea Currency</div>
+    <nav class="footer-links" aria-label="页脚链接">
+      <a href="https://frankfurter.dev" target="_blank" rel="noopener">数据由 Frankfurter 提供 ↗</a>
+      <span class="footer-dot" aria-hidden="true">·</span>
+      <span>部署于 Cloudflare Workers</span>
+      <span class="footer-dot" aria-hidden="true">·</span>
+      <a href="https://github.com/zeno528/Monea-Currency" target="_blank" rel="noopener">GitHub 仓库 ↗</a>
+    </nav>
+    <div class="footer-divider" aria-hidden="true"></div>
+    <p class="footer-meta">汇率仅供参考，不构成交易建议。<br>© 2026 Monea Currency</p>
   </footer>
 
 `;

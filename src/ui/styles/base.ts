@@ -650,61 +650,44 @@ export const BASE_STYLES = String.raw`
     letter-spacing: -0.224px;
   }
 
-  /* 开发者信息降级为次要任务，适合快速复制而不影响换算。 */
-  .api-section {
-    background: var(--color-canvas);
-    padding: 80px 22px;
-  }
-  .api-inner { max-width: 980px; margin: 0 auto; }
-  .api-section h2 {
-    font-family: var(--font-display);
-    font-size: 40px;
-    font-weight: 600;
-    line-height: 1.1;
-    margin-bottom: 24px;
-  }
-  .api-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-  .api-endpoint {
-    background: var(--color-parchment);
-    border-radius: var(--radius-lg);
-    padding: 24px;
-    margin: 0;
-  }
-  .api-endpoint h3 {
-    font-size: 17px;
-    font-weight: 600;
-    letter-spacing: -0.374px;
-    margin-bottom: 8px;
-  }
-  .api-code {
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 14px;
-    color: var(--color-ink-muted-80);
-    background: var(--color-canvas);
-    border: 1px solid var(--color-hairline);
-    border-radius: var(--radius-sm);
-    padding: 12px 17px;
-    overflow-x: auto;
-    word-break: break-all;
-  }
-  .api-code .method { color: var(--color-primary); font-weight: 600; }
-
   /* footer: parchment */
   .footer {
     background: var(--color-parchment);
     color: var(--color-ink-muted-80);
-    padding: 48px 22px;
-    padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
-    font-size: 12px;
-    letter-spacing: -0.12px;
-    line-height: 1.5;
+    padding: 56px 22px 40px;
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
     text-align: center;
   }
-  .footer a { color: var(--color-primary); text-decoration: none; }
+  .footer-brand {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-ink);
+    margin-bottom: 18px;
+  }
+  .footer-links {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    font-size: 12px;
+    color: var(--color-ink-muted-48);
+  }
+  .footer-links a {
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+  .footer-links a:hover { text-decoration: underline; }
+  .footer-dot { color: rgba(0, 0, 0, 0.2); user-select: none; }
   .footer-divider {
     border-top: 1px solid var(--color-hairline);
-    margin: 24px auto;
+    margin: 28px auto;
     max-width: 980px;
+  }
+  .footer-meta {
+    font-size: 12px;
+    color: var(--color-ink-muted-48);
+    line-height: 1.7;
   }
 
 `;
