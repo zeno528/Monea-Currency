@@ -99,22 +99,22 @@ export const HOME_MARKUP = String.raw`
   </div>
 
   <section class="features">
-    <h2>为换算，也为接入</h2>
+    <h2>全球货币，轻松换算</h2>
     <div class="feature-grid">
       <div class="feature">
         <div class="feature-num" id="currency-count">165</div>
         <div class="feature-title">种可选货币</div>
-        <div class="feature-desc">货币目录从上游动态加载，可按中文名称、英文名称或 ISO 代码搜索。</div>
+        <div class="feature-desc">覆盖人民币、美元、欧元、日元等常用货币，可按中文、英文或代码搜索。</div>
       </div>
       <div class="feature">
-        <div class="feature-num">5</div>
-        <div class="feature-title">JSON 端点</div>
-        <div class="feature-desc">同一个 Worker 提供换算、历史走势、最新汇率、货币目录与健康检查接口。</div>
+        <div class="feature-num">84</div>
+        <div class="feature-title">家中央银行</div>
+        <div class="feature-desc">数据由 Frankfurter 汇聚多家中央银行公开参考汇率提供，默认显示综合参考结果。</div>
       </div>
       <div class="feature">
         <div class="feature-num">1h</div>
-        <div class="feature-title">缓存上限</div>
-        <div class="feature-desc">相同的上游请求由 Cloudflare Cache API 缓存最长一小时，减少重复请求。</div>
+        <div class="feature-title">智能缓存</div>
+        <div class="feature-desc">相同查询最多缓存一小时，减少重复请求，让查看与换算更顺畅。</div>
       </div>
     </div>
   </section>
