@@ -666,6 +666,12 @@ export const BASE_STYLES = String.raw`
     color: var(--color-ink);
     margin-bottom: 18px;
   }
+  .footer-author-link {
+    font-weight: 500;
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+  .footer-author-link:hover { text-decoration: underline; }
   .footer-links {
     display: flex;
     align-items: center;

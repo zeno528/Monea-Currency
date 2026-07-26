@@ -120,7 +120,11 @@ export const HOME_MARKUP = String.raw`
   </section>
 
   <footer class="footer">
-    <div class="footer-brand">Monea Currency</div>
+    <div class="footer-brand">
+      <span>Monea Currency</span>
+      <span class="footer-dot" aria-hidden="true">·</span>
+      <a href="https://github.com/zeno528/" target="_blank" rel="noopener" class="footer-author-link">作者 Scott</a>
+    </div>
     <nav class="footer-links" aria-label="页脚链接">
       <a href="https://frankfurter.dev" target="_blank" rel="noopener">数据由 Frankfurter 提供 ↗</a>
       <span class="footer-dot" aria-hidden="true">·</span>
