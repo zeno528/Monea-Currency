@@ -60,6 +60,8 @@ export const HOME_CLIENT_CORE = String.raw`
       XAF:"cfa.svg",XOF:"cfa.svg",XCD:"caribbean.svg",XCG:"caribbean-guilder.svg",XDR:"sdr.svg",XPF:"pacific.svg",
       XAG:"metal-silver.svg",XAU:"metal-gold.svg",XPD:"metal-palladium.svg",XPT:"metal-platinum.svg"
     };
+    // 旗帜更新时只改此版本号；与一年 immutable 缓存配套，确保新旧图标 URL 不冲突。
+    var FLAG_ASSET_VERSION = "20260727";
 
     var $ = function (id) { return document.getElementById(id); };
     var fromAmountEl = $("from-amount"), toAmountEl = $("to-amount");
@@ -423,9 +425,10 @@ export const HOME_CLIENT_CORE = String.raw`
     }
 
     function currencyFlagSource(code) {
-      if (CURRENCY_ICON_SOURCES[code]) return "/flags/" + CURRENCY_ICON_SOURCES[code];
+      var filename = CURRENCY_ICON_SOURCES[code];
       var region = CURRENCY_REGIONS[code];
-      return "/flags/" + (region || "XX").toLowerCase() + ".svg";
+      if (!filename) filename = (region || "XX").toLowerCase() + ".svg";
+      return "/flags/" + filename + "?v=" + FLAG_ASSET_VERSION;
     }
 
     function syncComboFlag(box) {
