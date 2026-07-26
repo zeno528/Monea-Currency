@@ -1,4 +1,5 @@
 import { exports as workerExports } from "cloudflare:workers";
+import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => {
@@ -46,5 +47,40 @@ describe("Monea Currency Worker", () => {
     expect(response.status).toBe(405);
     expect(response.headers.get("Allow")).toBe("GET, OPTIONS");
     await expect(response.json()).resolves.toEqual({ error: "Method not allowed" });
+  });
+
+  it("uses a longer cache lifetime for the rarely changed currency catalogue", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json([{ iso_code: "USD", name: "United States Dollar", symbol: "$" }])));
+
+    const response = await workerExports.default.fetch("https://example.com/currencies");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("public, max-age=86400");
+    expect(response.headers.get("X-Monea-Cache")).toBe("MISS");
+  });
+
+  it("serves the most recent successful result without client caching when the upstream has a temporary failure", async () => {
+    const requestUrl = "https://example.com/latest?base=CHF";
+    const upstreamUrl = "https://api.frankfurter.dev/v2/rates?base=CHF";
+    const upstream = vi.fn(async () => Response.json([{ date: "2026-07-26", base: "CHF", quote: "USD", rate: 1.25 }]));
+    vi.stubGlobal("fetch", upstream);
+
+    const writeContext = createExecutionContext();
+    const firstResponse = await workerExports.default.fetch(new Request(requestUrl), {}, writeContext);
+    await waitOnExecutionContext(writeContext);
+    expect(firstResponse.headers.get("X-Monea-Cache")).toBe("MISS");
+
+    await caches.default.delete(upstreamUrl);
+    upstream.mockResolvedValueOnce(new Response("upstream unavailable", { status: 503 }));
+
+    const fallbackResponse = await workerExports.default.fetch(new Request(requestUrl), {}, createExecutionContext());
+
+    expect(fallbackResponse.status).toBe(200);
+    expect(fallbackResponse.headers.get("X-Monea-Cache")).toBe("STALE");
+    expect(fallbackResponse.headers.get("Cache-Control")).toBe("no-store");
+    await expect(fallbackResponse.json()).resolves.toEqual({
+      base: "CHF",
+      rates: { USD: { rate: 1.25, date: "2026-07-26" } },
+    });
   });
 });
