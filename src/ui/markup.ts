@@ -9,9 +9,12 @@ export const HOME_MARKUP = String.raw`
   </nav>
 
   <section class="hero">
-    <p class="eyebrow">参考汇率</p>
+    <p class="eyebrow">
+      <span class="eyebrow-dot" aria-hidden="true"></span>
+      <span>今日汇率</span>
+    </p>
     <h1 id="hero-title">美元兑换人民币</h1>
-    <p id="hero-rate" class="lead" aria-live="polite">正在获取最新参考汇率…</p>
+    <p id="hero-rate" class="hero-rate" aria-live="polite">正在获取最新参考汇率…</p>
   </section>
 
   <div class="converter-wrap">
