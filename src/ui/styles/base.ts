@@ -102,16 +102,6 @@ export const BASE_STYLES = String.raw`
     max-width: 980px;
     margin: 0 auto;
   }
-  .hero-rate {
-    font-family: var(--font-display);
-    font-size: clamp(20px, 2.5vw, 26px);
-    font-weight: 400;
-    line-height: 1.14;
-    letter-spacing: -0.02em;
-    color: var(--color-ink-muted-80);
-    margin: 10px auto 0;
-    max-width: 720px;
-  }
   .hero-meta {
     font-size: 13px;
     font-weight: 400;

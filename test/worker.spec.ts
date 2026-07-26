@@ -110,4 +110,18 @@ describe("Monea Currency Worker", () => {
       rates: { USD: { rate: 1.25, date: "2026-07-26" } },
     });
   });
+
+  it("returns 504 when the upstream is unreachable instead of stalling", async () => {
+    // 上游不可达（网络错误或回源超时 abort）：cachedFetch 应回落到 504 让客户端降级，
+    // 而非抛错导致路由层 500、或因无超时而无限卡死。超时阈值的实际生效由本地实测验证。
+    const upstream = vi.fn(async () => {
+      throw new Error("network unreachable");
+    });
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await workerExports.default.fetch("https://example.com/history?from=USD&to=CNY&range=1M");
+
+    expect(response.status).toBe(504);
+    expect(upstream).toHaveBeenCalledTimes(1);
+  });
 });
