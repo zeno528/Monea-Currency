@@ -80,10 +80,13 @@ export const HOME_MARKUP = String.raw`
           <div class="history-head">
             <div><h3 class="history-title"><svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 3 7-8"/><path d="M16 7h4v4"/></svg>参考汇率走势</h3><p id="history-quote" class="history-quote"><span class="history-quote-label">一单位参考汇率</span><strong class="history-quote-value">加载中</strong></p><p id="history-note" class="history-note">按需加载，不影响首屏。</p></div>
             <div class="history-ranges" aria-label="走势时间范围">
+              <button class="history-range" type="button" data-range="1D" aria-pressed="false">1天</button>
               <button class="history-range" type="button" data-range="1W" aria-pressed="false">1周</button>
               <button class="history-range" type="button" data-range="1M" aria-pressed="true">1个月</button>
               <button class="history-range" type="button" data-range="6M" aria-pressed="false">6个月</button>
               <button class="history-range" type="button" data-range="1Y" aria-pressed="false">1年</button>
+              <button class="history-range" type="button" data-range="2Y" aria-pressed="false">2年</button>
+              <button class="history-range" type="button" data-range="5Y" aria-pressed="false">5年</button>
             </div>
           </div>
           <div id="history-chart" class="history-chart" aria-live="polite"></div>

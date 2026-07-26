@@ -28,7 +28,11 @@
       var dateIndexes = [0, Math.round((points.length - 1) / 3), Math.round((points.length - 1) * 2 / 3), points.length - 1].filter(function (index, position, list) { return list.indexOf(index) === position; });
       var dateLabels = dateIndexes.map(function (index, position) {
         var dateParts = points[index].date.split("-");
-        var label = range === "1W" ? Number(dateParts[1]) + "月" + Number(dateParts[2]) + "日" : Number(dateParts[1]) + "月";
+        var label = range === "1D" || range === "1W"
+          ? Number(dateParts[1]) + "月" + Number(dateParts[2]) + "日"
+          : range === "2Y" || range === "5Y"
+            ? dateParts[0] + "年" + Number(dateParts[1]) + "月"
+            : Number(dateParts[1]) + "月";
         var anchor = position === 0 ? "start" : (position === dateIndexes.length - 1 ? "end" : "middle");
         var x = inset.left + innerWidth * index / (points.length - 1);
         return '<text x="' + x.toFixed(2) + '" y="' + (height - 8) + '" fill="#86868b" font-size="11" text-anchor="' + anchor + '">' + label + '</text>';

@@ -103,10 +103,13 @@ export async function handleHistory(url: URL, ctx: ExecutionContext): Promise<Re
   const to = (url.searchParams.get("to") || "EUR").toUpperCase();
   const range = url.searchParams.get("range") || "1M";
   const presets: Record<string, { days: number; group?: "week" | "month" }> = {
+    "1D": { days: 1 },
     "1W": { days: 7 },
     "1M": { days: 30 },
     "6M": { days: 183, group: "week" },
     "1Y": { days: 365, group: "month" },
+    "2Y": { days: 730, group: "month" },
+    "5Y": { days: 1826, group: "month" },
   };
   const preset = presets[range];
   if (!preset) return json({ error: "Invalid range" }, 400);
