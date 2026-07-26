@@ -70,7 +70,10 @@ export const HOME_MARKUP = String.raw`
       <div class="rate-summary">
         <span id="result-rate" class="rate-text" aria-live="polite">输入金额后将自动换算</span>
         <div class="summary-actions">
-          <button id="history-toggle" class="reset-btn history-btn" type="button" aria-expanded="false">汇率走势图</button>
+          <button id="history-toggle" class="reset-btn history-btn" type="button" aria-expanded="false">
+            <span>汇率走势图</span>
+            <svg class="history-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
           <button id="reset" class="reset-btn" type="button" title="恢复默认换算" aria-label="重置为 100 美元换算人民币">↺ 重置</button>
         </div>
       </div>

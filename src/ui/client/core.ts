@@ -828,7 +828,6 @@ export const HOME_CLIENT_CORE = String.raw`
       }
       historyEl.setAttribute("aria-hidden", opening ? "false" : "true");
       historyToggleEl.setAttribute("aria-expanded", opening ? "true" : "false");
-      historyToggleEl.textContent = opening ? "收起汇率走势图" : "汇率走势图";
       if (opening) loadHistory("draw");
     });
     document.querySelectorAll(".history-range").forEach(function (button) {
