@@ -242,6 +242,7 @@ export const HOME_CLIENT_CORE = String.raw`
     function initCombobox(box, initialCode) {
       var input = box.querySelector(".combo-input");
       var panel = box.querySelector(".combo-panel");
+      var listEl = panel.querySelector(".combo-scroll");
       var arrow = box.querySelector(".combo-arrow");
       var nativeSel = box.parentNode.querySelector(".native-select");
       box.dataset.value = initialCode;
@@ -260,11 +261,11 @@ export const HOME_CLIENT_CORE = String.raw`
 
       function render(list) {
         if (!list.length) {
-          panel.innerHTML = '<div class="combo-empty">未找到匹配的货币</div>';
+          listEl.innerHTML = '<div class="combo-empty">未找到匹配的货币</div>';
           return;
         }
         var cur = box.dataset.value;
-        panel.innerHTML = list.map(function (c) {
+        listEl.innerHTML = list.map(function (c) {
           var sel = c.code === cur ? " active" : "";
           return '<div class="combo-item' + sel + '" data-code="' + c.code + '">'
             + '<span class="combo-item-sym">' + (c.symbol || "") + '</span>'

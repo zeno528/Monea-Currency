@@ -40,7 +40,7 @@ export const HOME_MARKUP = String.raw`
           <div class="combobox" data-field="from">
             <input type="text" class="combo-input" placeholder="搜索货币…" autocomplete="off" spellcheck="false" aria-label="从货币">
             <button class="combo-arrow" type="button" aria-label="展开从货币列表" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
-            <div class="combo-panel" role="listbox"></div>
+            <div class="combo-panel" role="listbox"><div class="combo-scroll"></div></div>
           </div>
           <select class="native-select" aria-label="从货币"></select>
         </div>
@@ -56,7 +56,7 @@ export const HOME_MARKUP = String.raw`
           <div class="combobox" data-field="to">
             <input type="text" class="combo-input" placeholder="搜索货币…" autocomplete="off" spellcheck="false" aria-label="到货币">
             <button class="combo-arrow" type="button" aria-label="展开到货币列表" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
-            <div class="combo-panel" role="listbox"></div>
+            <div class="combo-panel" role="listbox"><div class="combo-scroll"></div></div>
           </div>
           <select class="native-select" aria-label="到货币"></select>
         </div>

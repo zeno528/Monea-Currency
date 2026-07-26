@@ -333,18 +333,19 @@ export const BASE_STYLES = String.raw`
   }
   .combobox.open .combo-arrow svg { transform: rotate(180deg); }
   .combo-panel {
+    --combo-panel-max-height: 300px;
     position: absolute;
     top: calc(100% + 6px);
     left: 0;
     right: 0;
-    max-height: 300px;
-    overflow-y: auto;
+    max-height: var(--combo-panel-max-height);
+    overflow: hidden;
     /* 下拉菜单必须是独立实底层，避免与金额卡片叠色。 */
     background: #ffffff;
     border: 1px solid var(--color-hairline);
     border-radius: var(--radius-lg);
     box-shadow: 0 18px 35px rgba(0, 0, 0, 0.14);
-    padding: 6px;
+    padding: 10px 4px 10px 6px;
     z-index: 50;
     display: block;
     opacity: 0;
@@ -354,17 +355,25 @@ export const BASE_STYLES = String.raw`
     transform-origin: top center;
     transition: opacity 160ms var(--ease-out), transform 180ms var(--ease-out), visibility 0s linear 180ms;
     will-change: opacity, transform;
+  }
+  .combo-scroll {
+    max-height: calc(var(--combo-panel-max-height) - 20px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+    scrollbar-gutter: stable;
   }
   /* 自定义滚动条（WebKit：Chrome / Edge / Safari） */
-  .combo-panel::-webkit-scrollbar { width: 8px; }
-  .combo-panel::-webkit-scrollbar-track { background: transparent; }
-  .combo-panel::-webkit-scrollbar-thumb {
+  .combo-scroll::-webkit-scrollbar { width: 10px; }
+  .combo-scroll::-webkit-scrollbar-track { background: transparent; margin: 2px 2px 2px 0; border-radius: var(--radius-pill); }
+  .combo-scroll::-webkit-scrollbar-thumb {
     background: rgba(0, 0, 0, 0.18);
-    border-radius: 4px;
+    border: 3px solid transparent;
+    border-radius: var(--radius-pill);
+    background-clip: padding-box;
   }
-  .combo-panel::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.28); }
+  .combo-scroll::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.28); }
   .combobox.open .combo-panel {
     opacity: 1;
     visibility: visible;
