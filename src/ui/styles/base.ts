@@ -206,8 +206,14 @@ export const BASE_STYLES = String.raw`
   .saved-pairs.has-content { grid-template-rows: 1fr; margin-bottom: 20px; opacity: 1; transform: translateY(0); }
   .saved-pairs-inner { min-height: 0; overflow: hidden; }
   .saved-pairs-content { display: grid; gap: 8px; }
-  .saved-pair-row { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+  .saved-pair-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+  }
   .saved-pair-label { min-width: 26px; color: var(--color-ink-muted-48); font-size: 12px; }
+  .saved-pair-track { display: flex; flex-wrap: wrap; gap: 7px; min-width: 0; }
   .clear-recent-btn {
     min-height: 28px;
     padding: 4px 6px;
@@ -648,4 +654,3 @@ export const BASE_STYLES = String.raw`
   }
 
 `;
-

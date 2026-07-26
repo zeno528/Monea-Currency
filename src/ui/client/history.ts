@@ -45,7 +45,7 @@ export const HISTORY_CLIENT = String.raw`
       var oldTooltip = $("history-tooltip");
       if (oldTooltip) oldTooltip.remove();
       document.body.insertAdjacentHTML("beforeend", '<div id="history-tooltip" class="chart-tooltip" role="status"></div>');
-      historyChartEl.innerHTML = '<svg id="history-svg" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="' + from + " 到 " + to + ' 的参考汇率走势。移动鼠标查看每个日期的价格。"><defs><linearGradient id="history-area-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#0071e3" stop-opacity=".20"/><stop offset="100%" stop-color="#0071e3" stop-opacity="0"/></linearGradient><clipPath id="history-area-clip"><rect id="history-area-reveal" x="' + inset.left + '" y="' + inset.top + '" width="' + innerWidth + '" height="' + innerHeight + '"/></clipPath></defs>' + gridLines + axisLabels + '<path id="history-area" d="' + areaPath + '" fill="url(#history-area-gradient)" clip-path="url(#history-area-clip)"/><path id="history-line" d="' + path + '" fill="none" stroke="#0071e3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle id="history-latest-dot" cx="' + latestPosition.x.toFixed(2) + '" cy="' + latestPosition.y.toFixed(2) + '" r="4.5" fill="#0071e3" stroke="#fff" stroke-width="2"/><g id="history-cursor" class="chart-cursor" hidden><line id="history-cursor-line" y1="' + inset.top + '" y2="' + (height - inset.bottom) + '" stroke="#0071e3" stroke-width="1" stroke-dasharray="3 3"/><circle id="history-cursor-dot" r="5" fill="#fff" stroke="#0071e3" stroke-width="3"/></g>' + dateLabels + '</svg>';
+      historyChartEl.innerHTML = '<svg id="history-svg" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="' + from + " 到 " + to + ' 的参考汇率走势。桌面端移动鼠标查看价格；触屏设备点按曲线查看，点按空白处取消。"><defs><linearGradient id="history-area-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#0071e3" stop-opacity=".20"/><stop offset="100%" stop-color="#0071e3" stop-opacity="0"/></linearGradient><clipPath id="history-area-clip"><rect id="history-area-reveal" x="' + inset.left + '" y="' + inset.top + '" width="' + innerWidth + '" height="' + innerHeight + '"/></clipPath></defs>' + gridLines + axisLabels + '<path id="history-area" d="' + areaPath + '" fill="url(#history-area-gradient)" clip-path="url(#history-area-clip)"/><path id="history-line" d="' + path + '" fill="none" stroke="#0071e3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle id="history-latest-dot" cx="' + latestPosition.x.toFixed(2) + '" cy="' + latestPosition.y.toFixed(2) + '" r="4.5" fill="#0071e3" stroke="#fff" stroke-width="2"/><g id="history-cursor" class="chart-cursor" hidden><line id="history-cursor-line" y1="' + inset.top + '" y2="' + (height - inset.bottom) + '" stroke="#0071e3" stroke-width="1" stroke-dasharray="3 3"/><circle id="history-cursor-dot" r="5" fill="#fff" stroke="#0071e3" stroke-width="3"/></g>' + dateLabels + '</svg>';
       var svg = $("history-svg"), line = $("history-line"), area = $("history-area"), areaReveal = $("history-area-reveal"), latestDot = $("history-latest-dot"), tooltip = $("history-tooltip"), cursor = $("history-cursor"), cursorLine = $("history-cursor-line"), cursorDot = $("history-cursor-dot");
       var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       function pathFromPositions(list) {
@@ -123,6 +123,8 @@ export const HISTORY_CLIENT = String.raw`
         historyVisual = { positions: positions };
       }
       var activeIndex = points.length - 1;
+      var finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+      var tapStart = null;
       function placeTooltip(clientX, clientY) {
         tooltip.style.left = clientX + "px";
         tooltip.style.top = clientY + "px";
@@ -148,17 +150,50 @@ export const HISTORY_CLIENT = String.raw`
         placeTooltip(clientX, clientY);
       }
       function hidePoint() { cursor.setAttribute("hidden", ""); tooltip.classList.remove("is-visible"); }
-      svg.addEventListener("pointermove", function (event) {
+      function pointFromEvent(event) {
         var rect = svg.getBoundingClientRect();
-        var x = (event.clientX - rect.left) / rect.width * width;
-        var y = (event.clientY - rect.top) / rect.height * height;
-        if (x < inset.left || x > width - inset.right || y < inset.top || y > height - inset.bottom) {
-          hidePoint();
-          return;
-        }
-        showPoint(Math.round((x - inset.left) / innerWidth * (points.length - 1)), event.clientX, event.clientY);
-      });
-      svg.addEventListener("pointerleave", hidePoint);
+        return { rect: rect, x: (event.clientX - rect.left) / rect.width * width, y: (event.clientY - rect.top) / rect.height * height };
+      }
+      function pointIndexAt(position) {
+        return Math.round((position.x - inset.left) / innerWidth * (points.length - 1));
+      }
+      function hitsCurve(position) {
+        if (position.x < inset.left || position.x > width - inset.right || position.y < inset.top || position.y > height - inset.bottom) return false;
+        var relativeIndex = (position.x - inset.left) / innerWidth * (points.length - 1);
+        var low = Math.max(0, Math.floor(relativeIndex)), high = Math.min(points.length - 1, Math.ceil(relativeIndex));
+        var progress = relativeIndex - low;
+        var curveY = positions[low].y + (positions[high].y - positions[low].y) * progress;
+        var hitRadius = Math.max(12, 22 / position.rect.height * height);
+        return Math.abs(position.y - curveY) <= hitRadius;
+      }
+      if (finePointer) {
+        svg.addEventListener("pointermove", function (event) {
+          var position = pointFromEvent(event);
+          if (position.x < inset.left || position.x > width - inset.right || position.y < inset.top || position.y > height - inset.bottom) {
+            hidePoint();
+            return;
+          }
+          showPoint(pointIndexAt(position), event.clientX, event.clientY);
+        });
+        svg.addEventListener("pointerleave", hidePoint);
+      } else {
+        historyChartEl.addEventListener("pointerdown", function (event) {
+          tapStart = { x: event.clientX, y: event.clientY };
+        });
+        historyChartEl.addEventListener("pointerup", function (event) {
+          if (!tapStart) return;
+          var moved = Math.hypot(event.clientX - tapStart.x, event.clientY - tapStart.y) > 10;
+          tapStart = null;
+          if (moved) return;
+          var position = pointFromEvent(event);
+          if (!hitsCurve(position)) {
+            hidePoint();
+            return;
+          }
+          showPoint(pointIndexAt(position), event.clientX, event.clientY);
+        });
+        historyChartEl.addEventListener("pointercancel", function () { tapStart = null; });
+      }
     }
     function loadHistory(animation) {
       var from = fromBox.dataset.value, to = toBox.dataset.value;
@@ -200,4 +235,3 @@ export const HISTORY_CLIENT = String.raw`
 
     loadCurrencies();
 `;
-

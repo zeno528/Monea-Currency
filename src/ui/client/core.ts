@@ -82,9 +82,10 @@ export const HOME_CLIENT_CORE = String.raw`
     function renderPairs(items, label) {
       if (!items.length) return "";
       var clear = label === "最近" ? '<button id="clear-recent" class="clear-recent-btn" type="button">清除</button>' : "";
-      return '<div class="saved-pair-row"><span class="saved-pair-label">' + label + '</span>' + items.map(function (pair) {
+      var rowClass = label === "最近" ? " saved-pair-row--recent" : "";
+      return '<div class="saved-pair-row' + rowClass + '"><span class="saved-pair-label">' + label + '</span><div class="saved-pair-track" aria-label="' + label + '组合，可左右滑动查看">' + items.map(function (pair) {
         return '<button class="pair-chip" type="button" data-from="' + pair.from + '" data-to="' + pair.to + '" aria-pressed="false">' + pairLabel(pair) + '</button>';
-      }).join("") + clear + '</div>';
+      }).join("") + '</div>' + clear + '</div>';
     }
     function updateSavedPairs(content) {
       savedPairsEl.classList.toggle("has-content", Boolean(content));
@@ -478,4 +479,3 @@ export const HOME_CLIENT_CORE = String.raw`
     });
 
 `;
-

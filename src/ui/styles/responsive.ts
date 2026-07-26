@@ -33,6 +33,7 @@ export const RESPONSIVE_STYLES = String.raw`
   }
   @media (max-width: 600px) {
     .converter-wrap { padding: 0 12px 56px; }
+    .converter-card { padding-inline: 16px; }
     .converter-topline { flex-direction: column; align-items: stretch; gap: 12px; }
     .converter-actions { width: 100%; flex-wrap: nowrap; justify-content: space-between; }
     .date-control { flex: 1; justify-content: space-between; }
@@ -41,6 +42,20 @@ export const RESPONSIVE_STYLES = String.raw`
     .quick-pairs { flex-wrap: nowrap; overflow-x: auto; margin-bottom: 16px; padding: 0 0 4px; scrollbar-width: none; }
     .quick-pairs::-webkit-scrollbar { display: none; }
     .pair-chip { flex: 0 0 auto; min-height: 36px; }
+    .saved-pair-row { grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
+    .saved-pair-row--recent { grid-template-columns: auto minmax(0, 1fr) auto; }
+    .saved-pair-track {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scroll-snap-type: x proximity;
+      scrollbar-width: none;
+      padding: 4px 0;
+      margin: -4px 0;
+      -webkit-overflow-scrolling: touch;
+    }
+    .saved-pair-track::-webkit-scrollbar { display: none; }
+    .saved-pair-track .pair-chip { scroll-snap-align: start; }
     .history { padding-inline: 14px; }
     .history-head { display: block; min-height: 0; }
     .history-ranges { overflow-x: auto; margin-top: 12px; padding-bottom: 2px; scrollbar-width: none; }
@@ -55,7 +70,7 @@ export const RESPONSIVE_STYLES = String.raw`
     .money-input { font-size: 32px; }
     .money-symbol { font-size: 30px; }
     .converter-wrap { padding: 0 14px 64px; }
-    .converter-card { padding: 18px; border-radius: 20px; }
+    .converter-card { padding: 18px 14px; border-radius: 20px; }
     .converter-topline { margin-bottom: 14px; }
     .converter-hint { display: none; }
     .converter-actions { gap: 6px; }
