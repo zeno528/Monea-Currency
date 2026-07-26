@@ -12,7 +12,7 @@ export const RESPONSIVE_STYLES = String.raw`
       align-items: stretch;
     }
     .currency-field { --combo-panel-offset: 26px; padding: 18px 20px; }
-    .combo-input { height: 52px; padding: 14px 80px 14px 20px; }
+    .combo-input { height: 52px; padding: 14px 80px 14px 52px; }
     .combo-panel { --combo-panel-max-height: min(320px, 42dvh); }
     .rate-summary { font-size: 13px; }
     .converter-topline { align-items: flex-start; }

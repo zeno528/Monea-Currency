@@ -297,7 +297,7 @@ export const BASE_STYLES = String.raw`
     background-color: var(--color-canvas);
     border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: var(--radius-pill);
-    padding: 12px 80px 12px 20px;
+    padding: 12px 80px 12px 52px;
     height: 44px;
     width: 100%;
     cursor: pointer;
@@ -333,6 +333,27 @@ export const BASE_STYLES = String.raw`
     transition: transform 180ms var(--ease-out);
   }
   .combobox.open .combo-arrow svg { transform: rotate(180deg); }
+  .combo-selected-flag {
+    position: absolute;
+    z-index: 1;
+    left: 20px;
+    top: 50%;
+    display: grid;
+    width: 24px;
+    height: 18px;
+    place-items: center;
+    pointer-events: none;
+    transform: translateY(-50%);
+  }
+  .combo-selected-flag img,
+  .combo-item-flag {
+    display: block;
+    width: 24px;
+    height: 18px;
+    object-fit: cover;
+    border-radius: 3px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+  }
   .combo-panel {
     --combo-panel-max-height: 300px;
     position: absolute;
@@ -383,7 +404,8 @@ export const BASE_STYLES = String.raw`
     transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out), visibility 0s;
   }
   .combo-item {
-    display: flex;
+    display: grid;
+    grid-template-columns: 24px 34px minmax(0, 1fr) auto;
     align-items: center;
     gap: 12px;
     padding: 10px 14px;
@@ -394,14 +416,25 @@ export const BASE_STYLES = String.raw`
   @media (hover: hover) {
     .combo-item:hover { background: var(--color-parchment); }
   }
-  .combo-item-sym {
-    min-width: 34px;
-    text-align: center;
-    font-weight: 600;
-    color: var(--color-ink);
+  .combo-item-flag {
+    width: 24px;
     flex-shrink: 0;
   }
-  .combo-item-cn { flex: 1; min-width: 0; font-size: 15px; color: var(--color-ink); }
+  .combo-item-sym {
+    min-width: 0;
+    color: var(--color-ink);
+    font-size: 16px;
+    font-weight: 600;
+    text-align: center;
+  }
+  .combo-item-cn {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-ink);
+    font-size: 15px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .combo-item-code {
     font-size: 13px;
     color: var(--color-ink-muted-48);

@@ -36,6 +36,31 @@ export const HOME_CLIENT_CORE = String.raw`
       ZMW:"赞比亚克瓦查",ZWG:"津巴布韦金币"
     };
 
+    // 货币代码对应的主要发行国家/地区。多国或非国家货币使用本地图标，避免错误归属。
+    var CURRENCY_REGIONS = {
+      AED:"AE",AFN:"AF",ALL:"AL",AMD:"AM",ANG:"CW",AOA:"AO",ARS:"AR",AUD:"AU",AWG:"AW",AZN:"AZ",
+      BAM:"BA",BBD:"BB",BDT:"BD",BHD:"BH",BIF:"BI",BMD:"BM",BND:"BN",BOB:"BO",BRL:"BR",BSD:"BS",
+      BTN:"BT",BWP:"BW",BYN:"BY",BZD:"BZ",CAD:"CA",CDF:"CD",CHF:"CH",CLP:"CL",CNH:"CN",CNY:"CN",
+      COP:"CO",CRC:"CR",CUP:"CU",CVE:"CV",CZK:"CZ",DJF:"DJ",DKK:"DK",DOP:"DO",DZD:"DZ",EGP:"EG",
+      ERN:"ER",ETB:"ET",EUR:"EU",FJD:"FJ",FKP:"FK",GBP:"GB",GEL:"GE",GGP:"GG",GHS:"GH",GIP:"GI",
+      GMD:"GM",GNF:"GN",GTQ:"GT",GYD:"GY",HKD:"HK",HNL:"HN",HTG:"HT",HUF:"HU",IDR:"ID",ILS:"IL",
+      IMP:"IM",INR:"IN",IQD:"IQ",IRR:"IR",ISK:"IS",JEP:"JE",JMD:"JM",JOD:"JO",JPY:"JP",KES:"KE",
+      KGS:"KG",KHR:"KH",KMF:"KM",KPW:"KP",KRW:"KR",KWD:"KW",KYD:"KY",KZT:"KZ",LAK:"LA",LBP:"LB",
+      LKR:"LK",LRD:"LR",LSL:"LS",LYD:"LY",MAD:"MA",MDL:"MD",MGA:"MG",MKD:"MK",MMK:"MM",MNT:"MN",
+      MOP:"MO",MRO:"MR",MRU:"MR",MUR:"MU",MVR:"MV",MWK:"MW",MXN:"MX",MYR:"MY",MZN:"MZ",NAD:"NA",
+      NGN:"NG",NIO:"NI",NOK:"NO",NPR:"NP",NZD:"NZ",OMR:"OM",PAB:"PA",PEN:"PE",PGK:"PG",PHP:"PH",
+      PKR:"PK",PLN:"PL",PYG:"PY",QAR:"QA",RON:"RO",RSD:"RS",RUB:"RU",RWF:"RW",SAR:"SA",SBD:"SB",
+      SCR:"SC",SDG:"SD",SEK:"SE",SGD:"SG",SHP:"SH",SLE:"SL",SOS:"SO",SRD:"SR",SSP:"SS",STN:"ST",
+      SVC:"SV",SYP:"SY",SZL:"SZ",THB:"TH",TJS:"TJ",TMT:"TM",TND:"TN",TOP:"TO",TRY:"TR",TTD:"TT",
+      TWD:"TW",TZS:"TZ",UAH:"UA",UGX:"UG",USD:"US",UYU:"UY",UZS:"UZ",VES:"VE",VND:"VN",VUV:"VU",
+      WST:"WS",YER:"YE",ZAR:"ZA",ZMW:"ZM",ZWG:"ZW"
+    };
+    // 无单一主权国家的货币使用轻量类别图标，而非空白占位旗帜。
+    var CURRENCY_ICON_SOURCES = {
+      XAF:"cfa.svg",XOF:"cfa.svg",XCD:"caribbean.svg",XCG:"caribbean-guilder.svg",XDR:"sdr.svg",XPF:"pacific.svg",
+      XAG:"metal-silver.svg",XAU:"metal-gold.svg",XPD:"metal-palladium.svg",XPT:"metal-platinum.svg"
+    };
+
     var $ = function (id) { return document.getElementById(id); };
     var fromAmountEl = $("from-amount"), toAmountEl = $("to-amount");
     var fromSymbolEl = $("from-symbol"), toSymbolEl = $("to-symbol");
@@ -158,6 +183,25 @@ export const HOME_CLIENT_CORE = String.raw`
       return code || "";
     }
 
+    function currencyFlagSource(code) {
+      if (CURRENCY_ICON_SOURCES[code]) return "/flags/" + CURRENCY_ICON_SOURCES[code];
+      var region = CURRENCY_REGIONS[code];
+      return "/flags/" + (region || "XX").toLowerCase() + ".svg";
+    }
+
+    function syncComboFlag(box) {
+      var flagEl = box.querySelector(".combo-selected-flag");
+      if (!flagEl) return;
+      var image = document.createElement("img");
+      image.src = currencyFlagSource(box.dataset.value);
+      image.alt = "";
+      image.width = 24;
+      image.height = 18;
+      image.decoding = "async";
+      image.setAttribute("fetchpriority", "low");
+      flagEl.replaceChildren(image);
+    }
+
     function currencySymbol(code) {
       for (var i = 0; i < CURRENCIES.length; i++) {
         if (CURRENCIES[i].code === code) return CURRENCIES[i].symbol || code;
@@ -265,6 +309,7 @@ export const HOME_CLIENT_CORE = String.raw`
       box.dataset.value = initialCode;
       input.value = displayText(initialCode);
       if (nativeSel) nativeSel.value = initialCode;
+      syncComboFlag(box);
 
       function getFiltered(q) {
         q = (q || "").trim().toLowerCase();
@@ -285,7 +330,8 @@ export const HOME_CLIENT_CORE = String.raw`
         listEl.innerHTML = list.map(function (c) {
           var sel = c.code === cur ? " active" : "";
           return '<div class="combo-item' + sel + '" data-code="' + c.code + '">'
-            + '<span class="combo-item-sym">' + (c.symbol || "") + '</span>'
+            + '<img class="combo-item-flag" src="' + currencyFlagSource(c.code) + '" alt="" width="24" height="18" loading="lazy" decoding="async">'
+            + '<span class="combo-item-sym" aria-hidden="true">' + (c.symbol || "—") + '</span>'
             + '<span class="combo-item-cn">' + c.cn + '</span>'
             + '<span class="combo-item-code">' + c.code + '</span>'
             + '</div>';
@@ -328,6 +374,7 @@ export const HOME_CLIENT_CORE = String.raw`
       function selectCode(code) {
         box.dataset.value = code;
         input.value = displayText(code);
+        syncComboFlag(box);
         if (nativeSel) nativeSel.value = code;
         close();
         syncSymbols();
@@ -395,6 +442,7 @@ export const HOME_CLIENT_CORE = String.raw`
         nativeSel.addEventListener("change", function () {
           box.dataset.value = nativeSel.value;
           input.value = displayText(nativeSel.value);
+          syncComboFlag(box);
           syncSymbols();
           syncHeroPair();
           syncQuickPairs();
@@ -484,6 +532,7 @@ export const HOME_CLIENT_CORE = String.raw`
     function syncDisplay(box) {
       var code = box.dataset.value;
       box.querySelector(".combo-input").value = displayText(code);
+      syncComboFlag(box);
       var sel = box.parentNode.querySelector(".native-select");
       if (sel) sel.value = code;
     }
