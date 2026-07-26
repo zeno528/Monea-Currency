@@ -76,6 +76,8 @@ export const HOME_CLIENT_CORE = String.raw`
     var toBox = document.querySelector('[data-field="to"]');
     var CURRENCIES = []; // {code, name, cn}
     var activeSide = "from";
+    // 快捷组合的高亮表示本次操作来源，而不是所有恰好匹配当前货币对的按钮。
+    var activePairSource = "quick";
     var requestId = 0;
     var historyRange = "1M";
     var historyRequestId = 0;
@@ -159,12 +161,20 @@ export const HOME_CLIENT_CORE = String.raw`
       var content = renderPairs(store.favorites, "收藏") + renderPairs(store.recent, "最近");
       animateSavedPairsUpdate(content);
       syncQuickPairs();
+      syncFavoriteButton();
+    }
+    function syncFavoriteButton() {
       favoriteBtn.setAttribute("aria-pressed", isFavorite(currentPair()) ? "true" : "false");
       favoriteBtn.textContent = isFavorite(currentPair()) ? "已收藏" : "收藏组合";
     }
     function rememberCurrentPair() {
       var store = readPairStore(), pair = currentPair(), id = pairId(pair.from, pair.to);
-      store.recent = [pair].concat(store.recent.filter(function (item) { return pairId(item.from, item.to) !== id; })).slice(0, 4);
+      // 已在最近列表中的组合保留原位置，避免重复选择时打乱用户的空间记忆。
+      if (store.recent.some(function (item) { return pairId(item.from, item.to) === id; })) {
+        syncFavoriteButton();
+        return;
+      }
+      store.recent = [pair].concat(store.recent).slice(0, 4);
       writePairStore(store);
       renderSavedPairs();
     }
@@ -267,9 +277,17 @@ export const HOME_CLIENT_CORE = String.raw`
 
     function syncQuickPairs() {
       document.querySelectorAll(".pair-chip").forEach(function (chip) {
-        var selected = chip.dataset.from === fromBox.dataset.value && chip.dataset.to === toBox.dataset.value;
+        var selected = activePairSource === pairChipSource(chip)
+          && chip.dataset.from === fromBox.dataset.value
+          && chip.dataset.to === toBox.dataset.value;
         chip.setAttribute("aria-pressed", selected ? "true" : "false");
       });
+    }
+
+    function pairChipSource(chip) {
+      if (chip.closest(".quick-pairs")) return "quick";
+      if (chip.closest(".saved-pair-row--recent")) return "recent";
+      return "favorite";
     }
 
     function showError(msg) { errEl.textContent = msg; errEl.hidden = false; }
@@ -379,13 +397,17 @@ export const HOME_CLIENT_CORE = String.raw`
         close();
         syncSymbols();
         syncHeroPair();
+        activePairSource = "";
         syncQuickPairs();
         rememberCurrentPair();
         syncHistory();
         convertDebounced();
       }
 
-      input.addEventListener("focus", function () { input.select(); });
+      input.addEventListener("focus", function () {
+        input.select();
+        if (!box.classList.contains("open")) open();
+      });
       input.addEventListener("input", function () {
         if (!box.classList.contains("open")) {
           closeAll(box);
@@ -445,6 +467,7 @@ export const HOME_CLIENT_CORE = String.raw`
           syncComboFlag(box);
           syncSymbols();
           syncHeroPair();
+          activePairSource = "";
           syncQuickPairs();
           rememberCurrentPair();
           syncHistory();
@@ -536,13 +559,14 @@ export const HOME_CLIENT_CORE = String.raw`
       var sel = box.parentNode.querySelector(".native-select");
       if (sel) sel.value = code;
     }
-    function applyPair(from, to, remember) {
+    function applyPair(from, to, remember, source) {
       fromBox.dataset.value = from;
       toBox.dataset.value = to;
       syncDisplay(fromBox);
       syncDisplay(toBox);
       syncSymbols();
       syncHeroPair();
+      activePairSource = source || "";
       syncQuickPairs();
       activeSide = "from";
       if (remember) rememberCurrentPair(); else renderSavedPairs();
@@ -558,7 +582,7 @@ export const HOME_CLIENT_CORE = String.raw`
         return;
       }
       var chip = event.target.closest(".pair-chip");
-      if (chip) applyPair(chip.dataset.from, chip.dataset.to, true);
+      if (chip) applyPair(chip.dataset.from, chip.dataset.to, true, pairChipSource(chip));
     });
     swapBtn.addEventListener("click", function () {
       var f = fromBox.dataset.value;
@@ -572,6 +596,7 @@ export const HOME_CLIENT_CORE = String.raw`
       activeSide = "from";
       syncSymbols();
       syncHeroPair();
+      activePairSource = "";
       syncQuickPairs();
       rememberCurrentPair();
       syncHistory();
@@ -587,6 +612,7 @@ export const HOME_CLIENT_CORE = String.raw`
       syncDisplay(toBox);
       syncSymbols();
       syncHeroPair();
+      activePairSource = "quick";
       syncQuickPairs();
       renderSavedPairs();
       syncHistory();
