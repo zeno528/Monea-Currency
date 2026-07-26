@@ -32,10 +32,10 @@ interface Env {}
 
 // ---------- 工具函数 ----------
 
-export function json(data: unknown, status = 200): Response {
+export function json(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json;charset=utf-8", ...CORS_HEADERS },
+    headers: { "Content-Type": "application/json;charset=utf-8", ...CORS_HEADERS, ...headers },
   });
 }
 
@@ -78,7 +78,11 @@ export async function handleConvert(url: URL, ctx: ExecutionContext): Promise<Re
 
   // 同币种直接返回，避免上游 404
   if (from === to) {
-    return json({ from, to, amount, rate: 1, result: amount, date: dateParam ?? today() });
+    return json(
+      { from, to, amount, rate: 1, result: amount, date: dateParam ?? today() },
+      200,
+      { "Cache-Control": `public, max-age=${dateParam ? 86400 : 300}` },
+    );
   }
 
   const params = dateParam ? `?date=${encodeURIComponent(dateParam)}` : "";
@@ -86,7 +90,11 @@ export async function handleConvert(url: URL, ctx: ExecutionContext): Promise<Re
   if (!resp.ok) return upstreamError(resp);
   const data: RateEntry = await resp.json();
   const result = +(amount * data.rate).toFixed(4);
-  return json({ from: data.base, to: data.quote, amount, rate: data.rate, result, date: data.date });
+  return json(
+    { from: data.base, to: data.quote, amount, rate: data.rate, result, date: data.date },
+    200,
+    { "Cache-Control": `public, max-age=${dateParam ? 86400 : 300}` },
+  );
 }
 
 /** GET /history?from=USD&to=CNY&range=1M — 用于按需加载参考汇率走势。 */
@@ -106,7 +114,11 @@ export async function handleHistory(url: URL, ctx: ExecutionContext): Promise<Re
   const end = today();
   const start = daysBefore(preset.days);
   if (from === to) {
-    return json({ from, to, range, start, end, group: preset.group ?? "day", points: [{ date: start, rate: 1 }, { date: end, rate: 1 }] });
+    return json(
+      { from, to, range, start, end, group: preset.group ?? "day", points: [{ date: start, rate: 1 }, { date: end, rate: 1 }] },
+      200,
+      { "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}` },
+    );
   }
 
   const params = new URLSearchParams({ base: from, quotes: to, from: start, to: end });
@@ -114,15 +126,19 @@ export async function handleHistory(url: URL, ctx: ExecutionContext): Promise<Re
   const resp = await cachedFetch(`${UPSTREAM}/rates?${params}`, ctx);
   if (!resp.ok) return upstreamError(resp);
   const entries: RateEntry[] = await resp.json();
-  return json({
-    from,
-    to,
-    range,
-    start,
-    end,
-    group: preset.group ?? "day",
-    points: entries.filter((entry) => entry.base === from && entry.quote === to).map((entry) => ({ date: entry.date, rate: entry.rate })),
-  });
+  return json(
+    {
+      from,
+      to,
+      range,
+      start,
+      end,
+      group: preset.group ?? "day",
+      points: entries.filter((entry) => entry.base === from && entry.quote === to).map((entry) => ({ date: entry.date, rate: entry.rate })),
+    },
+    200,
+    { "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}` },
+  );
 }
 
 /** GET /latest?base=USD — 把上游数组折叠为 {base, date, rates:{CODE:rate}} */
@@ -140,7 +156,7 @@ export async function handleLatest(url: URL, ctx: ExecutionContext): Promise<Res
   }
   // 不同央行更新日期不一，取出现次数最多的作为整体日期
   const date = Object.entries(dateCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? arr[0]?.date;
-  return json({ base, date, rates });
+  return json({ base, date, rates }, 200, { "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}` });
 }
 
 /** GET /currencies — 转为 {count, currencies:{CODE:{name,symbol}}} */
@@ -150,7 +166,7 @@ export async function handleCurrencies(ctx: ExecutionContext): Promise<Response>
   const arr: CurrencyInfo[] = await resp.json();
   const currencies: Record<string, { name: string; symbol?: string }> = {};
   for (const c of arr) currencies[c.iso_code] = { name: c.name, symbol: c.symbol };
-  return json({ count: arr.length, currencies });
+  return json({ count: arr.length, currencies }, 200, { "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}` });
 }
 
 export function today(): string {
