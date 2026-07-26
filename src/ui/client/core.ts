@@ -89,8 +89,149 @@ export const HOME_CLIENT_CORE = String.raw`
     var PAIR_STORAGE_KEY = "monea-currency:pairs:v1";
     var savedPairsInitialized = false;
     var savedPairsResizeCleanup = null; // 当前正在进行的卡片高度动画的清理器（模块级，保证同一时刻只有一个动画拥有共享卡片）
+    // 移动端搜索货币时，键盘会缩小可视区域；记录原位置，避免输入框与下拉列表被键盘遮住。
+    var comboKeyboardSession = null;
+    var comboScrollAnimation = null;
+    var comboKeyboardSettleTimer = null;
 
     dateEl.max = new Date().toISOString().slice(0, 10);
+
+    function isCompactViewport() {
+      return window.matchMedia("(max-width: 833px)").matches;
+    }
+
+    function comboViewportHeight() {
+      return window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    }
+
+    function stopComboScrollAnimation() {
+      if (!comboScrollAnimation) return;
+      cancelAnimationFrame(comboScrollAnimation.frame);
+      comboScrollAnimation = null;
+    }
+
+    function cancelComboKeyboardAlignment() {
+      if (comboKeyboardSettleTimer === null) return;
+      clearTimeout(comboKeyboardSettleTimer);
+      comboKeyboardSettleTimer = null;
+    }
+
+    // 键盘避让不是手势拖拽：使用无回弹的临界阻尼弹簧，既平滑又不会抢走输入焦点。
+    function animateComboScrollTo(targetY, targetX) {
+      var maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      var nextY = Math.max(0, Math.min(targetY, maxY));
+      var nextX = typeof targetX === "number" ? targetX : window.scrollX;
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        stopComboScrollAnimation();
+        window.scrollTo(nextX, nextY);
+        return;
+      }
+
+      var previous = comboScrollAnimation;
+      var velocity = previous ? previous.velocity : 0;
+      if (previous) cancelAnimationFrame(previous.frame);
+      var position = window.scrollY; // 从屏幕当前呈现的位置继续，避免键盘 resize 时跳帧。
+      var lastTime = performance.now();
+      var state = { frame: 0, velocity: velocity };
+      comboScrollAnimation = state;
+
+      function tick(now) {
+        if (comboScrollAnimation !== state) return;
+        var elapsed = Math.min(0.032, (now - lastTime) / 1000);
+        lastTime = now;
+        // 约 0.4s 的临界阻尼响应：对焦点移动克制、稳定，不出现装饰性弹跳。
+        var acceleration = (280 * (nextY - position)) - (34 * state.velocity);
+        state.velocity += acceleration * elapsed;
+        position += state.velocity * elapsed;
+        window.scrollTo(nextX, position);
+        if (Math.abs(nextY - position) < 0.5 && Math.abs(state.velocity) < 5) {
+          window.scrollTo(nextX, nextY);
+          comboScrollAnimation = null;
+          return;
+        }
+        state.frame = requestAnimationFrame(tick);
+      }
+      state.frame = requestAnimationFrame(tick);
+    }
+
+    document.addEventListener("pointerdown", function () {
+      // 用户开始手动操作时立即交回滚动控制权。
+      stopComboScrollAnimation();
+    }, { passive: true });
+
+    function startComboKeyboardSession(input) {
+      if (!isCompactViewport()) return;
+      var previous = comboKeyboardSession;
+      comboKeyboardSession = {
+        input: input,
+        scrollX: previous ? previous.scrollX : window.scrollX,
+        scrollY: previous ? previous.scrollY : window.scrollY,
+        initialViewportHeight: previous ? previous.initialViewportHeight : comboViewportHeight(),
+        keyboardWasShown: previous ? previous.keyboardWasShown : false,
+        restoreRequested: false,
+      };
+    }
+
+    function scheduleComboKeyboardAlignment(input) {
+      cancelComboKeyboardAlignment();
+      // iOS 键盘动画期间不与系统争夺滚动；等可视区域停止变化后再检查一次。
+      comboKeyboardSettleTimer = setTimeout(function () {
+        comboKeyboardSettleTimer = null;
+        alignComboWithKeyboard(input);
+      }, 100);
+    }
+
+    function alignComboWithKeyboard(input) {
+      var session = comboKeyboardSession;
+      if (!session || session.input !== input || !isCompactViewport()) return;
+      var visibleHeight = comboViewportHeight();
+      var keyboardOpen = session.initialViewportHeight - visibleHeight > 80;
+      if (!keyboardOpen) return;
+      if (keyboardOpen) session.keyboardWasShown = true;
+
+      var rect = input.getBoundingClientRect();
+      // 只在原生键盘避让后仍不理想时校正一次；不在键盘动画期间执行脚本滚动。
+      var targetTop = Math.max(64, Math.min(96, visibleHeight * 0.22));
+      var delta = rect.top - targetTop;
+      if (Math.abs(delta) > 8) window.scrollTo(window.scrollX, window.scrollY + delta);
+    }
+
+    function requestComboScrollRestore(input) {
+      var session = comboKeyboardSession;
+      if (!session || session.input !== input) return;
+      session.restoreRequested = true;
+      cancelComboKeyboardAlignment();
+      // 旧版 Safari 可能不报告键盘的 viewport 变化，给系统关闭键盘动画留出时间。
+      setTimeout(tryRestoreComboScroll, session.keyboardWasShown ? 0 : 300);
+    }
+
+    function tryRestoreComboScroll() {
+      var session = comboKeyboardSession;
+      if (!session || !session.restoreRequested) return;
+      var keyboardStillOpen = session.keyboardWasShown && session.initialViewportHeight - comboViewportHeight() > 80;
+      if (keyboardStillOpen) {
+        setTimeout(tryRestoreComboScroll, 120);
+        return;
+      }
+      animateComboScrollTo(session.scrollY, session.scrollX);
+      comboKeyboardSession = null;
+    }
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", function () {
+        var session = comboKeyboardSession;
+        if (!session) return;
+        if (session.initialViewportHeight - comboViewportHeight() > 80) {
+          session.keyboardWasShown = true;
+          scheduleComboKeyboardAlignment(session.input);
+        } else {
+          cancelComboKeyboardAlignment();
+          // Android 返回键等场景可能收起键盘但不触发 input 的 blur。
+          if (session.keyboardWasShown) session.restoreRequested = true;
+          tryRestoreComboScroll();
+        }
+      }, { passive: true });
+    }
 
     function pairId(from, to) { return from + ":" + to; }
     function currentPair() { return { from: fromBox.dataset.value, to: toBox.dataset.value }; }
@@ -230,7 +371,7 @@ export const HOME_CLIENT_CORE = String.raw`
       if (!from || !to) return;
       var id = ++historyRequestId;
       var key = from + ":" + to + ":" + historyRange;
-      if (animation === "draw") setHistoryLoading("正在加载参考走势…", true);
+      if (animation === "draw") setHistoryLoading("正在加载参考走势图…", true);
       if (historyRequestController) historyRequestController.abort();
       historyRequestController = new AbortController();
       var signal = historyRequestController.signal;
@@ -525,6 +666,7 @@ export const HOME_CLIENT_CORE = String.raw`
       }
 
       input.addEventListener("focus", function () {
+        startComboKeyboardSession(input);
         input.select();
         if (!box.classList.contains("open")) open();
       });
@@ -572,6 +714,7 @@ export const HOME_CLIENT_CORE = String.raw`
       });
       // 失焦延迟关闭，让选项点击先触发；并恢复当前选中值的显示
       input.addEventListener("blur", function () {
+        requestComboScrollRestore(input);
         setTimeout(function () {
           close();
           input.value = displayText(box.dataset.value);
