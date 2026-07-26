@@ -10,7 +10,8 @@
       var width = 640, height = 210, inset = { top: 20, right: 16, bottom: 30, left: 58 };
       var values = points.map(function (point) { return Number(point.rate); }).filter(function (value) { return isFinite(value); });
       if (values.length < 2) { setHistoryLoading("该时间范围暂无可用参考数据"); return; }
-      historyEl.classList.remove("is-loading");
+      historyEl.classList.remove("is-loading", "is-updating");
+      historyEl.setAttribute("aria-busy", "false");
       var rangeMin = Math.min.apply(null, values), rangeMax = Math.max.apply(null, values);
       var min = rangeMin, max = rangeMax, span = max - min || Math.max(max * 0.02, 0.01);
       min -= span * 0.12; max += span * 0.12;

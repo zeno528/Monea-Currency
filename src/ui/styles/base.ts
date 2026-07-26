@@ -581,8 +581,30 @@ export const BASE_STYLES = String.raw`
     transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
   }
   .history-range[aria-pressed="true"] { color: #0066cc; border-color: #b8d8ff; background: #e8f2ff; }
+  .history-range[aria-pressed="true"]::after {
+    content: "";
+    display: inline-block;
+    width: 0;
+    height: 10px;
+    margin-left: 0;
+    border: 0 solid transparent;
+    border-radius: 50%;
+    vertical-align: -1px;
+    opacity: 0;
+  }
+  .history.is-updating .history-range[aria-pressed="true"]::after {
+    width: 10px;
+    margin-left: 4px;
+    border-width: 1.5px;
+    border-color: rgba(0, 102, 204, 0.22);
+    border-top-color: #0066cc;
+    opacity: 1;
+    animation: history-loading-spin 720ms linear infinite;
+  }
   .history-range:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
   .history-chart { position: relative; height: 340px; }
+  .history.is-updating .history-chart { opacity: 0.58; }
+  .history-chart { transition: opacity 140ms ease; }
   .history.is-loading .history-chart { height: 148px; border: 1px solid rgba(0, 102, 204, 0.1); border-radius: 14px; background: linear-gradient(135deg, rgba(0, 113, 227, 0.06), rgba(0, 113, 227, 0.015)); }
   .history-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
   .chart-cursor { pointer-events: none; }

@@ -339,10 +339,17 @@ export const HOME_CLIENT_CORE = String.raw`
     }
 
     function setHistoryLoading(message, loading) {
+      setHistoryUpdating(false);
       historyEl.classList.toggle("is-loading", Boolean(loading));
+      historyEl.setAttribute("aria-busy", loading ? "true" : "false");
       historyQuoteEl.hidden = true;
       historyNoteEl.hidden = true;
       historyChartEl.innerHTML = '<div class="history-empty' + (loading ? ' is-loading' : '') + '" role="status">' + (loading ? '<span class="history-loading-indicator" aria-hidden="true"></span>' : '') + '<span>' + message + '</span></div>';
+    }
+
+    function setHistoryUpdating(updating) {
+      historyEl.classList.toggle("is-updating", Boolean(updating));
+      historyEl.setAttribute("aria-busy", updating ? "true" : "false");
     }
 
     function ensureHistoryClient() {
@@ -435,8 +442,8 @@ export const HOME_CLIENT_CORE = String.raw`
     function fetchOfficialHistory(from, to, range, signal) {
       var presets = {
         "1D": { days: 1 }, "1W": { days: 7 }, "1M": { days: 30 },
-        "6M": { days: 183, group: "week" }, "1Y": { days: 365, group: "month" },
-        "2Y": { days: 730, group: "month" }, "5Y": { days: 1826, group: "month" }
+        "6M": { days: 183 }, "1Y": { days: 365, group: "week" },
+        "2Y": { days: 730, group: "week" }, "5Y": { days: 1826, group: "month" }
       };
       var preset = presets[range];
       var endDate = new Date();
@@ -460,8 +467,10 @@ export const HOME_CLIENT_CORE = String.raw`
       if (!from || !to) return;
       var id = ++historyRequestId;
       var key = from + ":" + to + ":" + historyRange;
-      // morph 通常保留旧曲线静默过渡；但若没有可过渡的旧曲线（首次打开后即切换、上次加载失败），同样显示加载态，避免空着像卡住。
-      if (animation === "draw" || (animation === "morph" && !historyChartEl.querySelector("#history-svg"))) setHistoryLoading("正在加载汇率走势图…", true);
+      var hasVisibleChart = Boolean(historyChartEl.querySelector("#history-svg"));
+      // 首次加载需要完整占位；切换范围时保留旧曲线，并明确标注它正在更新。
+      if (animation === "draw" || (animation === "morph" && !hasVisibleChart)) setHistoryLoading("正在加载汇率走势图…", true);
+      else if (animation === "morph") setHistoryUpdating(true);
       if (historyRequestController) historyRequestController.abort();
       historyRequestController = new AbortController();
       var signal = historyRequestController.signal;
