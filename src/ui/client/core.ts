@@ -86,7 +86,7 @@ export const HOME_CLIENT_CORE = String.raw`
     var historyRequestController = null;
     var historyCache = new Map();
     var historyClientPromise = null;
-    var PAIR_STORAGE_KEY = "currency-worker:pairs:v1";
+    var PAIR_STORAGE_KEY = "monea-currency:pairs:v1";
     var savedPairsInitialized = false;
     var savedPairsResizeCleanup = null; // 当前正在进行的卡片高度动画的清理器（模块级，保证同一时刻只有一个动画拥有共享卡片）
 

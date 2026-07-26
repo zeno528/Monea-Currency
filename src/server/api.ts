@@ -1,5 +1,5 @@
 /**
- * Currency Worker — 汇率换算 API + Apple 风格首页
+ * Monea Currency — 汇率换算 API + Apple 风格首页
  *
  * 数据源：Frankfurter v2 (https://frankfurter.dev) — 免费、无 API Key、201 种货币
  * 缓存：Cloudflare Cache API，边缘缓存 1 小时
@@ -45,7 +45,7 @@ async function cachedFetch(url: string, ctx: ExecutionContext): Promise<Response
   const cached = await cache.match(url);
   if (cached) return cached;
 
-  const resp = await fetch(url, { headers: { "User-Agent": "currency-worker/1.0" } });
+  const resp = await fetch(url, { headers: { "User-Agent": "Monea Currency/1.0" } });
   if (!resp.ok) return resp; // 透传上游错误
 
   // body 只能读一次，克隆后存缓存

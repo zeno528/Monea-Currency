@@ -2,9 +2,9 @@ export const HOME_MARKUP = String.raw`
 </head>
 <body>
   <nav class="global-nav">
-    <a class="brand" href="/" aria-label="Currency 汇率换算首页">
+    <a class="brand" href="/" aria-label="Monea Currency 汇率换算首页">
       <img src="/currency-logo.svg" alt="" width="20" height="20">
-      <span>Currency · 汇率换算</span>
+      <span>Monea Currency · 汇率换算</span>
     </a>
   </nav>
 
@@ -135,9 +135,9 @@ export const HOME_MARKUP = String.raw`
   </section>
 
   <footer class="footer">
-    数据由 <a href="https://frankfurter.dev" target="_blank" rel="noopener">Frankfurter</a> 提供 · 部署于 Cloudflare Workers · <a href="https://github.com/zeno528/currency-worker" target="_blank" rel="noopener">GitHub 仓库</a>
+    数据由 <a href="https://frankfurter.dev" target="_blank" rel="noopener">Frankfurter</a> 提供 · 部署于 Cloudflare Workers · <a href="https://github.com/zeno528/monea-currency" target="_blank" rel="noopener">GitHub 仓库</a>
     <div class="footer-divider"></div>
-    汇率仅供参考，不构成交易建议。© 2026 Currency Worker
+    汇率仅供参考，不构成交易建议。© 2026 Monea Currency
   </footer>
 
 `;

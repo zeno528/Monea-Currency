@@ -1,9 +1,9 @@
 {
-  "name": "currency-worker",
+  "name": "monea-currency",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Currency conversion API + Apple-style UI on Cloudflare Workers, backed by Frankfurter v2",
+  "description": "Monea Currency — 汇率换算 API + Apple 风格界面，部署在 Cloudflare Workers，数据来自 Frankfurter v2",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

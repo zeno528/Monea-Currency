@@ -39,7 +39,7 @@ export default {
           return json({ status: "ok", upstream: UPSTREAM, time: today() });
         case "/api":
           return json({
-            name: "currency-worker",
+            name: "Monea Currency",
             endpoints: {
               convert: "/convert?from=USD&to=CNY&amount=100",
               history: "/history?from=USD&to=CNY&range=1M",
