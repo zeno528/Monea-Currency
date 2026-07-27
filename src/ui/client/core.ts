@@ -91,6 +91,8 @@ export const HOME_CLIENT_CORE = String.raw`
     var requestId = 0;
     var rateCache = new Map();
     var rateRequest = null;
+    // 浏览器内存缓存只保留 5 分钟，避免与边缘 1 小时缓存叠加后把小时级快照拖成近两小时旧。
+    var RATE_CACHE_TTL_MS = 5 * 60 * 1000;
     var historyRange = "1M";
     var historyRequestId = 0;
     var historyRequestController = null;
@@ -943,7 +945,7 @@ export const HOME_CLIENT_CORE = String.raw`
     function readCachedRate(key) {
       var cached = rateCache.get(key);
       if (!cached) return null;
-      if (Date.now() - cached.storedAt > 60 * 60 * 1000) {
+      if (Date.now() - cached.storedAt > RATE_CACHE_TTL_MS) {
         rateCache.delete(key);
         return null;
       }
@@ -951,11 +953,11 @@ export const HOME_CLIENT_CORE = String.raw`
     }
 
     function storeRate(data, requestedDate) {
-      var normalized = { from: data.from, to: data.to, rate: Number(data.rate), date: data.date };
+      var normalized = { from: data.from, to: data.to, rate: Number(data.rate), date: data.date, updatedAt: data.updatedAt || "" };
       rateCache.set(data.from + ":" + data.to + ":" + requestedDate, { data: normalized, storedAt: Date.now() });
       if (Number(data.rate)) {
         rateCache.set(data.to + ":" + data.from + ":" + requestedDate, {
-          data: { from: data.to, to: data.from, rate: 1 / Number(data.rate), date: data.date },
+          data: { from: data.to, to: data.from, rate: 1 / Number(data.rate), date: data.date, updatedAt: data.updatedAt || "" },
           storedAt: Date.now()
         });
       }
@@ -982,12 +984,20 @@ export const HOME_CLIENT_CORE = String.raw`
       return promise;
     }
 
+    function formatUpdatedAt(updatedAt) {
+      var date = new Date(updatedAt);
+      if (isNaN(date.getTime())) return "";
+      var pad = function (value) { return String(value).padStart(2, "0"); };
+      return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate()) + " " + pad(date.getHours()) + ":" + pad(date.getMinutes());
+    }
+
     function applyConversion(data, amount, outputEl) {
       var rate = Number(data.rate);
       outputEl.value = formatEditableAmount(+(amount * rate).toFixed(4));
-      // 双行布局：上行汇率 + 下行日历图标
+      // 双行布局：上行汇率 + 下行的小时级更新时间（历史降级时保留数据日期）。
       rateMainEl.textContent = "1 " + data.from + " = " + formatHeroRate(rate) + " " + data.to;
-      rateDateText.textContent = "数据日期 " + data.date;
+      var updatedAt = formatUpdatedAt(data.updatedAt);
+      rateDateText.textContent = updatedAt ? "数据更新 " + updatedAt : "数据日期 " + data.date;
       rateEl.replaceChildren(rateMainEl, rateSubEl);
     }
 

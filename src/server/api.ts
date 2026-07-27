@@ -1,7 +1,8 @@
 /**
  * Monea Currency — 汇率换算 API + Apple 风格首页
  *
- * 数据源：Frankfurter v2 (https://frankfurter.dev) — 免费、无 API Key、201 种货币
+ * 最新汇率：currencyapi（小时级缓存，服务端 API Key）
+ * 历史走势与降级：Frankfurter v2 (https://frankfurter.dev) — 免费、无 API Key、201 种货币
  * 缓存：双层——
  *   1) Cache API (caches.default)：按上游 URL 跨 Worker 端点共享（如 /convert + /latest 同 base）。
  *   2) Workers Caching (wrangler cache.enabled)：按 Worker URL 自动落 CDN 边缘，
@@ -13,13 +14,14 @@
  */
 
 export const UPSTREAM = "https://api.frankfurter.dev/v2";
+export const HOURLY_UPSTREAM = "https://api.currencyapi.com/v3/latest?base_currency=USD";
 const DAY_SECONDS = 86400;
 // 回源超时：上游挂起（TCP 半开、TLS 卡死等）时及时中断，避免整个请求被无限拖死。
 const UPSTREAM_TIMEOUT_MS = 6000;
 
 // TTL/SWR/SIE 分级：
-//   live-rate：frankfurter 自身 max-age=86400（按 ECB 工作日 16:00 CET 发布），
-//               我们给 1h fresh + 24h swr/sie，让热门边沿次日一开工就是缓存命中。
+//   live-rate：currencyapi 的 USD 全量快照；1h fresh + 5min SWR，保证正常情况下
+//               最多约 65 分钟看到一次新快照，且更新瞬间不让用户等回源。
 //   dated-rate：历史日期的汇率不可变，可以非常久地兜底。
 //   history：Frankfurter 官方文档明说"Historical rates are immutable, so cache them forever"，
 //            给 1d fresh + 7d swr/sie 已经远超实际访问频率。
@@ -32,7 +34,7 @@ type CachePolicy = {
 };
 
 const CACHE_POLICIES: Record<CachePolicy["name"], CachePolicy> = {
-  "live-rate": { name: "live-rate", maxAgeSeconds: 3600, swrSeconds: 86400, sieSeconds: 86400 },
+  "live-rate": { name: "live-rate", maxAgeSeconds: 3600, swrSeconds: 300, sieSeconds: 86400 },
   "dated-rate": { name: "dated-rate", maxAgeSeconds: 86400, swrSeconds: DAY_SECONDS * 30, sieSeconds: DAY_SECONDS * 30 },
   history: { name: "history", maxAgeSeconds: 86400, swrSeconds: DAY_SECONDS * 7, sieSeconds: DAY_SECONDS * 7 },
   currencies: { name: "currencies", maxAgeSeconds: 86400 * 7, swrSeconds: DAY_SECONDS * 30, sieSeconds: DAY_SECONDS * 30 },
@@ -57,10 +59,12 @@ interface CurrencyInfo {
   symbol?: string;
 }
 
-interface Env {
+export interface Env {
   // SELF service binding：在 scheduled handler 中调用本 Worker 自己的 fetch handler，
   // 走 Service Bindings 通道，避免 cron 经公网回环；host 任意，path 须匹配 router。
   SELF: Fetcher;
+  // currencyapi 的密钥仅作为 Cloudflare Secret 存放，绝不下发到浏览器或写入配置文件。
+  CURRENCYAPI_KEY?: string;
 }
 
 // ---------- 工具函数 ----------
@@ -80,11 +84,11 @@ function cacheControlHeader(policy: CachePolicy): string {
  * 带超时的上游 fetch：上游挂起（TCP 半开、TLS 卡死等）时在 timeoutMs 内中断，
  * 避免 fetchUpstream 进而整个请求被无限拖死。
  */
-async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+async function fetchWithTimeout(url: string, timeoutMs: number, headers: Record<string, string> = {}): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { headers: { "User-Agent": "Monea Currency/1.0" }, signal: controller.signal });
+    return await fetch(url, { headers: { "User-Agent": "Monea Currency/1.0", ...headers }, signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }
@@ -99,13 +103,13 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
  *      - 若此前 Worker URL 已被 CDN 缓存，CF 的 stale-if-error 会自动吐 stale；
  *      - 首次冷启+失败则如实返回错误。
  */
-async function fetchUpstream(url: string, policy: CachePolicy, ctx: ExecutionContext): Promise<Response> {
+async function fetchUpstream(url: string, policy: CachePolicy, ctx: ExecutionContext, headers: Record<string, string> = {}): Promise<Response> {
   const cached = await caches.default.match(url);
   if (cached) return cached;
 
   let resp: Response;
   try {
-    resp = await fetchWithTimeout(url, UPSTREAM_TIMEOUT_MS);
+    resp = await fetchWithTimeout(url, UPSTREAM_TIMEOUT_MS, headers);
   } catch (error) {
     console.warn(JSON.stringify({ event: "upstream", state: "timeout-or-network", resource: policy.name }));
     return json({ error: "Upstream unavailable" }, 504, { "Cache-Control": "no-store" });
@@ -136,10 +140,55 @@ async function upstreamError(resp: Response): Promise<Response> {
   return json({ error: `Upstream error: ${resp.status}`, detail }, resp.status, { "Cache-Control": "no-store" });
 }
 
+type CurrencyApiLatestResponse = {
+  meta?: { last_updated_at?: string };
+  data?: Record<string, { value?: number }>;
+};
+
+type LiveRateSnapshot = {
+  updatedAt: string;
+  rates: Record<string, number>;
+};
+
+function dateFromTimestamp(timestamp: string): string {
+  const date = new Date(timestamp);
+  return Number.isNaN(date.getTime()) ? today() : date.toISOString().slice(0, 10);
+}
+
+function derivedRate(snapshot: LiveRateSnapshot, from: string, to: string): number | null {
+  const fromRate = snapshot.rates[from];
+  const toRate = snapshot.rates[to];
+  if (!Number.isFinite(fromRate) || !Number.isFinite(toRate) || fromRate <= 0 || toRate <= 0) return null;
+  return toRate / fromRate;
+}
+
+/** 获取单份 USD 基准快照；任意交叉汇率均由该快照派生，避免按币种重复消耗 API 配额。 */
+async function fetchHourlySnapshot(env: Env, ctx: ExecutionContext): Promise<LiveRateSnapshot | null> {
+  if (!env.CURRENCYAPI_KEY) return null;
+  const response = await fetchUpstream(HOURLY_UPSTREAM, CACHE_POLICIES["live-rate"], ctx, { apikey: env.CURRENCYAPI_KEY });
+  if (!response.ok) {
+    console.warn(JSON.stringify({ event: "currencyapi", state: `http-${response.status}`, mode: "fallback-frankfurter" }));
+    return null;
+  }
+  try {
+    const payload: CurrencyApiLatestResponse = await response.json();
+    const updatedAt = payload.meta?.last_updated_at;
+    if (!updatedAt || !payload.data) throw new Error("missing latest snapshot metadata");
+    const rates: Record<string, number> = { USD: 1 };
+    for (const [code, entry] of Object.entries(payload.data)) {
+      if (typeof entry.value === "number" && Number.isFinite(entry.value) && entry.value > 0) rates[code] = entry.value;
+    }
+    return Object.keys(rates).length > 1 ? { updatedAt, rates } : null;
+  } catch (error) {
+    console.warn(JSON.stringify({ event: "currencyapi", state: "invalid-payload", mode: "fallback-frankfurter", error: String(error) }));
+    return null;
+  }
+}
+
 // ---------- 路由处理 ----------
 
 /** GET /convert?from=USD&to=CNY&amount=100 */
-export async function handleConvert(url: URL, ctx: ExecutionContext): Promise<Response> {
+export async function handleConvert(url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
   const from = (url.searchParams.get("from") || "USD").toUpperCase();
   const to = (url.searchParams.get("to") || "EUR").toUpperCase();
   const amountParam = url.searchParams.get("amount");
@@ -165,11 +214,21 @@ export async function handleConvert(url: URL, ctx: ExecutionContext): Promise<Re
   const params = dateParam ? `?date=${encodeURIComponent(dateParam)}` : "";
   const policy = dateParam ? CACHE_POLICIES["dated-rate"] : CACHE_POLICIES["live-rate"];
 
-  // 实时路径走批量：一次回源拿到 base 下全量汇率（与 /latest 共享 caches.default 同一上游键），
-  // 派生 from→to。同一 base 后续切换目标币种直接命中缓存，零上游。
+  // 最新路径由单份 USD 小时快照派生任意交叉汇率，所有币种共用一次上游请求。
   // 带 date 的历史日期查询仍走单点 `/rate/{from}/{to}?date=...`——避免拉整张历史全量、也避免给
   // dated-rate 缓存写膨胀。
   if (!dateParam) {
+    const snapshot = await fetchHourlySnapshot(env, ctx);
+    const hourlyRate = snapshot && derivedRate(snapshot, from, to);
+    if (hourlyRate !== null && hourlyRate !== undefined && snapshot) {
+      const result = +(amount * hourlyRate).toFixed(4);
+      return json(
+        { from, to, amount, rate: hourlyRate, result, date: dateFromTimestamp(snapshot.updatedAt), updatedAt: snapshot.updatedAt, source: "currencyapi" },
+        200,
+        { "Cache-Control": cacheControlHeader(policy) },
+      );
+    }
+    // 未配置密钥、服务不可用或币种不覆盖时，继续用 Frankfurter，保证原有货币范围与可用性。
     const batchResp = await fetchUpstream(`${UPSTREAM}/rates?base=${from}`, policy, ctx);
     if (!batchResp.ok) return upstreamError(batchResp);
     const arr: RateEntry[] = await batchResp.json();
@@ -246,10 +305,22 @@ export async function handleHistory(url: URL, ctx: ExecutionContext): Promise<Re
   );
 }
 
-/** GET /latest?base=USD — 保留每个货币各自的数据日期。 */
-export async function handleLatest(url: URL, ctx: ExecutionContext): Promise<Response> {
+/** GET /latest?base=USD — 最新汇率优先使用小时快照，保留上游更新时间。 */
+export async function handleLatest(url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
   const base = (url.searchParams.get("base") || "EUR").toUpperCase();
   const policy = CACHE_POLICIES["live-rate"];
+  const snapshot = await fetchHourlySnapshot(env, ctx);
+  if (snapshot) {
+    const baseRate = snapshot.rates[base];
+    if (Number.isFinite(baseRate) && baseRate > 0) {
+      const rates: Record<string, { rate: number; date: string; updatedAt: string }> = {};
+      for (const [quote, quoteRate] of Object.entries(snapshot.rates)) {
+        if (quote === base) continue;
+        rates[quote] = { rate: quoteRate / baseRate, date: dateFromTimestamp(snapshot.updatedAt), updatedAt: snapshot.updatedAt };
+      }
+      return json({ base, rates, updatedAt: snapshot.updatedAt, source: "currencyapi" }, 200, { "Cache-Control": cacheControlHeader(policy) });
+    }
+  }
   const resp = await fetchUpstream(`${UPSTREAM}/rates?base=${base}`, policy, ctx);
   if (!resp.ok) return upstreamError(resp);
   const arr: RateEntry[] = await resp.json();
@@ -294,70 +365,14 @@ function parseNonNegativeAmount(value: string | null): number | null {
   return Number.isFinite(amount) && amount >= 0 ? amount : null;
 }
 
-/** Cron-triggered cache warming: 覆盖 frankfurter 当前发布的全部 165 个 base，
- *  通过 SELF service binding 调用自身 /latest 端点，响应按 live-rate 策略
- *  (max-age=1h, swr/sie=24h) 写入 CDN 边沿（cache.enabled: true 自动按
- *  Cache-Control 头落），跨 DC 共享——后续任何 DC 的首访用户都直接 HIT/UPDATING。
- *
- *  必须并发：每个冷回源 ~1-2s，165 个顺序 await 必爆 Workers 30s CPU 上限。
- *  限 20 并发：165/20 ≈ 9 批 × ~1.5s ≈ 13s，留出余量；过高的并发对
- *  frankfurter 这种免费公共服务也是不必要的礼貌开销。
- *
- *  fetch handler 内部已经走 caches.default + fetchUpstream + SWR/SIE 头，
- *  重复预热同一 base 在缓存有效期内命中 stale（SWR 后台 revalidate），无副作用。
- */
+/** 每小时预热唯一的 USD 基准快照；所有交叉汇率从这份快照派生，避免成百上千次收费回源。 */
 export async function warmBaseCache(env: Env, _ctx: ExecutionContext): Promise<void> {
-  // frankfurter /v2/currencies 当前 165 个；硬编码避免 cron 启动多一次上游依赖。
-  // 列表变更时（frankfurter 新增/下架币种）需手动同步——frankfurter 历史上极少变更。
-  const bases = [
-    "AED","AFN","ALL","AMD","ANG","AOA","ARS","AUD","AWG","AZN",
-    "BAM","BBD","BDT","BHD","BIF","BMD","BND","BOB","BRL","BSD",
-    "BTN","BWP","BYN","BZD","CAD","CDF","CHF","CLP","CNH","CNY",
-    "COP","CRC","CUP","CVE","CZK","DJF","DKK","DOP","DZD","EGP",
-    "ERN","ETB","EUR","FJD","FKP","GBP","GEL","GGP","GHS","GIP",
-    "GMD","GNF","GTQ","GYD","HKD","HNL","HTG","HUF","IDR","ILS",
-    "IMP","INR","IQD","IRR","ISK","JEP","JMD","JOD","JPY","KES",
-    "KGS","KHR","KMF","KPW","KRW","KWD","KYD","KZT","LAK","LBP",
-    "LKR","LRD","LSL","LYD","MAD","MDL","MGA","MKD","MMK","MNT",
-    "MOP","MRO","MRU","MUR","MVR","MWK","MXN","MYR","MZN","NAD",
-    "NGN","NIO","NOK","NPR","NZD","OMR","PAB","PEN","PGK","PHP",
-    "PKR","PLN","PYG","QAR","RON","RSD","RUB","RWF","SAR","SBD",
-    "SCR","SDG","SEK","SGD","SHP","SLE","SOS","SRD","SSP","STN",
-    "SVC","SYP","SZL","THB","TJS","TMT","TND","TOP","TRY","TTD",
-    "TWD","TZS","UAH","UGX","USD","UYU","UZS","VES","VND","VUV",
-    "WST","XAF","XAG","XAU","XCD","XCG","XDR","XOF","XPD","XPF",
-    "XPT","YER","ZAR","ZMW","ZWG",
-  ];
-  // Free plan 单次 invoke subrequest 上限 = 50；每个 env.SELF.fetch() 计 1 subrequest。
-  // 用 time-rotation 切分：每次 cron 按当前 UTC 分钟选 45 个 base（< 50，留 buffer），
-  // 4 次连续 cron（4 分钟）覆盖全部 165。
-  // 升级到 Workers Paid 后可在 wrangler.jsonc 加 "limits": { "subrequests": 1000 }，
-  // 那样可以把 BATCH_SIZE 提到 165 + 去掉 rotation，单次 cron 全量预热。
-  const BATCH_SIZE = 45;
-  const NUM_BATCHES = Math.ceil(bases.length / BATCH_SIZE);
-  const minute = new Date().getUTCMinutes();
-  const batchIndex = minute % NUM_BATCHES;
-  const subset = bases.slice(batchIndex * BATCH_SIZE, (batchIndex + 1) * BATCH_SIZE);
-  // Service binding 不解析 host——用占位 host 即可，path 必须以 /latest?base= 开头
-  // 才能被本 Worker 的 router 命中。
-  const url = (base: string) => `https://internal.monea-currency.workers.dev/latest?base=${base}`;
-  const CONCURRENCY = 20;
-  for (let i = 0; i < subset.length; i += CONCURRENCY) {
-    const batch = subset.slice(i, i + CONCURRENCY);
-    await Promise.all(
-      batch.map((base) =>
-        env.SELF.fetch(url(base), {
-          headers: { "X-Monea-Cache-Warm": "1" },
-        }).then((resp) => {
-          // 不消费 body（handleLatest 已经物化并由 CF 缓存接管），读完即弃。
-          resp.body?.cancel();
-          return resp;
-        }).catch((error) => {
-          // 个别 base 失败不抛错；CDN 边沿首次访问会自然回源补齐。
-          console.warn(JSON.stringify({ event: "cache-warm", state: "fail", base, error: String(error) }));
-        }),
-      ),
-    );
+  const url = "https://internal.monea-currency.workers.dev/latest?base=USD";
+  try {
+    const response = await env.SELF.fetch(url, { headers: { "X-Monea-Cache-Warm": "1" } });
+    response.body?.cancel();
+  } catch (error) {
+    console.warn(JSON.stringify({ event: "cache-warm", state: "fail", base: "USD", error: String(error) }));
   }
 }
 

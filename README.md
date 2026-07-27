@@ -12,9 +12,9 @@
 
 - 覆盖多种货币，支持搜索与快捷换算
 - 提供 `/convert`、`/history`、`/latest`、`/currencies` 和 `/health` API
-- 使用 Cloudflare 边缘缓存：最新汇率与走势最长 1 小时，货币目录与指定历史日期最长 24 小时；上游短暂异常时回退最近一次成功结果
-- 无需 API Key
-- 默认展示 Frankfurter 汇聚的多家央行参考汇率，并非实时交易报价
+- 最新汇率使用 currencyapi 的 USD 基准快照，每小时刷新一次并显示精确更新时间；任意货币对从同一份快照派生
+- 历史走势、指定日期查询与小时源故障降级使用 Frankfurter 的日度参考数据
+- 使用 Cloudflare 边缘缓存：最新汇率 1 小时 fresh、5 分钟 SWR；货币目录与指定历史日期最长 24 小时；上游短暂异常时回退最近一次成功结果
 
 ## 本地运行
 
@@ -23,10 +23,22 @@ pnpm install
 pnpm dev
 ```
 
+本地小时级数据需要在未提交的 `.dev.vars` 中设置：
+
+```text
+CURRENCYAPI_KEY=你的_currencyapi_密钥
+```
+
 部署：
 
 ```bash
 pnpm deploy
+```
+
+生产环境使用 Cloudflare Secret 保存密钥：
+
+```bash
+pnpm exec wrangler secret put CURRENCYAPI_KEY
 ```
 
 ## API 示例
@@ -39,13 +51,15 @@ GET /currencies
 GET /health
 ```
 
-`/latest` 为每个货币分别返回数据日期，避免将不同来源的更新时间误写为同一天：
+`/latest` 在小时源可用时返回精确更新时间；未配置密钥、小时源故障或货币未覆盖时会降级为 Frankfurter 的数据日期：
 
 ```json
 {
   "base": "USD",
+  "updatedAt": "2026-07-28T03:15:00Z",
+  "source": "currencyapi",
   "rates": {
-    "CNY": { "rate": 6.77, "date": "2026-07-26" }
+    "CNY": { "rate": 7.2, "date": "2026-07-28", "updatedAt": "2026-07-28T03:15:00Z" }
   }
 }
 ```
@@ -62,4 +76,4 @@ pnpm test
 
 ## 致谢
 
-汇率数据由开源项目 [Frankfurter](https://frankfurter.dev/) 提供。感谢其维护免费的货币数据 API 与公开数据来源；如需合规用途，请通过其 `providers` 参数选择对应的官方数据源。
+最新汇率由 [currencyapi](https://currencyapi.com/) 提供，历史参考数据由开源项目 [Frankfurter](https://frankfurter.dev/) 提供。两者均非实时交易报价；使用前请按各自的套餐和许可条件确认用途。

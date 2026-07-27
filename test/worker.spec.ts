@@ -1,5 +1,6 @@
 import { exports as workerExports } from "cloudflare:workers";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { HOURLY_UPSTREAM, handleConvert, type Env } from "../src/server/api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -67,10 +68,10 @@ describe("Monea Currency Worker", () => {
     const response = await workerExports.default.fetch("https://example.com/convert?from=USD&to=EUR&amount=1");
 
     expect(response.status).toBe(200);
-    // live-rate：fresh 1h，SWR/SIE 各 24h。SWR 让缓存过期后下一次访问秒回 stale，
-    // SIE 让上游临时故障时吐 stale 而非 5xx。
+    // live-rate：fresh 1h，SWR 仅 5min，确保小时级数据不会被旧缓存拖太久；
+    // SIE 仍保留 24h，让上游临时故障时吐 stale 而非 5xx。
     expect(response.headers.get("Cache-Control")).toBe(
-      "public, max-age=3600, stale-while-revalidate=86400, stale-if-error=86400",
+      "public, max-age=3600, stale-while-revalidate=300, stale-if-error=86400",
     );
   });
 
@@ -173,12 +174,45 @@ describe("Monea Currency Worker", () => {
       date: "2026-07-26",
     });
     expect(first.headers.get("Cache-Control")).toBe(
-      "public, max-age=3600, stale-while-revalidate=86400, stale-if-error=86400",
+      "public, max-age=3600, stale-while-revalidate=300, stale-if-error=86400",
     );
 
     const second = await workerExports.default.fetch("https://example.com/convert?from=EUR&to=JPY&amount=2");
     expect(second.status).toBe(200);
     await expect(second.json()).resolves.toMatchObject({ from: "EUR", to: "JPY", rate: 169.4, result: 338.8 });
+    expect(upstream).toHaveBeenCalledTimes(1);
+  });
+
+  it("derives latest conversions from one currencyapi USD snapshot and preserves its update timestamp", async () => {
+    await caches.default.delete(HOURLY_UPSTREAM);
+    const upstream = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe(HOURLY_UPSTREAM);
+      expect(init?.headers).toMatchObject({ apikey: "hourly-test-key" });
+      return Response.json({
+        meta: { last_updated_at: "2026-07-28T03:15:00Z" },
+        data: {
+          CNY: { value: 7.2 },
+          EUR: { value: 0.9 },
+        },
+      });
+    });
+    vi.stubGlobal("fetch", upstream);
+    const ctx = { waitUntil: vi.fn() } as unknown as ExecutionContext;
+    const env = { SELF: {} as Fetcher, CURRENCYAPI_KEY: "hourly-test-key" } as Env;
+
+    const response = await handleConvert(new URL("https://example.com/convert?from=EUR&to=CNY&amount=100"), env, ctx);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      from: "EUR",
+      to: "CNY",
+      amount: 100,
+      rate: 8,
+      result: 800,
+      date: "2026-07-28",
+      updatedAt: "2026-07-28T03:15:00Z",
+      source: "currencyapi",
+    });
     expect(upstream).toHaveBeenCalledTimes(1);
   });
 

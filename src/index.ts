@@ -1,5 +1,6 @@
 import {
   CORS_HEADERS,
+  HOURLY_UPSTREAM,
   UPSTREAM,
   handleConvert,
   handleCurrencies,
@@ -11,12 +12,10 @@ import {
 } from "./server/api";
 import { HOME_HTML } from "./ui/home";
 
-interface Env {
-  SELF: Fetcher;
-}
+import type { Env } from "./server/api";
 
 export default {
-  async fetch(request: Request, _env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: CORS_HEADERS });
     }
@@ -33,15 +32,15 @@ export default {
             headers: { "Content-Type": "text/html;charset=utf-8", ...CORS_HEADERS },
           });
         case "/convert":
-          return await handleConvert(url, ctx);
+          return await handleConvert(url, env, ctx);
         case "/history":
           return await handleHistory(url, ctx);
         case "/latest":
-          return await handleLatest(url, ctx);
+          return await handleLatest(url, env, ctx);
         case "/currencies":
           return await handleCurrencies(ctx);
         case "/health":
-          return json({ status: "ok", upstream: UPSTREAM, time: today() });
+          return json({ status: "ok", upstream: env.CURRENCYAPI_KEY ? HOURLY_UPSTREAM : UPSTREAM, time: today() });
         case "/api":
           return json({
             name: "Monea Currency",
@@ -52,8 +51,8 @@ export default {
               currencies: "/currencies",
               health: "/health",
             },
-            source: UPSTREAM,
-            cache: "fresh=1h, swr=24h, sie=24h (CDN edge)",
+            source: env.CURRENCYAPI_KEY ? HOURLY_UPSTREAM : UPSTREAM,
+            cache: "fresh=1h, swr=5m, sie=24h (CDN edge)",
           });
         default:
           return json({ error: "Not found", see: "/api" }, 404);
@@ -63,9 +62,7 @@ export default {
     }
   },
 
-  // 每 3 小时预热 165 个 base 的全量汇率到 CDN 边沿，
-  // 走 SELF service binding → 自身 fetch handler → 按 live-rate 策略 Cache-Control 落 CDN；
-  // 跨 DC 共享，消除首次切到冷门 base 的欧洲冷启延迟。
+  // 每小时预热 USD 基准快照，所有货币对都从同一份小时数据派生。
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     await warmBaseCache(env, ctx);
   },
