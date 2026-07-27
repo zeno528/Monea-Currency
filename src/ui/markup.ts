@@ -124,7 +124,7 @@ export const HOME_MARKUP = String.raw`
       <div class="footer-top">
         <div class="footer-identity">
           <div class="footer-brand">Monea Currency</div>
-          <a href="https://github.com/zeno528/" target="_blank" rel="noopener" class="footer-author-link">by Scott</a>
+          <a href="https://github.com/zeno528/" target="_blank" rel="noopener" class="footer-author-link">by Scott Z</a>
         </div>
         <nav class="footer-links" aria-label="页脚链接">
           <a href="https://frankfurter.dev" target="_blank" rel="noopener">数据来源 Frankfurter ↗</a>
@@ -134,7 +134,7 @@ export const HOME_MARKUP = String.raw`
       <p class="footer-notice">参考汇率由 Frankfurter 汇聚的多家中央银行公开数据提供，并非实时交易报价；仅供参考，不构成交易建议。</p>
       <div class="footer-bottom">
         <span>© 2026 Monea Currency</span>
-        <a href="https://dash.cloudflare.com/?to=/:account/workers" target="_blank" rel="noopener">运行于 Cloudflare Workers ↗</a>
+        <a href="https://dash.cloudflare.com/?to=/:account/workers" target="_blank" rel="noopener">Cloudflare 安全支持 ↗</a>
       </div>
     </div>
   </footer>
