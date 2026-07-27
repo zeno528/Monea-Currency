@@ -142,4 +142,79 @@ describe("Monea Currency Worker", () => {
     expect(response.status).toBe(504);
     expect(upstream).toHaveBeenCalledTimes(1);
   });
+
+  it("derives /convert from a single upstream batch fetch, sharing the cache with /latest", async () => {
+    const upstream = vi.fn(async (input: RequestInfo | URL) => {
+      // 实时路径走批量端点，缓存键与 /latest 复用，避免每切一个币种都打一次欧洲上游。
+      // 用 EUR 作 base，与其它测试的 USD/CHF 缓存键不冲突，保证本测试的 cache 状态可断言。
+      expect(String(input)).toBe("https://api.frankfurter.dev/v2/rates?base=EUR");
+      return Response.json([
+        { date: "2026-07-26", base: "EUR", quote: "CNY", rate: 7.71 },
+        { date: "2026-07-26", base: "EUR", quote: "JPY", rate: 169.4 },
+      ]);
+    });
+    vi.stubGlobal("fetch", upstream);
+
+    // 同一 base 切换两个目标：只产生 1 次上游调用，第二次走缓存派生。
+    const first = await workerExports.default.fetch("https://example.com/convert?from=EUR&to=CNY&amount=100");
+    expect(first.status).toBe(200);
+    await expect(first.json()).resolves.toEqual({
+      from: "EUR",
+      to: "CNY",
+      amount: 100,
+      rate: 7.71,
+      result: 771,
+      date: "2026-07-26",
+    });
+    expect(first.headers.get("X-Monea-Cache")).toBe("MISS");
+    expect(first.headers.get("Cache-Control")).toBe("public, max-age=86400");
+
+    const second = await workerExports.default.fetch("https://example.com/convert?from=EUR&to=JPY&amount=2");
+    expect(second.status).toBe(200);
+    await expect(second.json()).resolves.toMatchObject({ from: "EUR", to: "JPY", rate: 169.4, result: 338.8 });
+    expect(upstream).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the single-pair endpoint when the target is missing from the upstream batch", async () => {
+    // 用 SGD 作 base，与其它测试不冲突；同时验证 XAU 这类贵金属若不在批量回源里能回退到单点。
+    const upstream = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "https://api.frankfurter.dev/v2/rates?base=SGD") {
+        return Response.json([{ date: "2026-07-26", base: "SGD", quote: "CNY", rate: 5.41 }]);
+      }
+      if (url === "https://api.frankfurter.dev/v2/rate/SGD/XAU") {
+        return Response.json({ date: "2026-07-26", base: "SGD", quote: "XAU", rate: 0.00056 });
+      }
+      throw new Error(`unexpected upstream call: ${url}`);
+    });
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await workerExports.default.fetch("https://example.com/convert?from=SGD&to=XAU&amount=1000");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ from: "SGD", to: "XAU", rate: 0.00056 });
+    expect(upstream).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps using the single-pair endpoint for historical date queries", async () => {
+    const upstream = vi.fn(async (input: RequestInfo | URL) => {
+      // 带 date= 的查询不应拉全量：避免给 dated-rate 缓存写膨胀，也省一次上游往返。
+      expect(String(input)).toBe("https://api.frankfurter.dev/v2/rate/USD/CNY?date=2024-01-15");
+      return Response.json({ date: "2024-01-15", base: "USD", quote: "CNY", rate: 7.18 });
+    });
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await workerExports.default.fetch("https://example.com/convert?from=USD&to=CNY&amount=10&date=2024-01-15");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      from: "USD",
+      to: "CNY",
+      amount: 10,
+      rate: 7.18,
+      result: 71.8,
+      date: "2024-01-15",
+    });
+    expect(upstream).toHaveBeenCalledTimes(1);
+  });
 });

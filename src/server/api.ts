@@ -7,7 +7,9 @@
  */
 
 export const UPSTREAM = "https://api.frankfurter.dev/v2";
-export const CACHE_TTL_SECONDS = 3600; // 1 小时
+// 与 frankfurter 自身的 Cache-Control: public, max-age=86400 对齐：汇率按日发布，
+// 把 CDN 边缘 TTL 拉到 24h 可避免非必要的欧洲回源，让首次切币也不至于要等跨大区往返。
+export const CACHE_TTL_SECONDS = 86400; // 24 小时
 const DAY_SECONDS = 86400;
 // 回源超时：上游挂起（TCP 半开、TLS 卡死等）时及时中断，避免整个请求被无限拖死。
 const UPSTREAM_TIMEOUT_MS = 6000;
@@ -171,6 +173,29 @@ export async function handleConvert(url: URL, ctx: ExecutionContext): Promise<Re
 
   const params = dateParam ? `?date=${encodeURIComponent(dateParam)}` : "";
   const policy = dateParam ? CACHE_POLICIES["dated-rate"] : CACHE_POLICIES["live-rate"];
+
+  // 实时路径走批量：一次回源拿到 base 下全量汇率（与 /latest 共享同一缓存键），
+  // 派生 from→to。同一 base 后续切换目标币种直接命中 CDN/Worker 缓存，零上游。
+  // 带 date 的历史日期查询仍走单点 `/rate/{from}/{to}?date=...`——避免拉整张历史全量、也避免给
+  // dated-rate 缓存写膨胀。
+  if (!dateParam) {
+    const { response: batchResp, cacheState } = await cachedFetch(`${UPSTREAM}/rates?base=${from}`, ctx, policy);
+    if (!batchResp.ok) return upstreamError(batchResp);
+    const arr: RateEntry[] = await batchResp.json();
+    const entry = arr.find((e) => e.base === from && e.quote === to);
+    if (entry) {
+      const result = +(amount * entry.rate).toFixed(4);
+      return json(
+        { from: entry.base, to: entry.quote, amount, rate: entry.rate, result, date: entry.date },
+        200,
+        responseCacheHeaders(policy.ttlSeconds, cacheState),
+      );
+    }
+    // 目标不在批量里（极少数 frankfurter 不发布的稀有币种，例如周末/假日未更新），
+    // 回退到单点端点保底，不让单边偶发缺口阻塞整条路径。
+    console.warn(JSON.stringify({ event: "convert", mode: "fallback-single", from, to }));
+  }
+
   const { response: resp, cacheState } = await cachedFetch(`${UPSTREAM}/rate/${from}/${to}${params}`, ctx, policy);
   if (!resp.ok) return upstreamError(resp);
   const data: RateEntry = await resp.json();
