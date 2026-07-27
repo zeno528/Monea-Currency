@@ -506,6 +506,9 @@ export const BASE_STYLES = String.raw`
   .swap-btn svg { width: 18px; height: 18px; }
 
   .rate-summary {
+    box-sizing: border-box;
+    /* 宽屏双行结果与单行加载共享同一高度，避免换算卡片随加载状态跳动。 */
+    height: 68px;
     background: #f5f5f7;
     border-radius: 16px;
     padding: 14px 16px;
