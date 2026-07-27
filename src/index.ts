@@ -11,7 +11,9 @@ import {
 } from "./server/api";
 import { HOME_HTML } from "./ui/home";
 
-interface Env {}
+interface Env {
+  SELF: Fetcher;
+}
 
 export default {
   async fetch(request: Request, _env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -61,9 +63,10 @@ export default {
     }
   },
 
-  // 每 3 小时预热 top-10 基础币的全量汇率到 caches.default，
-  // 消除首次切到冷门 base 的 200-600ms 欧洲冷启延迟。
-  async scheduled(_controller: ScheduledController, _env: Env, ctx: ExecutionContext): Promise<void> {
-    await warmBaseCache(ctx);
+  // 每 3 小时预热 165 个 base 的全量汇率到 CDN 边沿，
+  // 走 SELF service binding → 自身 fetch handler → 按 live-rate 策略 Cache-Control 落 CDN；
+  // 跨 DC 共享，消除首次切到冷门 base 的欧洲冷启延迟。
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    await warmBaseCache(env, ctx);
   },
 };

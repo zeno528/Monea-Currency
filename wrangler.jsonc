@@ -15,9 +15,28 @@
   "cache": {
     "enabled": true
   },
-  // Cron Trigger 预热：每 3 小时拉一次 top-10 基础币全量汇率，
-  // 写入 caches.default，消除首次冷启的 200-600ms 欧洲往返延迟。
+  // 提示：账户当前是 Free plan，单次 invoke subrequest 上限 = 50。
+  // 预热路径每个 env.SELF.fetch() 计 1 subrequest，所以 1 次 cron invoke 最多 warm 50 个 base
+  // （concurrency 20 在 50 上限下能跑 2-3 个 batch 后就撞墙）。
+  // 想全量预热 165 个 base：
+  //   方案 A：升级到 Workers Paid ($5/月) → 在这里加 "limits": { "subrequests": 1000 }
+  //   方案 B：保留 Free，用 time-rotation 让每次 cron warm 不同 45 个 subset，4 分钟覆盖完 165
+  //   方案 C：保留 Free，接受 50/165 预热 + 用户首访补齐剩下 115
+  // 当前走方案 B：每次 cron 按当前 UTC 分钟取 45 个不同 subset，4 次覆盖 165 全量。
+  // Cron Trigger 预热：每 3 小时触发 warmBaseCache，
+  // 经由 SELF service binding 调用自身 /latest 端点（走完整 fetch handler），
+  // 让响应按 live-rate 策略的 Cache-Control 落进 CDN 边沿，跨 DC 共享。
+  // 4 个 cron 周期覆盖 165 个 base（每次 45 个 time-rotation subset）。
   "triggers": {
     "crons": ["42 */3 * * *"]
-  }
+  },
+  // SELF service binding：让 cron 内部直接调用本 Worker 的 fetch handler，
+  // 走 Service Bindings 通道而非公网回环；host 任意（service binding 只看 path），
+  // 但 path 必须是 /latest?base=... 才会被本 Worker 的 router 命中。
+  "services": [
+    {
+      "binding": "SELF",
+      "service": "monea-currency"
+    }
+  ]
 }
