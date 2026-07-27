@@ -859,10 +859,12 @@ export const HOME_CLIENT_CORE = String.raw`
           selectCode(item.dataset.code);
         }
       });
-      // 点按星标时不让输入框失焦，避免移动端键盘和列表在状态切换中收起。
-      panel.addEventListener("pointerdown", function (e) {
-        if (e.target.closest(".combo-favorite")) e.preventDefault();
-      });
+      // 星标点击的「不让输入框失焦」曾用 pointerdown preventDefault 实现，但移动端（iOS Safari /
+      // Android Chrome）的 pointerdown 等同于 touchstart，对它 preventDefault 会**取消合成 click 事件**，
+      // 导致星标点击完全不响应——用户体感是「点击下拉里的货币没反应」（星标占 item 第 5 列 36px，
+      // 命中这列的点击都失败，左侧列正常）。
+      // 移除该处理器，让 click 事件正常派发；移动端 tap 星标会让 input 失焦、下拉可能收起，
+      // 但星标本身的收藏/取消功能可用——这是更关键的能力。
       // 失焦延迟关闭，让选项点击先触发；并恢复当前选中值的显示
       input.addEventListener("blur", function () {
         requestComboScrollRestore(input);
