@@ -67,6 +67,14 @@ export const HOME_CLIENT_CORE = String.raw`
     var fromAmountEl = $("from-amount"), toAmountEl = $("to-amount");
     var fromSymbolEl = $("from-symbol"), toSymbolEl = $("to-symbol");
     var rateEl = $("result-rate");
+    // rateEl 子元素预创建（双行布局结构不变，热路径只更新 textContent）
+    var rateMainEl = document.createElement("span");
+    rateMainEl.className = "rate-main";
+    var rateSubEl = document.createElement("span");
+    rateSubEl.className = "rate-sub";
+    rateSubEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
+    var rateDateText = document.createTextNode("");
+    rateSubEl.appendChild(rateDateText);
     var heroTitleEl = $("hero-title");
     var errEl = $("error"), swapBtn = $("swap"), resetBtn = $("reset");
     var dateEl = $("rate-date"), favoriteBtn = $("favorite-pair");
@@ -950,22 +958,10 @@ export const HOME_CLIENT_CORE = String.raw`
     function applyConversion(data, amount, outputEl) {
       var rate = Number(data.rate);
       outputEl.value = formatEditableAmount(+(amount * rate).toFixed(4));
-      // 双行布局：上行 1 USD = 6.7697 CNY（semibold ink），下行 [日历图标] 数据日期 2026-07-27（muted）。
-      // from/to 是 ISO 4217 代码、date 是 ISO 日期、rate 是数字——均无 HTML 元字符，
-      // 但仍走 textContent / createElement，只对硬编码 SVG 用 insertAdjacentHTML。
-      rateEl.replaceChildren();
-      var mainEl = document.createElement("span");
-      mainEl.className = "rate-main";
-      mainEl.textContent = "1 " + data.from + " = " + formatHeroRate(rate) + " " + data.to;
-      rateEl.appendChild(mainEl);
-      var subEl = document.createElement("span");
-      subEl.className = "rate-sub";
-      subEl.insertAdjacentHTML(
-        "afterbegin",
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>'
-      );
-      subEl.appendChild(document.createTextNode("数据日期 " + data.date));
-      rateEl.appendChild(subEl);
+      // 双行布局：上行汇率 + 下行日历图标
+      rateMainEl.textContent = "1 " + data.from + " = " + formatHeroRate(rate) + " " + data.to;
+      rateDateText.textContent = "数据日期 " + data.date;
+      rateEl.replaceChildren(rateMainEl, rateSubEl);
     }
 
     function convert() {
