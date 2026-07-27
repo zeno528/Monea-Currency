@@ -11,7 +11,7 @@ export const RESPONSIVE_STYLES = String.raw`
       gap: 0;
       align-items: stretch;
     }
-    .currency-field { --combo-panel-offset: 26px; padding: 18px 20px; }
+    .currency-field { --combo-panel-offset: 6px; padding: 18px 20px; }
     .combo-input { height: 52px; padding: 14px 64px 14px 52px; }
     .combo-arrow { width: 56px; padding-right: 13px; }
     .combo-panel { --combo-panel-max-height: min(320px, 42dvh); }

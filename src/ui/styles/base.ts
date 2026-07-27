@@ -258,7 +258,7 @@ export const BASE_STYLES = String.raw`
     padding-left: 12px;
   }
   .currency-field {
-    --combo-panel-offset: 25px;
+    --combo-panel-offset: 6px;
     min-width: 0;
     background: #fbfbfd;
     border: 1px solid rgba(0, 0, 0, 0.09);
