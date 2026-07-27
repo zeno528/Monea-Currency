@@ -728,6 +728,17 @@ export const BASE_STYLES = String.raw`
     text-decoration: none;
   }
   .footer-links a:hover { text-decoration: underline; }
+  .footer-star {
+    max-width: 640px;
+    margin: 20px 0 0;
+    font-size: 13px;
+    color: var(--color-ink-muted-80);
+    line-height: 1.65;
+  }
+  .footer-star a { color: var(--color-primary); text-decoration: none; font-weight: 500; }
+  .footer-star a:hover { text-decoration: underline; }
+  /* 外链图标：尺寸随字号（em）、描边随文字色（currentColor），不顶高行距。 */
+  .footer-star a svg { width: 1em; height: 1em; margin-left: 4px; vertical-align: -0.11em; }
   .footer-notice {
     max-width: 640px;
     margin: 22px 0 0;
@@ -752,6 +763,7 @@ export const BASE_STYLES = String.raw`
     .footer-top, .footer-bottom { flex-direction: column; gap: 14px; }
     .footer-identity { justify-content: center; }
     .footer-links { justify-content: center; gap: 12px 18px; }
+    .footer-star { margin: 18px auto 0; }
     .footer-notice { margin: 20px auto 0; }
     .footer-bottom { margin-top: 24px; padding-top: 16px; }
   }

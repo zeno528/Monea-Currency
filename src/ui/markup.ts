@@ -127,14 +127,14 @@ export const HOME_MARKUP = String.raw`
           <a href="https://github.com/zeno528/" target="_blank" rel="noopener" class="footer-author-link">by Scott Z</a>
         </div>
         <nav class="footer-links" aria-label="页脚链接">
-          <a href="https://frankfurter.dev" target="_blank" rel="noopener">数据来源 Frankfurter ↗</a>
-          <a href="https://github.com/zeno528/Monea-Currency" target="_blank" rel="noopener">GitHub ↗</a>
+          <a href="https://frankfurter.dev" target="_blank" rel="noopener">数据来源 Frankfurter</a>
         </nav>
       </div>
+      <p class="footer-star">此项目完全开源、免费。如果它帮到了你，欢迎在GitHub上 <a href="https://github.com/zeno528/Monea-Currency" target="_blank" rel="noopener">点个 Star<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>，这是对我最大的鼓励。</p>
       <p class="footer-notice">参考汇率由 Frankfurter 汇聚的多家中央银行公开数据提供，并非实时交易报价；仅供参考，不构成交易建议。</p>
       <div class="footer-bottom">
         <span>© 2026 Monea Currency</span>
-        <a href="https://dash.cloudflare.com/?to=/:account/workers" target="_blank" rel="noopener">Cloudflare 安全支持 ↗</a>
+        <a href="https://dash.cloudflare.com/?to=/:account/workers" target="_blank" rel="noopener">Cloudflare 安全支持</a>
       </div>
     </div>
   </footer>
