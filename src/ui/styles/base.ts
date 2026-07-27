@@ -525,6 +525,19 @@ export const BASE_STYLES = String.raw`
     white-space: nowrap;
   }
   .rate-summary.is-loading .rate-text { color: #86868b; }
+  /* 切换货币或拉参考汇率时在 rate-summary 行内显示一个旋转指示器，
+     复用历史走势加载动画的 keyframe（CSS keyframe 全局唯一，不必重写）。 */
+  .rate-spinner {
+    display: none;
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid rgba(0, 113, 227, 0.18);
+    border-top-color: #0071e3;
+    border-radius: 50%;
+    animation: history-loading-spin 720ms linear infinite;
+  }
+  .rate-summary.is-loading .rate-spinner { display: inline-block; }
   .summary-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: 0 0 auto; }
   .reset-btn {
     flex: 0 0 auto;

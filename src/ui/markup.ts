@@ -68,6 +68,7 @@ export const HOME_MARKUP = String.raw`
         </div>
       </div>
       <div class="rate-summary">
+        <span class="rate-spinner" aria-hidden="true"></span>
         <span id="result-rate" class="rate-text" aria-live="polite">输入金额后将自动换算</span>
         <div class="summary-actions">
           <button id="history-toggle" class="reset-btn history-btn" type="button" aria-expanded="false">
