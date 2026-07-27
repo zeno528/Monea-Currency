@@ -90,6 +90,11 @@ export const HOME_CLIENT_CORE = String.raw`
     var historyStoreLoaded = false;
     var HISTORY_STORAGE_KEY = "monea-currency:history:v1";
     var historyClientPromise = null;
+    // 与 Worker 24h CDN 缓存对齐：客户端 localStorage 同样保留 24h，避免日内反复重访还付一次上游往返。
+    var HISTORY_TTL_MS = 24 * 60 * 60 * 1000;
+    // /history 客户端超时：Worker 自身有 6s 上游超时 + STALE 兜底，给足网络 buffer 即可；
+    // 不要再额外设更短阈值，否则跨大区（亚洲→欧洲 frankfurter）慢响应会先被判失败。
+    var HISTORY_TIMEOUT_MS = 8000;
     var PAIR_STORAGE_KEY = "monea-currency:pairs:v1";
     var CURRENCY_FAVORITES_STORAGE_KEY = "monea-currency:favorite-currencies:v1";
     var savedPairsInitialized = false;
@@ -385,7 +390,7 @@ export const HOME_CLIENT_CORE = String.raw`
         if (!raw) return;
         var entries = JSON.parse(raw);
         if (!entries || typeof entries !== "object") return;
-        var cutoff = Date.now() - 60 * 60 * 1000;
+        var cutoff = Date.now() - HISTORY_TTL_MS;
         Object.keys(entries).forEach(function (storeKey) {
           var entry = entries[storeKey];
           if (entry && entry.storedAt > cutoff) historyCache.set(storeKey, entry);
@@ -408,7 +413,7 @@ export const HOME_CLIENT_CORE = String.raw`
       loadHistoryStore();
       var cached = historyCache.get(key);
       if (!cached) return null;
-      if (Date.now() - cached.storedAt > 60 * 60 * 1000) {
+      if (Date.now() - cached.storedAt > HISTORY_TTL_MS) {
         historyCache.delete(key);
         return null;
       }
@@ -439,29 +444,6 @@ export const HOME_CLIENT_CORE = String.raw`
         });
     }
 
-    function fetchOfficialHistory(from, to, range, signal) {
-      var presets = {
-        "1D": { days: 1 }, "1W": { days: 7 }, "1M": { days: 30 },
-        "6M": { days: 183 }, "1Y": { days: 365, group: "week" },
-        "2Y": { days: 730, group: "week" }, "5Y": { days: 1826, group: "month" }
-      };
-      var preset = presets[range];
-      var endDate = new Date();
-      var startDate = new Date(endDate);
-      startDate.setUTCDate(startDate.getUTCDate() - preset.days);
-      var params = new URLSearchParams({
-        base: from,
-        quotes: to,
-        from: startDate.toISOString().slice(0, 10),
-        to: endDate.toISOString().slice(0, 10)
-      });
-      if (preset.group) params.set("group", preset.group);
-      return fetchJsonWithin("https://api.frankfurter.dev/v2/rates?" + params.toString(), signal, 6000)
-        .then(function (entries) {
-          return { points: entries.filter(function (entry) { return entry.base === from && entry.quote === to; }).map(function (entry) { return { date: entry.date, rate: entry.rate }; }) };
-        });
-    }
-
     function loadHistory(animation) {
       var from = fromBox.dataset.value, to = toBox.dataset.value;
       if (!from || !to) return;
@@ -477,20 +459,16 @@ export const HOME_CLIENT_CORE = String.raw`
       var cached = readHistoryCache(key);
       var dataPromise = cached
         ? Promise.resolve(cached)
-        : fetchJsonWithin("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + historyRange, signal, 2000)
+        : fetchJsonWithin("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + historyRange, signal, HISTORY_TIMEOUT_MS)
           .then(function (data) {
             if (data.error) throw new Error("history-response");
             return data;
           })
-          .catch(function (error) {
-            if (error.name === "AbortError") throw error;
-            return fetchOfficialHistory(from, to, historyRange, signal);
-          })
           .then(function (data) {
-            if (!data.error) {
-              historyCache.set(key, { data: data, storedAt: Date.now() });
-              persistHistoryStore();
-            }
+            // fetchJsonWithin 只解析 body，X-Monea-Cache 头不进入 data；无论 fresh 还是 STALE 都缓存，
+            // 让用户重访该 (from, to, range) 组合时能立刻出图，不必再付一次上游往返。
+            historyCache.set(key, { data: data, storedAt: Date.now() });
+            persistHistoryStore();
             return data;
           });
       Promise.all([ensureHistoryClient(), dataPromise]).then(function (result) {
