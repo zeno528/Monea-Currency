@@ -1059,9 +1059,15 @@ export const HOME_CLIENT_CORE = String.raw`
       field.addEventListener("click", function (event) {
         // 直接点数字时交给浏览器定位插入光标，避免二次 focus 把光标送到首位。
         if (event.target.closest(".money-input, .combobox")) return;
-        var isFrom = field.dataset.amountSide === "from";
-        activeSide = isFrom ? "from" : "to";
-        (isFrom ? fromAmountEl : toAmountEl).focus({ preventScroll: true });
+        // 从被点的这张卡内部取它自己的金额输入框：data-amount-side 挂在祖先 .field-group 上，
+        // 读 field.dataset 会恒为 undefined，导致两侧都落到「换算为」。
+        var input = field.querySelector(".money-input");
+        if (!input) return;
+        activeSide = amountSide(input);
+        input.focus({ preventScroll: true });
+        // 程序化 focus 会把光标留在首位；显式移到末尾，符合「点空白处接着往后输入」的预期。
+        var end = input.value.length;
+        input.setSelectionRange(end, end);
       });
     });
     // 同步某字段的 combobox 显示。
