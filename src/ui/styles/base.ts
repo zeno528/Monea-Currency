@@ -520,9 +520,34 @@ export const BASE_STYLES = String.raw`
   }
   .rate-text {
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  }
+  /* 上行：汇率——semibold + ink 主色，是这一行的视觉主角 */
+  .rate-text .rate-main {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-ink);
+    letter-spacing: -0.224px;
+    font-variant-numeric: tabular-nums;
+  }
+  /* 下行：日期——11px muted + 日历图标，与上行拉开层次 */
+  .rate-text .rate-sub {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--color-ink-muted-48);
+    letter-spacing: -0.18px;
+  }
+  .rate-text .rate-sub svg {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 auto;
+    opacity: 0.85;
   }
   .rate-summary.is-loading .rate-text { color: #86868b; }
   /* 切换货币或拉参考汇率时在 rate-summary 行内显示一个旋转指示器，
