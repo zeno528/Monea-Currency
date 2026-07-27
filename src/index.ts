@@ -1,5 +1,4 @@
 import {
-  CACHE_TTL_SECONDS,
   CORS_HEADERS,
   UPSTREAM,
   handleConvert,
@@ -51,7 +50,7 @@ export default {
               health: "/health",
             },
             source: UPSTREAM,
-            cache_ttl: CACHE_TTL_SECONDS,
+            cache: "fresh=1h, swr=24h, sie=24h (CDN edge)",
           });
         default:
           return json({ error: "Not found", see: "/api" }, 404);
