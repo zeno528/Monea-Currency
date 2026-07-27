@@ -1064,7 +1064,13 @@ export const HOME_CLIENT_CORE = String.raw`
       activePairSource = source || "";
       syncQuickPairs();
       activeSide = "from";
-      if (remember) rememberCurrentPair(); else renderSavedPairs();
+      // 收藏/最近面板的重排（含 animateSavedPairsUpdate 的两次强制 layout + innerHTML 重建 +
+      // 380ms height transition）推迟到下一帧，让浏览器先把同步产生的视觉变化（combo / aria-pressed /
+      // 标题 / 币种符号）渲染出去，避免点 pair-chip 时把重活压在 click handler 同步段里拉高 INP。
+      var deferredSaved = remember
+        ? function () { rememberCurrentPair(); }
+        : function () { renderSavedPairs(); };
+      requestAnimationFrame(deferredSaved);
       syncHistory();
       convert();
     }
