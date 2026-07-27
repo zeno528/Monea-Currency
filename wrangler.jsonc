@@ -8,5 +8,11 @@
   },
   "observability": {
     "enabled": true
+  },
+  // 启用 Workers Caching：响应按 Cache-Control 头自动进 CDN 边沿，
+  // 自动支持 stale-while-revalidate / stale-if-error，
+  // 不再需要手写 caches.default.put / staleCacheKey 逻辑。
+  "cache": {
+    "enabled": true
   }
 }
