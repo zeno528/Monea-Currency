@@ -23,7 +23,7 @@ export const BASE_STYLES = String.raw`
     --font-text: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { -webkit-text-size-adjust: 100%; }
+  html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
   body {
     font-family: var(--font-text);
     color: var(--color-ink);
