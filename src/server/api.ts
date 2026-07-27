@@ -290,3 +290,31 @@ function parseNonNegativeAmount(value: string | null): number | null {
   return Number.isFinite(amount) && amount >= 0 ? amount : null;
 }
 
+/** Cron-triggered cache warming: 每 N 小时拉一次 top-10 基础币的全量汇率，
+ *  写入 caches.default，消除「首次切到冷门 base 要等 200-600ms 欧洲往返」的延迟。
+ *  额外效果：CF CDN 拿到带 SWR/SIE 的响应后会被边缘缓存，
+ *  即便 cron 没覆盖所有 POP，swr=24h 也让任何边沿的后续访问秒回 stale。
+ */
+export async function warmBaseCache(ctx: ExecutionContext): Promise<void> {
+  const bases = ["USD", "EUR", "GBP", "JPY", "CNY", "HKD", "AUD", "CAD", "CHF", "SGD"];
+  const policy = CACHE_POLICIES["live-rate"];
+  for (const base of bases) {
+    const url = `${UPSTREAM}/rates?base=${base}`;
+    try {
+      const resp = await fetchWithTimeout(url, UPSTREAM_TIMEOUT_MS);
+      if (!resp.ok) continue;
+      const bodyText = await resp.text();
+      const responseInit = {
+        status: resp.status,
+        statusText: resp.statusText,
+        headers: { "Content-Type": resp.headers.get("Content-Type") || "application/json" },
+      };
+      const response = new Response(bodyText, responseInit);
+      response.headers.set("Cache-Control", cacheControlHeader(policy));
+      ctx.waitUntil(caches.default.put(url, response));
+    } catch (_) {
+      // 预热失败不抛错——上线后偶尔个别 base 超时不影响整体。
+    }
+  }
+}
+
