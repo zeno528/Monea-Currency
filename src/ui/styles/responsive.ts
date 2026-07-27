@@ -7,7 +7,8 @@ export const RESPONSIVE_STYLES = String.raw`
     .api-grid { grid-template-columns: 1fr; }
     .pair-row {
       grid-template-columns: 1fr;
-      grid-template-rows: auto 24px auto;
+      /* 48px 换向按钮在两张金额卡之间保留各 8px 的呼吸空间。 */
+      grid-template-rows: auto 64px auto;
       gap: 0;
       align-items: stretch;
     }
