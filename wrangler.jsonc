@@ -14,5 +14,10 @@
   // 不再需要手写 caches.default.put / staleCacheKey 逻辑。
   "cache": {
     "enabled": true
+  },
+  // Cron Trigger 预热：每 3 小时拉一次 top-10 基础币全量汇率，
+  // 写入 caches.default，消除首次冷启的 200-600ms 欧洲往返延迟。
+  "triggers": {
+    "crons": ["42 */3 * * *"]
   }
 }

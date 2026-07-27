@@ -7,6 +7,7 @@ import {
   handleLatest,
   json,
   today,
+  warmBaseCache,
 } from "./server/api";
 import { HOME_HTML } from "./ui/home";
 
@@ -58,5 +59,11 @@ export default {
     } catch (err) {
       return json({ error: String(err) }, 500);
     }
+  },
+
+  // 每 3 小时预热 top-10 基础币的全量汇率到 caches.default，
+  // 消除首次切到冷门 base 的 200-600ms 欧洲冷启延迟。
+  async scheduled(_controller: ScheduledController, _env: Env, ctx: ExecutionContext): Promise<void> {
+    await warmBaseCache(ctx);
   },
 };
