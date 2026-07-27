@@ -110,6 +110,10 @@ export const HOME_CLIENT_CORE = String.raw`
     // 移动端搜索货币时，键盘会缩小可视区域；记录原位置，避免输入框与下拉列表被键盘遮住。
     var comboKeyboardSession = null;
     var comboKeyboardSettleTimer = null;
+    // 金额输入框第二次聚焦时，复用上一次键盘可视高度，避免原生滚动先补偿再回弹。
+    var amountKeyboardBaseHeight = 0;
+    var amountKeyboardViewportHeight = 0;
+    var amountKeyboardViewportWidth = 0;
 
     dateEl.max = new Date().toISOString().slice(0, 10);
 
@@ -119,6 +123,27 @@ export const HOME_CLIENT_CORE = String.raw`
 
     function comboViewportHeight() {
       return window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    }
+
+    function rememberAmountKeyboardViewport(input) {
+      if (!isCompactViewport() || document.activeElement !== input) return;
+      var viewport = window.visualViewport;
+      var height = comboViewportHeight();
+      var width = viewport ? viewport.width : window.innerWidth;
+      if (width !== amountKeyboardViewportWidth || height > amountKeyboardBaseHeight) {
+        amountKeyboardBaseHeight = height;
+        amountKeyboardViewportHeight = 0;
+        amountKeyboardViewportWidth = width;
+      }
+      if (amountKeyboardBaseHeight - height > 80) amountKeyboardViewportHeight = height;
+    }
+
+    function amountInputIsKeyboardSafe(input) {
+      var viewport = window.visualViewport;
+      var width = viewport ? viewport.width : window.innerWidth;
+      if (!isCompactViewport() || !amountKeyboardViewportHeight || width !== amountKeyboardViewportWidth) return false;
+      var rect = input.getBoundingClientRect();
+      return rect.top >= 16 && rect.bottom <= amountKeyboardViewportHeight - 20;
     }
 
     function revealComboPanel(panel) {
@@ -225,6 +250,8 @@ export const HOME_CLIENT_CORE = String.raw`
 
     if (window.visualViewport) {
       window.visualViewport.addEventListener("resize", function () {
+        var activeInput = document.activeElement;
+        if (activeInput === fromAmountEl || activeInput === toAmountEl) rememberAmountKeyboardViewport(activeInput);
         var session = comboKeyboardSession;
         if (!session) return;
         if (session.initialViewportHeight - comboViewportHeight() > 80) {
@@ -1030,7 +1057,14 @@ export const HOME_CLIENT_CORE = String.raw`
       convert();
     }
     [fromAmountEl, toAmountEl].forEach(function (input) {
-      input.addEventListener("focus", function () { activeSide = amountSide(input); });
+      input.addEventListener("pointerdown", function () {
+        // 已在安全位置时抢先无滚动聚焦，保留默认点击的光标定位和选择行为。
+        if (document.activeElement !== input && amountInputIsKeyboardSafe(input)) input.focus({ preventScroll: true });
+      });
+      input.addEventListener("focus", function () {
+        activeSide = amountSide(input);
+        rememberAmountKeyboardViewport(input);
+      });
       input.addEventListener("input", function (e) { handleAmountInput(input, e.isComposing); });
       // 逐字输入/组字的非法字符（字母、符号）拦在门外，不进入输入框；已有内容与光标保持不动。
       input.addEventListener("beforeinput", function (e) {
