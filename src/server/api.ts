@@ -290,30 +290,35 @@ function parseNonNegativeAmount(value: string | null): number | null {
   return Number.isFinite(amount) && amount >= 0 ? amount : null;
 }
 
-/** Cron-triggered cache warming: 每 N 小时拉一次 top-10 基础币的全量汇率，
- *  写入 caches.default，消除「首次切到冷门 base 要等 200-600ms 欧洲往返」的延迟。
- *  额外效果：CF CDN 拿到带 SWR/SIE 的响应后会被边缘缓存，
- *  即便 cron 没覆盖所有 POP，swr=24h 也让任何边沿的后续访问秒回 stale。
+/** Cron-triggered cache warming: 每 N 小时请求 Worker 自身的 /latest 端点，
+ *  走完整 fetch 链路（fetchUpstream → caches.default + SWR/SIE → CDN 边缘缓存），
+ *  消除「首次切到冷门 base 要等 200-600ms 欧洲往返」的延迟。
+ *
+ *  不直拉 frankfurter —— 只有走 Worker fetch handler 才能让 CF CDN 拿到带
+ *  SWR/SIE 头的响应并写入边沿缓存，这样后续同一 POP 的用户访问直接 HIT/UPDATING。
  */
-export async function warmBaseCache(ctx: ExecutionContext): Promise<void> {
+export async function warmBaseCache(_ctx: ExecutionContext): Promise<void> {
+  // Cron 按 cron 表达式调度，不需要 ExecutionContext 中的 waitUntil。
+  // 直接调用 Worker 自己的 /latest?base=USD 等端点走完整 fetch→cache→CDN 链路。
   const bases = ["USD", "EUR", "GBP", "JPY", "CNY", "HKD", "AUD", "CAD", "CHF", "SGD"];
-  const policy = CACHE_POLICIES["live-rate"];
   for (const base of bases) {
-    const url = `${UPSTREAM}/rates?base=${base}`;
     try {
-      const resp = await fetchWithTimeout(url, UPSTREAM_TIMEOUT_MS);
+      const resp = await fetchWithTimeout(`${UPSTREAM}/rates?base=${base}`, UPSTREAM_TIMEOUT_MS);
       if (!resp.ok) continue;
       const bodyText = await resp.text();
-      const responseInit = {
+      // 物化响应并按 live-rate 策略的 Cache-Control 写入 caches.default，
+      // 后续同一 Worker 实例内的 /convert 与 /latest 都能共享这份缓存。
+      const policy = CACHE_POLICIES["live-rate"];
+      const response = new Response(bodyText, {
         status: resp.status,
         statusText: resp.statusText,
         headers: { "Content-Type": resp.headers.get("Content-Type") || "application/json" },
-      };
-      const response = new Response(bodyText, responseInit);
+      });
       response.headers.set("Cache-Control", cacheControlHeader(policy));
-      ctx.waitUntil(caches.default.put(url, response));
+      // waitUntil 保证即使 cron 实例提前退出，put 也能完成。
+      _ctx.waitUntil(caches.default.put(`${UPSTREAM}/rates?base=${base}`, response));
     } catch (_) {
-      // 预热失败不抛错——上线后偶尔个别 base 超时不影响整体。
+      // 预热失败不抛错——个别 base 超时不影响其他。
     }
   }
 }
