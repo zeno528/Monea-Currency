@@ -569,13 +569,19 @@ export const HOME_CLIENT_CORE = String.raw`
 
     function parseAmount(value) { return parseFloat(String(value).replace(/,/g, "")); }
 
+    // 只保留数字和第一个小数点，其余字符（字母、符号、逗号、多余小数点）一律剔除。
+    function sanitizeAmount(text) {
+      var cleaned = text.replace(/[^0-9.]/g, "");
+      var dot = cleaned.indexOf(".");
+      return dot === -1 ? cleaned : cleaned.slice(0, dot + 1) + cleaned.slice(dot + 1).replace(/\./g, "");
+    }
+
     function formatAmountWhileTyping(input) {
       var previous = input.value;
       var caret = input.selectionStart === null ? previous.length : input.selectionStart;
-      var raw = previous.replace(/,/g, "");
-      var rawBeforeCaret = previous.slice(0, caret).replace(/,/g, "");
+      var raw = sanitizeAmount(previous);
+      var rawBeforeCaret = sanitizeAmount(previous.slice(0, caret));
       var dots = raw.split(".");
-      if (dots.length > 2 || raw.split("").some(function (char) { return char !== "." && (char < "0" || char > "9"); })) return;
       var whole = dots[0], groups = [];
       for (var end = whole.length; end > 0; end -= 3) groups.unshift(whole.slice(Math.max(0, end - 3), end));
       var formatted = groups.join(",") + (dots.length === 2 ? "." + dots[1] : "");
@@ -1024,11 +1030,25 @@ export const HOME_CLIENT_CORE = String.raw`
       });
     }
 
-    fromAmountEl.addEventListener("focus", function () { activeSide = "from"; });
-    toAmountEl.addEventListener("focus", function () { activeSide = "to"; });
-    fromAmountEl.addEventListener("input", function () { activeSide = "from"; formatAmountWhileTyping(fromAmountEl); convert(); });
-    toAmountEl.addEventListener("input", function () { activeSide = "to"; formatAmountWhileTyping(toAmountEl); convert(); });
+    function amountSide(input) { return input === fromAmountEl ? "from" : "to"; }
+    // 金额输入统一处理：定位活跃侧 → 清洗格式化 → 换算。输入法组字期间只定位、不改写 value（改写会打断组字并清空）。
+    function handleAmountInput(input, isComposing) {
+      activeSide = amountSide(input);
+      if (isComposing) return;
+      formatAmountWhileTyping(input);
+      convert();
+    }
     [fromAmountEl, toAmountEl].forEach(function (input) {
+      input.addEventListener("focus", function () { activeSide = amountSide(input); });
+      input.addEventListener("input", function (e) { handleAmountInput(input, e.isComposing); });
+      // 逐字输入/组字的非法字符（字母、符号）拦在门外，不进入输入框；已有内容与光标保持不动。
+      input.addEventListener("beforeinput", function (e) {
+        if ((e.inputType === "insertText" || e.inputType === "insertCompositionText") && e.data && /[^0-9.]/.test(e.data)) {
+          e.preventDefault();
+        }
+      });
+      // compositionstart 无法取消（见 W3C UI Events 规范），只能等组字落定后清洗一次，兜住期间放进来的内容。
+      input.addEventListener("compositionend", function () { handleAmountInput(input, false); });
       input.addEventListener("blur", function () {
         var amount = parseAmount(input.value);
         if (isFinite(amount)) input.value = formatEditableAmount(amount);

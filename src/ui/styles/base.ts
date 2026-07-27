@@ -129,7 +129,7 @@ export const BASE_STYLES = String.raw`
     box-shadow: 0 18px 50px rgba(0, 0, 0, 0.09), 0 2px 8px rgba(0, 0, 0, 0.04);
     padding: 26px;
     width: 100%;
-    max-width: 1040px;
+    max-width: 1050px;
   }
   .converter-card.is-resizing { transition: height 380ms var(--ease-out); }
   .converter-topline {
