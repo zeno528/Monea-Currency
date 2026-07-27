@@ -564,22 +564,48 @@ export const BASE_STYLES = String.raw`
   }
   .rate-summary.is-loading .rate-spinner { display: inline-block; }
   .summary-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: 0 0 auto; }
-  .reset-btn {
+  /* 摘要行双按钮：主操作用 .btn-primary（实心蓝），次操作用 .btn-secondary（描边蓝）。
+     走势图按钮带尾部 chevron SVG，重置按钮是纯文本 + Unicode 符号。 */
+  .btn {
     flex: 0 0 auto;
     min-height: 32px;
-    padding: 5px 7px;
-    border: 0;
-    border-radius: var(--radius-sm);
+    padding: 7px 16px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
     background: transparent;
-    color: var(--color-primary);
     font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: -0.08px;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    transition: background-color 160ms ease, transform 100ms ease-out;
   }
-  .reset-btn:active { transform: scale(0.97); }
-  @media (hover: hover) and (pointer: fine) { .reset-btn:hover { background: rgba(0, 102, 204, 0.08); } }
-  .reset-btn:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
-  .history-btn { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
-  .history-toggle-icon { width: 14px; height: 14px; transition: transform 220ms var(--ease-out); }
+  .btn:active { transform: scale(0.97); }
+  .btn:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
+  .btn-primary {
+    background: var(--color-primary);
+    color: var(--color-on-dark);
+  }
+  .btn-secondary {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+  /* 触屏 tap 后 hover 状态会粘住，必须用 media guard 排除 */
+  @media (hover: hover) and (pointer: fine) {
+    .btn-primary:hover { background: #006edc; }
+    .btn-secondary:hover { background: rgba(0, 113, 227, 0.08); }
+  }
+  /* 走势图尾部 chevron 尺寸 + 展开旋转动画；重置按钮是纯文本 + Unicode 符号，无需单独样式 */
+  .history-toggle-icon {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+    transition: transform 220ms var(--ease-out);
+  }
   .history-btn[aria-expanded="true"] .history-toggle-icon { transform: rotate(180deg); }
   .history {
     display: grid;
