@@ -76,7 +76,8 @@ export const HOME_CLIENT_CORE = String.raw`
     var rateDateText = document.createTextNode("");
     rateSubEl.appendChild(rateDateText);
     var heroTitleEl = $("hero-title");
-    var errEl = $("error"), swapBtn = $("swap"), resetBtn = $("reset");
+    var errEl = $("error"), errTextEl = $("error-text"), rateRetryEl = $("rate-retry");
+    var swapBtn = $("swap"), resetBtn = $("reset");
     var dateEl = $("rate-date"), favoriteBtn = $("favorite-pair");
     var savedPairsEl = $("saved-pairs"), historyEl = $("history"), historyContentEl = $("history-content"), historyToggleEl = $("history-toggle");
     var historyChartEl = $("history-chart"), historyNoteEl = $("history-note"), historyQuoteEl = $("history-quote");
@@ -91,6 +92,7 @@ export const HOME_CLIENT_CORE = String.raw`
     var requestId = 0;
     var rateCache = new Map();
     var rateRequest = null;
+    var RATE_TIMEOUT_MS = 8000;
     var historyRange = "1M";
     var historyRequestId = 0;
     var historyRequestController = null;
@@ -627,8 +629,16 @@ export const HOME_CLIENT_CORE = String.raw`
       return "favorite";
     }
 
-    function showError(msg) { errEl.textContent = msg; errEl.hidden = false; }
-    function clearError() { errEl.hidden = true; }
+    function showError(msg, retryable) {
+      errTextEl.textContent = msg;
+      rateRetryEl.hidden = !retryable;
+      errEl.hidden = false;
+    }
+    function clearError() {
+      errEl.hidden = true;
+      errTextEl.textContent = "";
+      rateRetryEl.hidden = true;
+    }
 
     function loadCurrencies() {
       fetch("/currencies").then(function (r) { return r.json(); }).then(function (data) {
@@ -716,31 +726,6 @@ export const HOME_CLIENT_CORE = String.raw`
         renderedCount += batch.length;
         listEl.insertAdjacentHTML("beforeend", currencyItemsHtml(batch));
         observePendingFlags();
-      }
-
-      function updateFavoriteButton(button, favorite) {
-        var label = favorite ? "取消收藏 " + button.dataset.code : "收藏 " + button.dataset.code;
-        button.setAttribute("aria-pressed", String(favorite));
-        button.setAttribute("aria-label", label);
-        button.setAttribute("title", label);
-      }
-
-      function reorderVisibleCurrencyItems() {
-        var allMatches = getFiltered(searchQuery);
-        var byCode = {};
-        var rank = {};
-        allMatches.forEach(function (currency, index) { byCode[currency.code] = currency; rank[currency.code] = index; });
-        var items = Array.from(listEl.querySelectorAll(".combo-item"));
-        items.sort(function (a, b) { return rank[a.dataset.code] - rank[b.dataset.code]; });
-        items.forEach(function (item) { listEl.appendChild(item); });
-        // 保留已渲染节点，后续滚动继续追加未出现的项目，避免重建图片造成闪烁。
-        var visibleCodes = {};
-        var visibleCurrencies = items.map(function (item) {
-          visibleCodes[item.dataset.code] = true;
-          return byCode[item.dataset.code];
-        });
-        renderedCurrencies = visibleCurrencies.concat(allMatches.filter(function (currency) { return !visibleCodes[currency.code]; }));
-        renderedCount = visibleCurrencies.length;
       }
 
       function render(list) {
@@ -881,9 +866,11 @@ export const HOME_CLIENT_CORE = String.raw`
         if (favoriteButton) {
           e.preventDefault();
           e.stopPropagation();
-          toggleFavoriteCurrency(favoriteButton.dataset.code);
-          updateFavoriteButton(favoriteButton, isFavoriteCurrency(favoriteButton.dataset.code));
-          reorderVisibleCurrencyItems();
+          var favoriteCode = favoriteButton.dataset.code;
+          toggleFavoriteCurrency(favoriteCode);
+          // 星标是货币行的一部分：点中它既完成收藏，也提交该货币。
+          // 这样整行任意位置都能稳定切换，不再出现“点了但币种没变”的体感。
+          selectCode(favoriteCode);
           return;
         }
         var item = e.target.closest(".combo-item");
@@ -969,13 +956,27 @@ export const HOME_CLIENT_CORE = String.raw`
         return Promise.resolve({ from: base, to: quote, rate: 1, date: dateEl.value || new Date().toISOString().slice(0, 10) });
       }
       var controller = new AbortController();
+      var timedOut = false;
+      var timeoutId = setTimeout(function () {
+        timedOut = true;
+        controller.abort();
+      }, RATE_TIMEOUT_MS);
       var requestedDate = dateEl.value || "latest";
       var url = "/convert?from=" + encodeURIComponent(base) + "&to=" + encodeURIComponent(quote) + "&amount=1";
       if (dateEl.value) url += "&date=" + encodeURIComponent(dateEl.value);
       var promise = fetch(url, { signal: controller.signal })
         .then(function (response) { return response.json(); })
         .then(function (data) { return data.error ? data : storeRate(data, requestedDate); })
+        .catch(function (error) {
+          if (timedOut && error.name === "AbortError") {
+            var timeoutError = new Error("Rate request timed out");
+            timeoutError.name = "TimeoutError";
+            throw timeoutError;
+          }
+          throw error;
+        })
         .finally(function () {
+          clearTimeout(timeoutId);
           if (rateRequest && rateRequest.promise === promise) rateRequest = null;
         });
       rateRequest = { key: key, controller: controller, promise: promise };
@@ -1035,7 +1036,8 @@ export const HOME_CLIENT_CORE = String.raw`
         if (currentRequest !== requestId) return;
         rateSummaryEl.classList.remove("is-loading");
         if (data.error) {
-          showError(data.error);
+          rateEl.textContent = "暂时无法更新参考汇率";
+          showError(data.error, true);
           return;
         }
         applyConversion(data, amount, outputEl);
@@ -1043,7 +1045,8 @@ export const HOME_CLIENT_CORE = String.raw`
         if (currentRequest === requestId) {
           rateSummaryEl.classList.remove("is-loading");
           if (error.name === "AbortError") return;
-          showError("网络错误，请重试");
+          rateEl.textContent = "暂时无法更新参考汇率";
+          showError(error.name === "TimeoutError" ? "汇率请求超时" : "网络错误", true);
         }
       });
     }
@@ -1167,6 +1170,10 @@ export const HOME_CLIENT_CORE = String.raw`
       clearError();
       convert();
       fromAmountEl.focus({ preventScroll: true });
+    });
+    rateRetryEl.addEventListener("click", function () {
+      clearError();
+      convert();
     });
 
     dateEl.addEventListener("change", function () { syncHeroPair(); convert(); });

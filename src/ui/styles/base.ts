@@ -427,8 +427,10 @@ export const BASE_STYLES = String.raw`
     padding: 10px 14px;
     border-radius: var(--radius-sm);
     cursor: pointer;
+    transition: background-color 120ms ease, transform 120ms ease;
   }
   .combo-item.active { background: var(--color-parchment); }
+  .combo-item:active { background: var(--color-parchment); transform: scale(0.995); }
   @media (hover: hover) {
     .combo-item:hover { background: var(--color-parchment); }
   }
@@ -708,7 +710,32 @@ export const BASE_STYLES = String.raw`
   .history-empty.is-loading { align-content: center; gap: 10px; color: #6e6e73; font-weight: 500; }
   .history-loading-indicator { width: 18px; height: 18px; border: 2px solid rgba(0, 113, 227, 0.16); border-top-color: #0071e3; border-radius: 50%; animation: history-loading-spin 720ms linear infinite; }
   @keyframes history-loading-spin { to { transform: rotate(360deg); } }
-  .error { color: #d33; font-size: 14px; margin-top: 12px; letter-spacing: -0.224px; }
+  .error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: #d33;
+    font-size: 14px;
+    margin-top: 12px;
+    letter-spacing: -0.224px;
+  }
+  .error[hidden] { display: none; }
+  .error-retry {
+    min-width: 64px;
+    min-height: 36px;
+    padding: 6px 14px;
+    border: 1px solid rgba(211, 51, 51, 0.28);
+    border-radius: var(--radius-pill);
+    background: rgba(211, 51, 51, 0.07);
+    color: #b42318;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .error-retry:active { transform: scale(0.97); }
+  .error-retry:focus-visible { outline: 2px solid rgba(211, 51, 51, 0.35); outline-offset: 2px; }
 
   /* 信息区域仍然简洁，但用可扫读的统计卡片替代大片装饰。 */
   .features {

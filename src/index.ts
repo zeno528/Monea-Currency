@@ -63,9 +63,9 @@ export default {
     }
   },
 
-  // 每 3 小时预热 165 个 base 的全量汇率到 CDN 边沿，
+  // 每 3 小时预热 10 个常用 base 的全量汇率到 CDN 边沿，
   // 走 SELF service binding → 自身 fetch handler → 按 live-rate 策略 Cache-Control 落 CDN；
-  // 跨 DC 共享，消除首次切到冷门 base 的欧洲冷启延迟。
+  // 长尾币种继续按需缓存，避免为低频选择制造大量无效回源。
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     await warmBaseCache(env, ctx);
   },
