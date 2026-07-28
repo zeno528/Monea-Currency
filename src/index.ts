@@ -30,7 +30,9 @@ export default {
       switch (url.pathname) {
         case "/":
           return new Response(HOME_HTML, {
-            headers: { "Content-Type": "text/html;charset=utf-8", ...CORS_HEADERS },
+            // 页面脚本与样式均内嵌在 HTML 中；不缓存入口文档，确保普通刷新即可取得
+            // 最新客户端逻辑。汇率 API 仍按各自策略缓存，不影响换算性能。
+            headers: { "Content-Type": "text/html;charset=utf-8", "Cache-Control": "no-store", ...CORS_HEADERS },
           });
         case "/convert":
           return await handleConvert(url, ctx);
@@ -53,7 +55,7 @@ export default {
               health: "/health",
             },
             source: UPSTREAM,
-            cache: "fresh=1h, swr=24h, sie=24h (CDN edge)",
+            cache: "live fresh=5m, no-swr, sie=24h (CDN edge)",
           });
         default:
           return json({ error: "Not found", see: "/api" }, 404);

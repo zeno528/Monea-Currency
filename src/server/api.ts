@@ -5,21 +5,24 @@
  * 缓存：双层——
  *   1) Cache API (caches.default)：按上游 URL 跨 Worker 端点共享（如 /convert + /latest 同 base）。
  *   2) Workers Caching (wrangler cache.enabled)：按 Worker URL 自动落 CDN 边缘，
- *      由 Cache-Control 头开启 stale-while-revalidate + stale-if-error：
- *      - swr：缓存过期后立即吐 stale，Worker 后台静默 revalidate，
- *        用户感知不到 cold-MISS（UPDATING）。
+ *      由各数据类型的 Cache-Control 策略控制：
+ *      - swr：仅用于历史/目录等允许短时旧值的资源；
+ *      - live-rate：不用 swr，过期后同步回源，避免继续显示昨日数据。
  *      - sie：upstream 挂时吐 stale（STALE），首次冷启+失败才透传错误。
  * UI：按 Apple 品牌设计规范 (brands/apple/DESIGN.md) 实现
  */
 
 export const UPSTREAM = "https://api.frankfurter.dev/v2";
+// Cache API 的 key 不随 Worker 部署版本自动隔离；变更 live-rate 新鲜度策略时递增，
+// 让新版本立即绕过旧策略写入的一小时缓存。
+export const LIVE_RATE_CACHE_VERSION = "v2";
 const DAY_SECONDS = 86400;
 // 回源超时：上游挂起（TCP 半开、TLS 卡死等）时及时中断，避免整个请求被无限拖死。
 const UPSTREAM_TIMEOUT_MS = 6000;
 
 // TTL/SWR/SIE 分级：
-//   live-rate：frankfurter 自身 max-age=86400（按 ECB 工作日 16:00 CET 发布），
-//               我们给 1h fresh + 24h swr/sie，让热门边沿次日一开工就是缓存命中。
+//   live-rate：参考汇率会在各数据源发布后更新。只给 5min fresh，不使用 SWR，
+//              避免上游已有当日数据时仍立即吐出昨日旧值；上游故障时才由 SIE 兜底。
 //   dated-rate：历史日期的汇率不可变，可以非常久地兜底。
 //   history：Frankfurter 官方文档明说"Historical rates are immutable, so cache them forever"，
 //            给 1d fresh + 7d swr/sie 已经远超实际访问频率。
@@ -32,7 +35,7 @@ type CachePolicy = {
 };
 
 const CACHE_POLICIES: Record<CachePolicy["name"], CachePolicy> = {
-  "live-rate": { name: "live-rate", maxAgeSeconds: 3600, swrSeconds: 86400, sieSeconds: 86400 },
+  "live-rate": { name: "live-rate", maxAgeSeconds: 300, swrSeconds: 0, sieSeconds: 86400 },
   "dated-rate": { name: "dated-rate", maxAgeSeconds: 86400, swrSeconds: DAY_SECONDS * 30, sieSeconds: DAY_SECONDS * 30 },
   history: { name: "history", maxAgeSeconds: 86400, swrSeconds: DAY_SECONDS * 7, sieSeconds: DAY_SECONDS * 7 },
   currencies: { name: "currencies", maxAgeSeconds: 86400 * 7, swrSeconds: DAY_SECONDS * 30, sieSeconds: DAY_SECONDS * 30 },
@@ -73,7 +76,17 @@ export function json(data: unknown, status = 200, headers: Record<string, string
 }
 
 function cacheControlHeader(policy: CachePolicy): string {
-  return `public, max-age=${policy.maxAgeSeconds}, stale-while-revalidate=${policy.swrSeconds}, stale-if-error=${policy.sieSeconds}`;
+  const directives = [`public`, `max-age=${policy.maxAgeSeconds}`];
+  if (policy.swrSeconds > 0) directives.push(`stale-while-revalidate=${policy.swrSeconds}`);
+  if (policy.sieSeconds > 0) directives.push(`stale-if-error=${policy.sieSeconds}`);
+  return directives.join(", ");
+}
+
+function upstreamCacheKey(url: string, policy: CachePolicy): string {
+  if (policy.name !== "live-rate") return url;
+  const key = new URL(url);
+  key.searchParams.set("__monea_cache", LIVE_RATE_CACHE_VERSION);
+  return key.toString();
 }
 
 /**
@@ -100,7 +113,8 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
  *      - 首次冷启+失败则如实返回错误。
  */
 async function fetchUpstream(url: string, policy: CachePolicy, ctx: ExecutionContext): Promise<Response> {
-  const cached = await caches.default.match(url);
+  const cacheKey = upstreamCacheKey(url, policy);
+  const cached = await caches.default.match(cacheKey);
   if (cached) return cached;
 
   let resp: Response;
@@ -125,7 +139,7 @@ async function fetchUpstream(url: string, policy: CachePolicy, ctx: ExecutionCon
   const responseInit = { status: resp.status, statusText: resp.statusText, headers: { "Content-Type": resp.headers.get("Content-Type") || "application/json" } };
   const response = new Response(bodyText, responseInit);
   response.headers.set("Cache-Control", cacheControlHeader(policy));
-  ctx.waitUntil(caches.default.put(url, response.clone()));
+  ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
   return response;
 }
 
@@ -296,11 +310,11 @@ function parseNonNegativeAmount(value: string | null): number | null {
 
 /** Cron-triggered cache warming: 只覆盖最常用的 base，长尾币种继续按需缓存。
  *  通过 SELF service binding 调用自身 /latest 端点，响应按 live-rate 策略
- *  (max-age=1h, swr/sie=24h) 写入 CDN 边沿（cache.enabled: true 自动按
+ *  (max-age=5min, 无 SWR, SIE=24h) 写入 CDN 边沿（cache.enabled: true 自动按
  *  Cache-Control 头落），降低常用货币首次切换的等待。
  *
- *  fetch handler 内部已经走 caches.default + fetchUpstream + SWR/SIE 头，
- *  重复预热同一 base 在缓存有效期内命中 stale（SWR 后台 revalidate），无副作用。
+ *  fetch handler 内部已经走 caches.default + fetchUpstream + live-rate 缓存头，
+ *  重复预热同一 base 在缓存有效期内直接命中；过期后同步取得上游最新批次。
  */
 export async function warmBaseCache(env: Env, _ctx: ExecutionContext): Promise<void> {
   const bases = ["USD", "EUR", "CNY", "JPY", "GBP", "HKD", "AUD", "CAD", "CHF", "SGD"];

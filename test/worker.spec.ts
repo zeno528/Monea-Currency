@@ -1,6 +1,6 @@
 import { exports as workerExports } from "cloudflare:workers";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { warmBaseCache } from "../src/server/api";
+import { LIVE_RATE_CACHE_VERSION, warmBaseCache } from "../src/server/api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -53,6 +53,7 @@ describe("Monea Currency Worker", () => {
     const response = await workerExports.default.fetch("https://example.com/");
     const html = await response.text();
 
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(html).toContain('id="rate-retry"');
     expect(html).toContain("var RATE_TIMEOUT_MS = 8000;");
     expect(html).not.toContain("selectCode(favoriteCode);");
@@ -73,6 +74,8 @@ describe("Monea Currency Worker", () => {
     expect(html).toContain('fetch("/latest?base=EUR")');
     expect(html).toContain("var rate = quoteLeg.rate / baseLeg.rate;");
     expect(html).toContain("if (cached.snapshot) refreshSnapshotRate");
+    expect(html).toContain("var PENDING_RATE_CACHE_TTL_MS = 5 * 60 * 1000;");
+    expect(html).toContain("scheduleRateSnapshotRefresh(snapshot);");
   });
 
   it("warms only the ten common base currencies", async () => {
@@ -110,16 +113,15 @@ describe("Monea Currency Worker", () => {
     );
   });
 
-  it("issues the standard SWR + stale-if-error directive on /convert responses", async () => {
+  it("keeps live rates fresh for five minutes and reserves stale data for upstream failures", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json([{ date: "2026-07-26", base: "USD", quote: "EUR", rate: 0.92 }])));
 
     const response = await workerExports.default.fetch("https://example.com/convert?from=USD&to=EUR&amount=1");
 
     expect(response.status).toBe(200);
-    // live-rate：fresh 1h，SWR/SIE 各 24h。SWR 让缓存过期后下一次访问秒回 stale，
-    // SIE 让上游临时故障时吐 stale 而非 5xx。
+    // live-rate：fresh 5min，不用 SWR 继续吐昨日旧值；仅在上游故障时由 SIE 兜底。
     expect(response.headers.get("Cache-Control")).toBe(
-      "public, max-age=3600, stale-while-revalidate=86400, stale-if-error=86400",
+      "public, max-age=300, stale-if-error=86400",
     );
   });
 
@@ -173,7 +175,7 @@ describe("Monea Currency Worker", () => {
     // Worker 侧只需：upstream 失败时返回 5xx + Cache-Control: no-store，避免错误响应被错误地
     // 写进 CDN 边沿（这样 CDN 才能正确判断走 stale-if-error）。
     // 清掉该上游 URL 的缓存（先前测试可能写入了成功响应），确保本次走真实 upstream 路径。
-    await caches.default.delete("https://api.frankfurter.dev/v2/rates?base=CHF");
+    await caches.default.delete(`https://api.frankfurter.dev/v2/rates?base=CHF&__monea_cache=${LIVE_RATE_CACHE_VERSION}`);
     const upstream = vi.fn(async () => new Response("upstream unavailable", { status: 503 }));
     vi.stubGlobal("fetch", upstream);
 
@@ -222,7 +224,7 @@ describe("Monea Currency Worker", () => {
       date: "2026-07-26",
     });
     expect(first.headers.get("Cache-Control")).toBe(
-      "public, max-age=3600, stale-while-revalidate=86400, stale-if-error=86400",
+      "public, max-age=300, stale-if-error=86400",
     );
 
     const second = await workerExports.default.fetch("https://example.com/convert?from=EUR&to=JPY&amount=2");

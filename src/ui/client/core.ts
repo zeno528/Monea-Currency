@@ -94,9 +94,11 @@ export const HOME_CLIENT_CORE = String.raw`
     var rateRequest = null;
     var RATE_TIMEOUT_MS = 8000;
     var RATE_CACHE_TTL_MS = 60 * 60 * 1000;
+    var PENDING_RATE_CACHE_TTL_MS = 5 * 60 * 1000;
     var RATE_SNAPSHOT_STORAGE_KEY = "monea-currency:rate-snapshot:v1";
     var fullRateSnapshot = null;
     var fullRateSnapshotRequest = null;
+    var fullRateSnapshotRefreshTimer = null;
     var historyRange = "1M";
     var historyRequestId = 0;
     var historyRequestController = null;
@@ -971,7 +973,30 @@ export const HOME_CLIENT_CORE = String.raw`
         && snapshot.rates
         && typeof snapshot.rates === "object"
         && Number.isFinite(snapshot.storedAt)
-        && Date.now() - snapshot.storedAt <= RATE_CACHE_TTL_MS;
+        && Date.now() - snapshot.storedAt <= rateCacheTtl(latestSnapshotDate(snapshot));
+    }
+
+    function latestSnapshotDate(snapshot) {
+      if (!snapshot || !snapshot.rates) return "";
+      return Object.keys(snapshot.rates).reduce(function (latest, code) {
+        var date = snapshot.rates[code] && snapshot.rates[code].date;
+        return typeof date === "string" && date > latest ? date : latest;
+      }, "");
+    }
+
+    function rateCacheTtl(date) {
+      var today = new Date().toISOString().slice(0, 10);
+      return date && date < today ? PENDING_RATE_CACHE_TTL_MS : RATE_CACHE_TTL_MS;
+    }
+
+    function scheduleRateSnapshotRefresh(snapshot) {
+      if (fullRateSnapshotRefreshTimer !== null) clearTimeout(fullRateSnapshotRefreshTimer);
+      var ttl = snapshot ? rateCacheTtl(latestSnapshotDate(snapshot)) : PENDING_RATE_CACHE_TTL_MS;
+      var age = snapshot && Number.isFinite(snapshot.storedAt) ? Date.now() - snapshot.storedAt : 0;
+      fullRateSnapshotRefreshTimer = setTimeout(function () {
+        fullRateSnapshotRefreshTimer = null;
+        preloadAllRates();
+      }, Math.max(1000, ttl - age));
     }
 
     function restoreRateSnapshot() {
@@ -1015,12 +1040,14 @@ export const HOME_CLIENT_CORE = String.raw`
           if (!validRateSnapshot(snapshot)) throw new Error("Invalid rate snapshot");
           fullRateSnapshot = snapshot;
           try { localStorage.setItem(RATE_SNAPSHOT_STORAGE_KEY, JSON.stringify(snapshot)); } catch (_) {}
+          scheduleRateSnapshotRefresh(snapshot);
           // 快照就绪后立即重算当前货币对；若用户已经切换，convert 会读取最新状态。
           convert();
           return snapshot;
         })
         .catch(function () {
           // 全量快照只是加速层，失败时保留现有按货币对请求路径。
+          scheduleRateSnapshotRefresh(null);
           return null;
         })
         .finally(function () { fullRateSnapshotRequest = null; });
@@ -1030,7 +1057,7 @@ export const HOME_CLIENT_CORE = String.raw`
     function readCachedRate(key, base, quote) {
       var cached = rateCache.get(key);
       if (cached) {
-        if (Date.now() - cached.storedAt <= RATE_CACHE_TTL_MS) return cached.data;
+        if (Date.now() - cached.storedAt <= rateCacheTtl(cached.data && cached.data.date)) return cached.data;
         rateCache.delete(key);
       }
       return snapshotRate(base, quote);
