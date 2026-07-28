@@ -118,7 +118,7 @@ export const HOME_MARKUP = String.raw`
       <div class="feature">
         <div class="feature-num">Daily</div>
         <div class="feature-title">参考数据更新</div>
-        <div class="feature-desc">参考汇率通常按日更新，数据日期可见。<br>相同查询最长缓存 1 小时。</div>
+        <div class="feature-desc">参考汇率通常按日更新，数据日期可见。<br>全币种快照预载，切换即时响应。</div>
       </div>
     </div>
   </section>

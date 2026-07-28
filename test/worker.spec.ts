@@ -57,6 +57,20 @@ describe("Monea Currency Worker", () => {
     expect(html).toContain("var RATE_TIMEOUT_MS = 8000;");
     expect(html).toContain("selectCode(favoriteCode);");
     expect(html).toContain("汇率请求超时");
+    expect(html).toContain("var panelPointerActive = false;");
+    expect(html).toContain("cancelBlurClose();");
+    expect(html).toContain("if (panelPointerActive)");
+    expect(html).toContain("touch-action: manipulation;");
+  });
+
+  it("preloads one EUR snapshot for instant cross-currency conversion", async () => {
+    const response = await workerExports.default.fetch("https://example.com/");
+    const html = await response.text();
+
+    expect(html).toContain('var RATE_SNAPSHOT_STORAGE_KEY = "monea-currency:rate-snapshot:v1";');
+    expect(html).toContain('fetch("/latest?base=EUR")');
+    expect(html).toContain("var rate = quoteLeg.rate / baseLeg.rate;");
+    expect(html).toContain("if (cached.snapshot) refreshSnapshotRate");
   });
 
   it("warms only the ten common base currencies", async () => {
