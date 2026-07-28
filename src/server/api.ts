@@ -294,56 +294,22 @@ function parseNonNegativeAmount(value: string | null): number | null {
   return Number.isFinite(amount) && amount >= 0 ? amount : null;
 }
 
-/** Cron-triggered cache warming: 覆盖 frankfurter 当前发布的全部 165 个 base，
+/** Cron-triggered cache warming: 只覆盖最常用的 base，长尾币种继续按需缓存。
  *  通过 SELF service binding 调用自身 /latest 端点，响应按 live-rate 策略
  *  (max-age=1h, swr/sie=24h) 写入 CDN 边沿（cache.enabled: true 自动按
- *  Cache-Control 头落），跨 DC 共享——后续任何 DC 的首访用户都直接 HIT/UPDATING。
- *
- *  必须并发：每个冷回源 ~1-2s，165 个顺序 await 必爆 Workers 30s CPU 上限。
- *  限 20 并发：165/20 ≈ 9 批 × ~1.5s ≈ 13s，留出余量；过高的并发对
- *  frankfurter 这种免费公共服务也是不必要的礼貌开销。
+ *  Cache-Control 头落），降低常用货币首次切换的等待。
  *
  *  fetch handler 内部已经走 caches.default + fetchUpstream + SWR/SIE 头，
  *  重复预热同一 base 在缓存有效期内命中 stale（SWR 后台 revalidate），无副作用。
  */
 export async function warmBaseCache(env: Env, _ctx: ExecutionContext): Promise<void> {
-  // frankfurter /v2/currencies 当前 165 个；硬编码避免 cron 启动多一次上游依赖。
-  // 列表变更时（frankfurter 新增/下架币种）需手动同步——frankfurter 历史上极少变更。
-  const bases = [
-    "AED","AFN","ALL","AMD","ANG","AOA","ARS","AUD","AWG","AZN",
-    "BAM","BBD","BDT","BHD","BIF","BMD","BND","BOB","BRL","BSD",
-    "BTN","BWP","BYN","BZD","CAD","CDF","CHF","CLP","CNH","CNY",
-    "COP","CRC","CUP","CVE","CZK","DJF","DKK","DOP","DZD","EGP",
-    "ERN","ETB","EUR","FJD","FKP","GBP","GEL","GGP","GHS","GIP",
-    "GMD","GNF","GTQ","GYD","HKD","HNL","HTG","HUF","IDR","ILS",
-    "IMP","INR","IQD","IRR","ISK","JEP","JMD","JOD","JPY","KES",
-    "KGS","KHR","KMF","KPW","KRW","KWD","KYD","KZT","LAK","LBP",
-    "LKR","LRD","LSL","LYD","MAD","MDL","MGA","MKD","MMK","MNT",
-    "MOP","MRO","MRU","MUR","MVR","MWK","MXN","MYR","MZN","NAD",
-    "NGN","NIO","NOK","NPR","NZD","OMR","PAB","PEN","PGK","PHP",
-    "PKR","PLN","PYG","QAR","RON","RSD","RUB","RWF","SAR","SBD",
-    "SCR","SDG","SEK","SGD","SHP","SLE","SOS","SRD","SSP","STN",
-    "SVC","SYP","SZL","THB","TJS","TMT","TND","TOP","TRY","TTD",
-    "TWD","TZS","UAH","UGX","USD","UYU","UZS","VES","VND","VUV",
-    "WST","XAF","XAG","XAU","XCD","XCG","XDR","XOF","XPD","XPF",
-    "XPT","YER","ZAR","ZMW","ZWG",
-  ];
-  // Free plan 单次 invoke subrequest 上限 = 50；每个 env.SELF.fetch() 计 1 subrequest。
-  // 用 time-rotation 切分：每次 cron 按当前 UTC 分钟选 45 个 base（< 50，留 buffer），
-  // 4 次连续 cron（4 分钟）覆盖全部 165。
-  // 升级到 Workers Paid 后可在 wrangler.jsonc 加 "limits": { "subrequests": 1000 }，
-  // 那样可以把 BATCH_SIZE 提到 165 + 去掉 rotation，单次 cron 全量预热。
-  const BATCH_SIZE = 45;
-  const NUM_BATCHES = Math.ceil(bases.length / BATCH_SIZE);
-  const minute = new Date().getUTCMinutes();
-  const batchIndex = minute % NUM_BATCHES;
-  const subset = bases.slice(batchIndex * BATCH_SIZE, (batchIndex + 1) * BATCH_SIZE);
+  const bases = ["USD", "EUR", "CNY", "JPY", "GBP", "HKD", "AUD", "CAD", "CHF", "SGD"];
   // Service binding 不解析 host——用占位 host 即可，path 必须以 /latest?base= 开头
   // 才能被本 Worker 的 router 命中。
   const url = (base: string) => `https://internal.monea-currency.workers.dev/latest?base=${base}`;
-  const CONCURRENCY = 20;
-  for (let i = 0; i < subset.length; i += CONCURRENCY) {
-    const batch = subset.slice(i, i + CONCURRENCY);
+  const CONCURRENCY = 10;
+  for (let i = 0; i < bases.length; i += CONCURRENCY) {
+    const batch = bases.slice(i, i + CONCURRENCY);
     await Promise.all(
       batch.map((base) =>
         env.SELF.fetch(url(base), {

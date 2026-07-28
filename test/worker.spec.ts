@@ -1,5 +1,6 @@
 import { exports as workerExports } from "cloudflare:workers";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { warmBaseCache } from "../src/server/api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -46,6 +47,38 @@ describe("Monea Currency Worker", () => {
     expect(response.status).toBe(405);
     expect(response.headers.get("Allow")).toBe("GET, OPTIONS");
     await expect(response.json()).resolves.toEqual({ error: "Method not allowed" });
+  });
+
+  it("ships whole-row currency selection feedback and a retryable rate timeout", async () => {
+    const response = await workerExports.default.fetch("https://example.com/");
+    const html = await response.text();
+
+    expect(html).toContain('id="rate-retry"');
+    expect(html).toContain("var RATE_TIMEOUT_MS = 8000;");
+    expect(html).toContain("selectCode(favoriteCode);");
+    expect(html).toContain("汇率请求超时");
+  });
+
+  it("warms only the ten common base currencies", async () => {
+    const selfFetch = vi.fn(async () => Response.json({ ok: true }));
+    const env = { SELF: { fetch: selfFetch } } as unknown as Parameters<typeof warmBaseCache>[0];
+
+    await warmBaseCache(env, {} as ExecutionContext);
+
+    const urls = selfFetch.mock.calls.map(([url]) => String(url));
+    expect(urls).toHaveLength(10);
+    expect(urls).toEqual([
+      "https://internal.monea-currency.workers.dev/latest?base=USD",
+      "https://internal.monea-currency.workers.dev/latest?base=EUR",
+      "https://internal.monea-currency.workers.dev/latest?base=CNY",
+      "https://internal.monea-currency.workers.dev/latest?base=JPY",
+      "https://internal.monea-currency.workers.dev/latest?base=GBP",
+      "https://internal.monea-currency.workers.dev/latest?base=HKD",
+      "https://internal.monea-currency.workers.dev/latest?base=AUD",
+      "https://internal.monea-currency.workers.dev/latest?base=CAD",
+      "https://internal.monea-currency.workers.dev/latest?base=CHF",
+      "https://internal.monea-currency.workers.dev/latest?base=SGD",
+    ]);
   });
 
   it("uses a longer cache lifetime for the rarely changed currency catalogue", async () => {

@@ -78,7 +78,10 @@ export const HOME_MARKUP = String.raw`
           <button id="reset" class="btn btn-secondary" type="button" title="恢复默认换算" aria-label="重置为 100 美元换算人民币">重置 ↺</button>
         </div>
       </div>
-      <div id="error" class="error" hidden></div>
+      <div id="error" class="error" role="status" aria-live="polite" hidden>
+        <span id="error-text"></span>
+        <button id="rate-retry" class="error-retry" type="button" hidden>重试</button>
+      </div>
       <section id="history" class="history" aria-label="参考汇率走势" aria-hidden="true" hidden>
         <div id="history-content" class="history-content" inert>
           <div class="history-head">
