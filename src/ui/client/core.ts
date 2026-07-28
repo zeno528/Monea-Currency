@@ -93,6 +93,10 @@ export const HOME_CLIENT_CORE = String.raw`
     var rateCache = new Map();
     var rateRequest = null;
     var RATE_TIMEOUT_MS = 8000;
+    var RATE_CACHE_TTL_MS = 60 * 60 * 1000;
+    var RATE_SNAPSHOT_STORAGE_KEY = "monea-currency:rate-snapshot:v1";
+    var fullRateSnapshot = null;
+    var fullRateSnapshotRequest = null;
     var historyRange = "1M";
     var historyRequestId = 0;
     var historyRequestController = null;
@@ -666,6 +670,8 @@ export const HOME_CLIENT_CORE = String.raw`
       var flagObserver = null;
       var renderedCurrencies = [];
       var renderedCount = 0;
+      var blurCloseTimer = null;
+      var panelPointerActive = false;
       // 当前输入的搜索词与输入框的“已选货币展示值”是两种状态，不能混用。
       var searchQuery = "";
       box.dataset.value = initialCode;
@@ -753,13 +759,21 @@ export const HOME_CLIENT_CORE = String.raw`
         appendCurrencyBatch();
       }
 
+      function cancelBlurClose() {
+        if (blurCloseTimer === null) return;
+        clearTimeout(blurCloseTimer);
+        blurCloseTimer = null;
+      }
       function open() {
+        // 快速连续切换时，前一次失焦留下的关闭任务不能清空刚重新打开的列表。
+        cancelBlurClose();
         closeAll(box);
         box.classList.add("open");
         if (arrow) arrow.setAttribute("aria-expanded", "true");
         render(getFiltered(searchQuery));
       }
       function close() {
+        cancelBlurClose();
         box.classList.remove("open");
         if (arrow) arrow.setAttribute("aria-expanded", "false");
         searchQuery = "";
@@ -881,6 +895,20 @@ export const HOME_CLIENT_CORE = String.raw`
           selectCode(item.dataset.code);
         }
       });
+      // 长按或快速点选时，input 会在合成 click 前失焦。记录仍在列表内进行的指针手势，
+      // 避免失焦定时器提前移除选项节点；继续用 click 提交，以免把滚动误判成选择。
+      panel.addEventListener("pointerdown", function () {
+        panelPointerActive = true;
+      });
+      panel.addEventListener("pointerup", function () {
+        panelPointerActive = false;
+      });
+      panel.addEventListener("pointercancel", function () {
+        panelPointerActive = false;
+      });
+      panel.addEventListener("pointerleave", function () {
+        panelPointerActive = false;
+      });
       // 星标点击的「不让输入框失焦」曾用 pointerdown preventDefault 实现，但移动端（iOS Safari /
       // Android Chrome）的 pointerdown 等同于 touchstart，对它 preventDefault 会**取消合成 click 事件**，
       // 导致星标点击完全不响应——用户体感是「点击下拉里的货币没反应」（星标占 item 第 5 列 36px，
@@ -890,10 +918,17 @@ export const HOME_CLIENT_CORE = String.raw`
       // 失焦延迟关闭，让选项点击先触发；并恢复当前选中值的显示
       input.addEventListener("blur", function () {
         requestComboScrollRestore(input);
-        setTimeout(function () {
+        cancelBlurClose();
+        function closeAfterPointerGesture() {
+          if (panelPointerActive) {
+            blurCloseTimer = setTimeout(closeAfterPointerGesture, 50);
+            return;
+          }
+          blurCloseTimer = null;
           close();
           input.value = displayText(box.dataset.value);
-        }, 150);
+        }
+        blurCloseTimer = setTimeout(closeAfterPointerGesture, 150);
       });
       // 点击下拉箭头：仅展开/收起列表，不进入输入编辑或唤起键盘。
       if (arrow) {
@@ -927,14 +962,75 @@ export const HOME_CLIENT_CORE = String.raw`
       return base + ":" + quote + ":" + (dateEl.value || "latest");
     }
 
-    function readCachedRate(key) {
-      var cached = rateCache.get(key);
-      if (!cached) return null;
-      if (Date.now() - cached.storedAt > 60 * 60 * 1000) {
-        rateCache.delete(key);
-        return null;
+    function validRateSnapshot(snapshot) {
+      return snapshot
+        && snapshot.base === "EUR"
+        && snapshot.rates
+        && typeof snapshot.rates === "object"
+        && Number.isFinite(snapshot.storedAt)
+        && Date.now() - snapshot.storedAt <= RATE_CACHE_TTL_MS;
+    }
+
+    function restoreRateSnapshot() {
+      try {
+        var snapshot = JSON.parse(localStorage.getItem(RATE_SNAPSHOT_STORAGE_KEY) || "null");
+        if (validRateSnapshot(snapshot)) fullRateSnapshot = snapshot;
+        else localStorage.removeItem(RATE_SNAPSHOT_STORAGE_KEY);
+      } catch (_) {
+        try { localStorage.removeItem(RATE_SNAPSHOT_STORAGE_KEY); } catch (_) {}
       }
-      return cached.data;
+    }
+
+    function snapshotLeg(code) {
+      if (code === "EUR") return { rate: 1, date: "" };
+      if (!fullRateSnapshot) return null;
+      var entry = fullRateSnapshot.rates[code];
+      var rate = entry && Number(entry.rate);
+      return rate > 0 && Number.isFinite(rate) ? { rate: rate, date: entry.date || "" } : null;
+    }
+
+    function snapshotRate(base, quote) {
+      if (dateEl.value || !validRateSnapshot(fullRateSnapshot)) return null;
+      var baseLeg = snapshotLeg(base);
+      var quoteLeg = snapshotLeg(quote);
+      if (!baseLeg || !quoteLeg) return null;
+      var rate = quoteLeg.rate / baseLeg.rate;
+      if (!(rate > 0) || !Number.isFinite(rate)) return null;
+      var date = baseLeg.date && quoteLeg.date
+        ? (baseLeg.date < quoteLeg.date ? baseLeg.date : quoteLeg.date)
+        : (baseLeg.date || quoteLeg.date || new Date().toISOString().slice(0, 10));
+      return { from: base, to: quote, rate: rate, date: date, snapshot: true };
+    }
+
+    function preloadAllRates() {
+      if (fullRateSnapshotRequest) return fullRateSnapshotRequest;
+      fullRateSnapshotRequest = fetch("/latest?base=EUR")
+        .then(function (response) { return response.json(); })
+        .then(function (data) {
+          if (!data || data.base !== "EUR" || !data.rates || data.error) throw new Error("Invalid rate snapshot");
+          var snapshot = { base: "EUR", rates: data.rates, storedAt: Date.now() };
+          if (!validRateSnapshot(snapshot)) throw new Error("Invalid rate snapshot");
+          fullRateSnapshot = snapshot;
+          try { localStorage.setItem(RATE_SNAPSHOT_STORAGE_KEY, JSON.stringify(snapshot)); } catch (_) {}
+          // 快照就绪后立即重算当前货币对；若用户已经切换，convert 会读取最新状态。
+          convert();
+          return snapshot;
+        })
+        .catch(function () {
+          // 全量快照只是加速层，失败时保留现有按货币对请求路径。
+          return null;
+        })
+        .finally(function () { fullRateSnapshotRequest = null; });
+      return fullRateSnapshotRequest;
+    }
+
+    function readCachedRate(key, base, quote) {
+      var cached = rateCache.get(key);
+      if (cached) {
+        if (Date.now() - cached.storedAt <= RATE_CACHE_TTL_MS) return cached.data;
+        rateCache.delete(key);
+      }
+      return snapshotRate(base, quote);
     }
 
     function storeRate(data, requestedDate) {
@@ -992,6 +1088,15 @@ export const HOME_CLIENT_CORE = String.raw`
       rateEl.replaceChildren(rateMainEl, rateSubEl);
     }
 
+    function refreshSnapshotRate(base, quote, key, currentRequest, amount, outputEl) {
+      fetchUnitRate(base, quote, key).then(function (data) {
+        if (currentRequest !== requestId || data.error) return;
+        applyConversion(data, amount, outputEl);
+      }).catch(function () {
+        // 快照已经给出可用结果；后台校准失败时保持当前值，不打断用户。
+      });
+    }
+
     function convert() {
       var from = fromBox.dataset.value, to = toBox.dataset.value;
       var inputEl = activeSide === "from" ? fromAmountEl : toAmountEl;
@@ -1020,7 +1125,7 @@ export const HOME_CLIENT_CORE = String.raw`
         );
         return;
       }
-      var cached = readCachedRate(key);
+      var cached = readCachedRate(key, base, quote);
       if (cached) {
         if (rateRequest && rateRequest.key !== key) {
           rateRequest.controller.abort();
@@ -1028,6 +1133,7 @@ export const HOME_CLIENT_CORE = String.raw`
         }
         rateSummaryEl.classList.remove("is-loading");
         applyConversion(cached, amount, outputEl);
+        if (cached.snapshot) refreshSnapshotRate(base, quote, key, currentRequest, amount, outputEl);
         return;
       }
       rateSummaryEl.classList.add("is-loading");
@@ -1216,6 +1322,8 @@ export const HOME_CLIENT_CORE = String.raw`
     syncComboFlag(fromBox);
     syncComboFlag(toBox);
     syncHeroPair();
+    restoreRateSnapshot();
+    preloadAllRates();
     convert();
     loadCurrencies();
     renderSavedPairs();

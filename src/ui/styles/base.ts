@@ -427,6 +427,7 @@ export const BASE_STYLES = String.raw`
     padding: 10px 14px;
     border-radius: var(--radius-sm);
     cursor: pointer;
+    touch-action: manipulation;
     transition: background-color 120ms ease, transform 120ms ease;
   }
   .combo-item.active { background: var(--color-parchment); }
