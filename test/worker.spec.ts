@@ -55,7 +55,9 @@ describe("Monea Currency Worker", () => {
 
     expect(html).toContain('id="rate-retry"');
     expect(html).toContain("var RATE_TIMEOUT_MS = 8000;");
-    expect(html).toContain("selectCode(favoriteCode);");
+    expect(html).not.toContain("selectCode(favoriteCode);");
+    expect(html).toContain('favoriteButton.setAttribute("aria-pressed", String(favorite));');
+    expect(html).toContain("if (event.relatedTarget && box.contains(event.relatedTarget)) return;");
     expect(html).toContain("汇率请求超时");
     expect(html).toContain("var panelPointerActive = false;");
     expect(html).toContain("cancelBlurClose();");

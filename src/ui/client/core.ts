@@ -298,9 +298,11 @@ export const HOME_CLIENT_CORE = String.raw`
     function toggleFavoriteCurrency(code) {
       var favorites = readFavoriteCurrencies();
       var index = favorites.indexOf(code);
-      if (index === -1) favorites.unshift(code);
+      var favorite = index === -1;
+      if (favorite) favorites.unshift(code);
       else favorites.splice(index, 1);
       writeFavoriteCurrencies(favorites);
+      return favorite;
     }
     function isFavorite(pair) {
       return readPairStore().favorites.some(function (item) { return pairId(item.from, item.to) === pairId(pair.from, pair.to); });
@@ -881,10 +883,14 @@ export const HOME_CLIENT_CORE = String.raw`
           e.preventDefault();
           e.stopPropagation();
           var favoriteCode = favoriteButton.dataset.code;
-          toggleFavoriteCurrency(favoriteCode);
-          // 星标是货币行的一部分：点中它既完成收藏，也提交该货币。
-          // 这样整行任意位置都能稳定切换，不再出现“点了但币种没变”的体感。
-          selectCode(favoriteCode);
+          var favorite = toggleFavoriteCurrency(favoriteCode);
+          var favoriteLabel = favorite ? "取消收藏 " + favoriteCode : "收藏 " + favoriteCode;
+          favoriteButton.setAttribute("aria-pressed", String(favorite));
+          favoriteButton.setAttribute("aria-label", favoriteLabel);
+          favoriteButton.title = favoriteLabel;
+          // 收藏是列表内的次级操作：只更新星标，不提交币种、不重排列表、不改变滚动位置。
+          // 取消失焦任务即可保持菜单打开；不阻止 pointerdown，避免移动端再次丢失 click。
+          cancelBlurClose();
           return;
         }
         var item = e.target.closest(".combo-item");
@@ -909,16 +915,13 @@ export const HOME_CLIENT_CORE = String.raw`
       panel.addEventListener("pointerleave", function () {
         panelPointerActive = false;
       });
-      // 星标点击的「不让输入框失焦」曾用 pointerdown preventDefault 实现，但移动端（iOS Safari /
-      // Android Chrome）的 pointerdown 等同于 touchstart，对它 preventDefault 会**取消合成 click 事件**，
-      // 导致星标点击完全不响应——用户体感是「点击下拉里的货币没反应」（星标占 item 第 5 列 36px，
-      // 命中这列的点击都失败，左侧列正常）。
-      // 移除该处理器，让 click 事件正常派发；移动端 tap 星标会让 input 失焦、下拉可能收起，
-      // 但星标本身的收藏/取消功能可用——这是更关键的能力。
+      // 不用 pointerdown preventDefault 保持焦点：移动端会因此取消合成 click，导致星标失灵。
       // 失焦延迟关闭，让选项点击先触发；并恢复当前选中值的显示
-      input.addEventListener("blur", function () {
+      input.addEventListener("blur", function (event) {
         requestComboScrollRestore(input);
         cancelBlurClose();
+        // 焦点进入星标等下拉框内部控件时，仍属于同一次菜单交互，不应关闭。
+        if (event.relatedTarget && box.contains(event.relatedTarget)) return;
         function closeAfterPointerGesture() {
           if (panelPointerActive) {
             blurCloseTimer = setTimeout(closeAfterPointerGesture, 50);
