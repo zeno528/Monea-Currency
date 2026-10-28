@@ -139,11 +139,15 @@
       if (historyInteractionController) historyInteractionController.abort();
       historyInteractionController = new AbortController();
       var listenerOptions = { signal: historyInteractionController.signal };
+      var tooltipOnLeft = null;
       function placeTooltip(clientX, clientY) {
         var rect = svg.getBoundingClientRect();
         var tooltipWidth = tooltip.offsetWidth, tooltipHeight = tooltip.offsetHeight;
-        var left = clientX + 14;
-        if (left + tooltipWidth > rect.right) left = clientX - tooltipWidth - 14;
+        var left = clientX + 24;
+        var onLeft = left + tooltipWidth > rect.right;
+        tooltip.classList.toggle("is-switching", tooltip.classList.contains("is-visible") && tooltipOnLeft !== null && onLeft !== tooltipOnLeft);
+        tooltipOnLeft = onLeft;
+        if (onLeft) left = clientX - tooltipWidth - 24;
         tooltip.style.left = Math.max(rect.left, Math.min(left, rect.right - tooltipWidth)) + "px";
         tooltip.style.top = Math.max(rect.top, Math.min(clientY - tooltipHeight / 2, rect.bottom - tooltipHeight)) + "px";
       }
@@ -165,7 +169,7 @@
         if (!tooltip.classList.contains("is-visible")) tooltip.getBoundingClientRect();
         tooltip.classList.add("is-visible");
       }
-      function hidePoint() { cursor.setAttribute("hidden", ""); tooltip.classList.remove("is-visible"); }
+      function hidePoint() { cursor.setAttribute("hidden", ""); tooltip.classList.remove("is-visible", "is-switching"); tooltipOnLeft = null; }
       window.addEventListener("resize", hidePoint, listenerOptions);
       window.addEventListener("scroll", hidePoint, { capture: true, signal: historyInteractionController.signal });
       function pointFromEvent(event) {
