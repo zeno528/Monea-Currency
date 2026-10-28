@@ -313,13 +313,16 @@ export const HOME_CLIENT_CORE = String.raw`
       // 胶囊只留中文名：直接复用 currencyName（返回 cn），避免脆弱的符号/代码 strip 正则。
       return currencyName(pair.from) + " · " + currencyName(pair.to);
     }
+    var revealedPairAction = "";
     function renderPairs(items, label) {
       if (!items.length) return "";
-      var clear = label === "最近" ? '<button id="clear-recent" class="clear-recent-btn" type="button">清除</button>' : "";
-      var rowClass = label === "最近" ? " saved-pair-row--recent" : "";
+      var list = label === "最近" ? "recent" : "favorites";
+      var rowClass = list === "recent" ? " saved-pair-row--recent" : "";
       return '<div class="saved-pair-row' + rowClass + '"><span class="saved-pair-label">' + label + '</span><div class="saved-pair-track" aria-label="' + label + '组合，可左右滑动查看">' + items.map(function (pair) {
-        return '<button class="pair-chip" type="button" data-from="' + pair.from + '" data-to="' + pair.to + '" aria-pressed="false">' + pairLabel(pair) + '</button>';
-      }).join("") + '</div>' + clear + '</div>';
+        var key = list + ":" + pairId(pair.from, pair.to);
+        var action = list === "recent" ? "删除最近组合" : "取消收藏";
+        return '<span class="pair-chip-wrap' + (revealedPairAction === key ? ' is-revealed' : '') + '" data-pair-key="' + key + '"><button class="pair-chip" type="button" data-from="' + pair.from + '" data-to="' + pair.to + '" aria-pressed="false">' + pairLabel(pair) + '</button><button class="pair-chip-remove" type="button" data-list="' + list + '" data-from="' + pair.from + '" data-to="' + pair.to + '" aria-label="' + action + " " + pairLabel(pair) + '"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m3.5 3.5 5 5m0-5-5 5"/></svg></button></span>';
+      }).join("") + '</div></div>';
     }
     function updateSavedPairs(content) {
       savedPairsEl.classList.toggle("has-content", Boolean(content));
@@ -1261,14 +1264,24 @@ export const HOME_CLIENT_CORE = String.raw`
       convert();
     }
     document.addEventListener("click", function (event) {
-      if (event.target.closest("#clear-recent")) {
+      var remove = event.target.closest(".pair-chip-remove");
+      if (remove) {
         var store = readPairStore();
-        store.recent = [];
+        store[remove.dataset.list] = store[remove.dataset.list].filter(function (pair) {
+          return pairId(pair.from, pair.to) !== pairId(remove.dataset.from, remove.dataset.to);
+        });
+        revealedPairAction = "";
         writePairStore(store);
-        renderSavedPairs();
+        // 与下方 applyPair 同理：重排（两次强制 layout + innerHTML 重建）推迟到下一帧，别压在 click 同步段。
+        requestAnimationFrame(function () { renderSavedPairs(); });
         return;
       }
       var chip = event.target.closest(".pair-chip");
+      var wrapper = chip && chip.closest(".pair-chip-wrap");
+      revealedPairAction = wrapper ? wrapper.dataset.pairKey : "";
+      document.querySelectorAll(".pair-chip-wrap").forEach(function (item) {
+        item.classList.toggle("is-revealed", item === wrapper);
+      });
       if (chip) applyPair(chip.dataset.from, chip.dataset.to, true, pairChipSource(chip));
     });
     swapBtn.addEventListener("click", function () {

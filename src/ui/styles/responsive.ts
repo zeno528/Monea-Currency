@@ -62,7 +62,6 @@ export const RESPONSIVE_STYLES = String.raw`
     .quick-pairs::-webkit-scrollbar { display: none; }
     .pair-chip { flex: 0 0 auto; min-height: 36px; }
     .saved-pair-row { grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
-    .saved-pair-row--recent { grid-template-columns: auto minmax(0, 1fr) auto; }
     .saved-pair-track {
       flex-wrap: nowrap;
       overflow-x: auto;
@@ -80,7 +79,6 @@ export const RESPONSIVE_STYLES = String.raw`
     .history-ranges { overflow-x: auto; margin-top: 12px; padding-bottom: 2px; scrollbar-width: none; }
     .history-ranges::-webkit-scrollbar { display: none; }
     .history-range { min-height: 36px; }
-    .history-chart { height: 250px; }
     .history.is-loading .history-chart { height: 132px; }
   }
   @media (max-width: 419px) {
@@ -98,7 +96,6 @@ export const RESPONSIVE_STYLES = String.raw`
     .history-head { display: block; min-height: 0; }
     .history-ranges { margin-top: 10px; }
     .history-note { white-space: normal; }
-    .history-chart { height: 220px; }
     .history.is-loading .history-chart { height: 124px; }
     .rate-summary { align-items: center; }
     .summary-actions { margin-left: 0; }

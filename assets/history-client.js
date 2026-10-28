@@ -140,11 +140,12 @@
       historyInteractionController = new AbortController();
       var listenerOptions = { signal: historyInteractionController.signal };
       function placeTooltip(clientX, clientY) {
-        tooltip.style.left = clientX + "px";
-        tooltip.style.top = clientY + "px";
-        tooltip.classList.remove("is-left");
-        var tooltipWidth = tooltip.offsetWidth;
-        if (clientX + tooltipWidth + 20 > window.innerWidth) tooltip.classList.add("is-left");
+        var rect = svg.getBoundingClientRect();
+        var tooltipWidth = tooltip.offsetWidth, tooltipHeight = tooltip.offsetHeight;
+        var left = clientX + 14;
+        if (left + tooltipWidth > rect.right) left = clientX - tooltipWidth - 14;
+        tooltip.style.left = Math.max(rect.left, Math.min(left, rect.right - tooltipWidth)) + "px";
+        tooltip.style.top = Math.max(rect.top, Math.min(clientY - tooltipHeight / 2, rect.bottom - tooltipHeight)) + "px";
       }
       function showPoint(index, clientX, clientY) {
         activeIndex = Math.max(0, Math.min(points.length - 1, index));
@@ -155,15 +156,18 @@
         cursorLine.setAttribute("x1", x); cursorLine.setAttribute("x2", x);
         cursorDot.setAttribute("cx", x); cursorDot.setAttribute("cy", y);
         tooltip.innerHTML = '<strong class="chart-tooltip-rate">' + Number(point.rate).toFixed(4) + " " + to + '</strong><span class="chart-tooltip-meta">1 ' + from + " · 参考日期 " + point.date + "</span>";
-        tooltip.classList.add("is-visible");
         if (clientX === undefined || clientY === undefined) {
           var svgRect = svg.getBoundingClientRect();
           clientX = svgRect.left + x / width * svgRect.width;
           clientY = svgRect.top + y / height * svgRect.height;
         }
         placeTooltip(clientX, clientY);
+        if (!tooltip.classList.contains("is-visible")) tooltip.getBoundingClientRect();
+        tooltip.classList.add("is-visible");
       }
       function hidePoint() { cursor.setAttribute("hidden", ""); tooltip.classList.remove("is-visible"); }
+      window.addEventListener("resize", hidePoint, listenerOptions);
+      window.addEventListener("scroll", hidePoint, { capture: true, signal: historyInteractionController.signal });
       function pointFromEvent(event) {
         var rect = svg.getBoundingClientRect();
         return { rect: rect, x: (event.clientX - rect.left) / rect.width * width, y: (event.clientY - rect.top) / rect.height * height };

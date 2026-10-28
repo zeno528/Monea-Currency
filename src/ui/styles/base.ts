@@ -217,26 +217,43 @@ export const BASE_STYLES = String.raw`
   .saved-pairs-content { display: grid; gap: 8px; }
   .saved-pair-row {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     gap: 7px;
   }
   .saved-pair-label { min-width: 26px; color: var(--color-ink-muted-48); font-size: 12px; }
   .saved-pair-track { display: flex; flex-wrap: wrap; gap: 7px; min-width: 0; }
-  .clear-recent-btn {
-    min-height: 28px;
-    padding: 4px 6px;
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--color-primary);
-    font: inherit;
-    font-size: 12px;
+  .pair-chip-wrap { position: relative; display: inline-flex; flex: 0 0 auto; margin: 7px 6px 3px 0; }
+  .pair-chip-remove {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    background: #fff;
+    color: #86868b;
     cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.8);
+    transition: opacity 160ms ease, transform 180ms var(--ease-out), visibility 160ms;
   }
-  .clear-recent-btn:active { transform: scale(0.97); }
-  .clear-recent-btn:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
-  @media (hover: hover) and (pointer: fine) { .clear-recent-btn:hover { background: rgba(0, 102, 204, 0.08); } }
+  .pair-chip-remove svg { display: block; width: 12px; height: 12px; }
+  .pair-chip-remove::before { content: ""; position: absolute; inset: -5px; border-radius: 50%; }
+  .pair-chip[aria-pressed="true"] + .pair-chip-remove { background: #e8f2ff; border-color: #b8d8ff; color: #0066cc; }
+  .pair-chip-wrap:focus-within .pair-chip-remove { opacity: 1; visibility: visible; transform: scale(1); }
+  .pair-chip-remove:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
+  @media (hover: hover) and (pointer: fine) {
+    .pair-chip-wrap:hover .pair-chip-remove { opacity: 1; visibility: visible; transform: scale(1); }
+  }
+  @media (hover: none), (pointer: coarse) {
+    .pair-chip-wrap.is-revealed .pair-chip-remove { opacity: 1; visibility: visible; transform: scale(1); }
+  }
   .pair-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr);
@@ -266,7 +283,7 @@ export const BASE_STYLES = String.raw`
     padding: 19px 20px 17px;
     cursor: text;
   }
-  .currency-field:focus-within {
+  .currency-field:has(.money-input:focus) {
     border-color: var(--color-primary);
     box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.18);
   }
@@ -318,13 +335,14 @@ export const BASE_STYLES = String.raw`
     width: 100%;
     cursor: pointer;
     outline: none;
+    transition: border-color 160ms ease, box-shadow 180ms var(--ease-out);
   }
   .combo-input::placeholder { color: var(--color-ink-muted-48); }
-  .combo-input:focus {
-    outline: 2px solid var(--color-primary-focus);
-    outline-offset: 2px;
-    cursor: text;
+  .combobox:focus-within .combo-input {
+    border-color: rgba(10, 132, 255, 0.55);
+    box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.12), 0 0 8px rgba(10, 132, 255, 0.08);
   }
+  .combo-input:focus { cursor: text; }
   .combo-arrow {
     position: absolute;
     right: 0;
@@ -340,7 +358,7 @@ export const BASE_STYLES = String.raw`
     align-items: center;
     justify-content: flex-end;
   }
-  .combo-arrow:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; border-radius: 0 var(--radius-pill) var(--radius-pill) 0; }
+  .combo-arrow:focus-visible { outline: none; }
   .combo-arrow svg {
     width: 18px;
     height: 18px;
@@ -672,7 +690,7 @@ export const BASE_STYLES = String.raw`
     animation: history-loading-spin 720ms linear infinite;
   }
   .history-range:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
-  .history-chart { position: relative; height: 340px; }
+  .history-chart { position: relative; }
   .history.is-updating .history-chart { opacity: 0.58; }
   .history-chart { transition: opacity 140ms ease; }
   .history.is-loading .history-chart { height: 148px; border: 1px solid rgba(0, 102, 204, 0.1); border-radius: 14px; background: linear-gradient(135deg, rgba(0, 113, 227, 0.06), rgba(0, 113, 227, 0.015)); }
@@ -685,7 +703,7 @@ export const BASE_STYLES = String.raw`
     left: 0;
     z-index: 70;
     min-width: 166px;
-    max-width: calc(100vw - 24px);
+    width: max-content;
     padding: 11px 13px;
     border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 12px;
@@ -696,19 +714,22 @@ export const BASE_STYLES = String.raw`
     line-height: 1.3;
     letter-spacing: 0;
     pointer-events: none;
-    white-space: normal;
-    transform: translate(14px, -50%) scale(0.98);
+    white-space: nowrap;
+    transform: scale(0.98);
     opacity: 0;
     transition: opacity 120ms ease, transform 180ms var(--ease-out);
     will-change: transform, opacity;
   }
   .chart-tooltip-rate { display: block; font-size: 16px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.2; }
   .chart-tooltip-meta { display: block; margin-top: 4px; color: var(--color-ink-muted-48); font-size: 11px; line-height: 1.35; }
-  .chart-tooltip.is-visible { opacity: 1; transform: translate(14px, -50%) scale(1); }
-  .chart-tooltip.is-left { transform: translate(calc(-100% - 14px), -50%) scale(0.98); }
-  .chart-tooltip.is-left.is-visible { transform: translate(calc(-100% - 14px), -50%) scale(1); }
-  .history-empty { display: grid; height: 100%; place-items: center; color: var(--color-ink-muted-48); font-size: 13px; text-align: center; }
-  .history-empty.is-loading { align-content: center; gap: 10px; color: #6e6e73; font-weight: 500; }
+  .chart-tooltip.is-visible {
+    opacity: 1;
+    transform: scale(1);
+    transition: opacity 120ms ease, transform 180ms var(--ease-out), left 280ms var(--ease-out), top 180ms var(--ease-out);
+  }
+  .history-empty { display: grid; min-height: 148px; place-items: center; color: var(--color-ink-muted-48); font-size: 13px; text-align: center; }
+  /* 空态父容器高度为 auto，靠 min-height 撑位；loading 态父容器有固定骨架高度，交给 height:100% */
+  .history-empty.is-loading { height: 100%; min-height: 0; align-content: center; gap: 10px; color: #6e6e73; font-weight: 500; }
   .history-loading-indicator { width: 18px; height: 18px; border: 2px solid rgba(0, 113, 227, 0.16); border-top-color: #0071e3; border-radius: 50%; animation: history-loading-spin 720ms linear infinite; }
   @keyframes history-loading-spin { to { transform: rotate(360deg); } }
   .error {
