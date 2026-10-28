@@ -137,13 +137,10 @@ export const HOME_MARKUP = String.raw`
           </div>
           <p class="footer-description">开源免费的汇率换算工具，让每一次换算更轻松，如果有用，欢迎<a href="https://github.com/zeno528/Monea-Currency" target="_blank" rel="noopener">点个免费的 Star</a>。</p>
         </div>
-        <nav class="footer-links" aria-label="项目与数据来源">
-          <a href="https://frankfurter.dev" target="_blank" rel="noopener">数据来源 · Frankfurter <span aria-hidden="true">↗</span></a>
-        </nav>
       </div>
       <div class="footer-notice">
         <span class="footer-notice-label">汇率说明</span>
-        <p>数据来自 Frankfurter 汇聚的多家中央银行公开参考汇率，并非实时交易报价。仅供参考，不构成交易建议。</p>
+        <p>数据来自 <a href="https://frankfurter.dev" target="_blank" rel="noopener">Frankfurter</a> 汇聚的多家中央银行公开参考汇率，并非实时交易报价。仅供参考，不构成交易建议。</p>
       </div>
       <div class="footer-bottom">
         <span>© 2026 Monea Currency · v${version}</span>

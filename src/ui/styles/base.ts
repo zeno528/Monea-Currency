@@ -819,19 +819,16 @@ export const BASE_STYLES = String.raw`
   .footer-author-link { font-size: 12px; color: var(--color-ink-muted-48); text-decoration: none; }
   .footer-description { margin-top: 8px; font-size: 13px; line-height: 1.65; color: var(--color-ink-muted-48); }
   .footer-description a { color: var(--color-primary); text-decoration: none; }
-  .footer-links { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; flex-shrink: 0; font-size: 13px; }
-  .footer-links a { color: var(--color-ink-muted-80); text-decoration: none; }
-  .footer-links span { margin-left: 4px; color: var(--color-ink-muted-48); }
   .footer a:hover { color: var(--color-primary); text-decoration: underline; }
   .footer a:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 4px; border-radius: 3px; }
   .footer-notice { display: flex; align-items: baseline; gap: 16px; margin-top: 28px; padding-left: 12px; border-left: 2px solid var(--color-hairline); font-size: 12px; line-height: 1.7; color: var(--color-ink-muted-48); }
+  .footer-notice a { color: var(--color-primary); text-decoration: none; }
   .footer-notice-label { flex-shrink: 0; font-weight: 500; color: var(--color-ink-muted-80); }
   .footer-bottom { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-hairline); color: var(--color-ink-muted-48); font-size: 12px; }
   .footer-bottom a { color: inherit; text-decoration: none; }
   @media (max-width: 640px) {
     .footer { padding-top: 28px; }
     .footer-top { flex-direction: column; gap: 20px; }
-    .footer-links { flex-direction: row; flex-wrap: wrap; gap: 12px 24px; }
     .footer-notice { flex-direction: column; gap: 4px; margin-top: 24px; }
     .footer-bottom { flex-direction: column; align-items: flex-start; margin-top: 20px; }
   }
