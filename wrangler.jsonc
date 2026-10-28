@@ -15,12 +15,15 @@
   "cache": {
     "enabled": true
   },
-  // Cron Trigger 预热：每 3 小时刷新 USD、EUR、CNY、JPY、GBP、HKD、
+  // Cron Trigger 预热：每天 8 次刷新 USD、EUR、CNY、JPY、GBP、HKD、
   // AUD、CAD、CHF、SGD 这 10 个常用 base。
+  // 上游 Frankfurter 的数据源 ECB 每个工作日约 16:00 CET 发布（夏令时=14:00 UTC，
+  // 冬令时=15:00 UTC）；cron 只认 UTC，故 14:10/15:10 各放一次贴身触发，
+  // 保证全年都在发布后约 10 分钟拿到当日新数据，其余 6 次维持白天缓存预热。
   // 经由 SELF service binding 调用自身 /latest 端点（走完整 fetch handler），
   // 让响应按 live-rate 策略的 Cache-Control 落进 CDN 边沿；长尾币种按需缓存。
   "triggers": {
-    "crons": ["42 */3 * * *"]
+    "crons": ["10 0,3,6,9,12,14,15,18 * * *"]
   },
   // SELF service binding：让 cron 内部直接调用本 Worker 的 fetch handler，
   // 走 Service Bindings 通道而非公网回环；host 任意（service binding 只看 path），
