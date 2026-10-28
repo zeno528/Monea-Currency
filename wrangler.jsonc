@@ -7,7 +7,11 @@
     "directory": "./assets"
   },
   "observability": {
-    "enabled": true
+    "enabled": true,
+    // 自动聚合生产环境的重复失败（cron 预热批量失败、上游异常等），仪表盘直接可见
+    "issues": {
+      "enabled": true
+    }
   },
   // 启用 Workers Caching：响应按 Cache-Control 头自动进 CDN 边沿，
   // 自动支持 stale-while-revalidate / stale-if-error，
