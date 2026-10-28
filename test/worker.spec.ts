@@ -41,6 +41,18 @@ describe("Monea Currency Worker", () => {
     expect(upstream).not.toHaveBeenCalled();
   });
 
+  it.each(["", "&date=2026-07-21"])("rejects overflowing conversion results on route %s", async (date) => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const entry = { base: "NOK", quote: "SEK", rate: 150, date: "2026-07-21" };
+      return Response.json(String(input).includes("/rates?") ? [entry] : entry);
+    }));
+    const response = await workerExports.default.fetch(
+      "https://example.com/convert?from=NOK&to=SEK&amount=" + "1" + "0".repeat(308) + date,
+    );
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Conversion result out of range" });
+  });
+
   it("rejects methods other than GET and OPTIONS", async () => {
     const response = await workerExports.default.fetch(new Request("https://example.com/convert?from=USD&to=CNY", { method: "POST" }));
 
@@ -114,7 +126,10 @@ describe("Monea Currency Worker", () => {
   });
 
   it("keeps live rates fresh for five minutes and reserves stale data for upstream failures", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => Response.json([{ date: "2026-07-26", base: "USD", quote: "EUR", rate: 0.92 }])));
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const entry = { date: "2026-07-26", base: "USD", quote: "EUR", rate: 0.92 };
+      return Response.json(String(input).includes("/rates?") ? [entry] : entry);
+    }));
 
     const response = await workerExports.default.fetch("https://example.com/convert?from=USD&to=EUR&amount=1");
 

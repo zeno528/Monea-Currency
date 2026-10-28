@@ -1,3 +1,5 @@
+import { version } from "../../package.json";
+
 export const HOME_MARKUP = String.raw`
 </head>
 <body>
@@ -39,6 +41,7 @@ export const HOME_MARKUP = String.raw`
             <div class="money-input-wrap">
               <span id="from-symbol" class="money-symbol" aria-hidden="true">$</span>
               <input id="from-amount" class="money-input" type="text" inputmode="decimal" value="100" placeholder="0" aria-label="从货币金额">
+              <button class="calculator-trigger" type="button" data-amount="from-amount" aria-label="计算金额" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 11h1m3 0h1m3 0h.01M8 15h1m3 0h1m3 0h.01M8 18h1m3 0h1m3 0h.01"/></svg></button>
             </div>
             <div class="combobox" data-field="from" data-value="USD">
               <span class="combo-selected-flag" aria-hidden="true"></span>
@@ -57,6 +60,7 @@ export const HOME_MARKUP = String.raw`
             <div class="money-input-wrap">
               <span id="to-symbol" class="money-symbol" aria-hidden="true">¥</span>
               <input id="to-amount" class="money-input" type="text" inputmode="decimal" value="" placeholder="0" aria-label="到货币金额">
+              <button class="calculator-trigger" type="button" data-amount="to-amount" aria-label="计算换算金额" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 11h1m3 0h1m3 0h.01M8 15h1m3 0h1m3 0h.01M8 18h1m3 0h1m3 0h.01"/></svg></button>
             </div>
             <div class="combobox" data-field="to" data-value="CNY">
               <span class="combo-selected-flag" aria-hidden="true"></span>
@@ -137,10 +141,21 @@ export const HOME_MARKUP = String.raw`
       <p class="footer-star">此项目完全开源、免费。如果它帮到了你，欢迎在GitHub上 <a href="https://github.com/zeno528/Monea-Currency" target="_blank" rel="noopener">点个 Star<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>，这是对我最大的鼓励。</p>
       <p class="footer-notice">参考汇率由 Frankfurter 汇聚的多家中央银行公开数据提供，并非实时交易报价；仅供参考，不构成交易建议。</p>
       <div class="footer-bottom">
-        <span>© 2026 Monea Currency</span>
+        <span>© 2026 Monea Currency · v${version}</span>
         <a href="https://dash.cloudflare.com/?to=/:account/workers" target="_blank" rel="noopener">Cloudflare 安全支持</a>
       </div>
     </div>
   </footer>
+
+  <dialog id="calculator" class="calculator" aria-labelledby="calc-title" tabindex="-1">
+    <div class="calc-header"><h2 id="calc-title">计算金额</h2><button id="calc-close" class="utility-btn" type="button" aria-label="关闭计算器">关闭</button></div>
+    <div class="calc-conversion" aria-label="实时汇率换算">
+      <span id="calc-direction" class="calc-direction"></span>
+      <output id="calc-preview" class="calc-preview" aria-label="换算预览" aria-live="polite"><span id="calc-preview-value"></span></output>
+    </div>
+    <div id="calc-expression" class="calc-expression" aria-label="算式"><span id="calc-expression-value"></span></div>
+    <output id="calc-result" class="calc-result" aria-live="polite"><span id="calc-result-value"></span></output>
+    <div class="calc-keys"><button type="button" data-calc-key="clear" aria-label="清空">AC</button><button type="button" data-calc-key="back" aria-label="退格">⌫</button><button type="button" data-calc-key="%" aria-label="百分比">%</button><button type="button" data-calc-key="/">÷</button><button type="button" data-calc-key="7">7</button><button type="button" data-calc-key="8">8</button><button type="button" data-calc-key="9">9</button><button type="button" data-calc-key="*">×</button><button type="button" data-calc-key="4">4</button><button type="button" data-calc-key="5">5</button><button type="button" data-calc-key="6">6</button><button type="button" data-calc-key="-">−</button><button type="button" data-calc-key="1">1</button><button type="button" data-calc-key="2">2</button><button type="button" data-calc-key="3">3</button><button type="button" data-calc-key="+">+</button><button type="button" data-calc-key="0">0</button><button type="button" data-calc-key=".">.</button><button type="button" data-calc-key="=">=</button></div>
+  </dialog>
 
 `;

@@ -602,15 +602,19 @@ export const HOME_CLIENT_CORE = String.raw`
       return dot === -1 ? cleaned : cleaned.slice(0, dot + 1) + cleaned.slice(dot + 1).replace(/\./g, "");
     }
 
+    function groupAmountText(text) {
+      var dots = text.split(".");
+      var whole = dots[0], groups = [];
+      for (var end = whole.length; end > 0; end -= 3) groups.unshift(whole.slice(Math.max(0, end - 3), end));
+      return groups.join(",") + (dots.length === 2 ? "." + dots[1] : "");
+    }
+
     function formatAmountWhileTyping(input) {
       var previous = input.value;
       var caret = input.selectionStart === null ? previous.length : input.selectionStart;
       var raw = sanitizeAmount(previous);
       var rawBeforeCaret = sanitizeAmount(previous.slice(0, caret));
-      var dots = raw.split(".");
-      var whole = dots[0], groups = [];
-      for (var end = whole.length; end > 0; end -= 3) groups.unshift(whole.slice(Math.max(0, end - 3), end));
-      var formatted = groups.join(",") + (dots.length === 2 ? "." + dots[1] : "");
+      var formatted = groupAmountText(raw);
       input.value = formatted;
       var seen = 0, nextCaret = 0;
       while (nextCaret < formatted.length && seen < rawBeforeCaret.length) {
@@ -644,6 +648,7 @@ export const HOME_CLIENT_CORE = String.raw`
       errTextEl.textContent = msg;
       rateRetryEl.hidden = !retryable;
       errEl.hidden = false;
+      syncCalculatorPreview();
     }
     function clearError() {
       errEl.hidden = true;
@@ -1114,11 +1119,17 @@ export const HOME_CLIENT_CORE = String.raw`
 
     function applyConversion(data, amount, outputEl) {
       var rate = Number(data.rate);
-      outputEl.value = formatEditableAmount(+(amount * rate).toFixed(4));
+      var result = amount * rate;
+      if (!Number.isFinite(result)) {
+        showError("换算结果超出支持范围，请减小金额", false);
+        return;
+      }
+      outputEl.value = formatEditableAmount(+result.toFixed(4));
       // 双行布局：上行汇率 + 下行日历图标
       rateMainEl.textContent = "1 " + data.from + " = " + formatHeroRate(rate) + " " + data.to;
       rateDateText.textContent = "数据日期 " + data.date;
       rateEl.replaceChildren(rateMainEl, rateSubEl);
+      syncCalculatorPreview();
     }
 
     function refreshSnapshotRate(base, quote, key, currentRequest, amount, outputEl) {
@@ -1171,6 +1182,7 @@ export const HOME_CLIENT_CORE = String.raw`
       }
       rateSummaryEl.classList.add("is-loading");
       rateEl.textContent = dateEl.value ? "正在获取指定日期的参考汇率…" : "正在获取最新参考汇率…";
+      syncCalculatorPreview();
       fetchUnitRate(base, quote, key).then(function (data) {
         if (currentRequest !== requestId) return;
         rateSummaryEl.classList.remove("is-loading");
@@ -1225,7 +1237,7 @@ export const HOME_CLIENT_CORE = String.raw`
     document.querySelectorAll(".currency-field").forEach(function (field) {
       field.addEventListener("click", function (event) {
         // 直接点数字时交给浏览器定位插入光标，避免二次 focus 把光标送到首位。
-        if (event.target.closest(".money-input, .combobox")) return;
+        if (event.target.closest(".money-input, .combobox, .calculator-trigger")) return;
         // 从被点的这张卡内部取它自己的金额输入框：data-amount-side 挂在祖先 .field-group 上，
         // 读 field.dataset 会恒为 undefined，导致两侧都落到「换算为」。
         var input = field.querySelector(".money-input");

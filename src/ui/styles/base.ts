@@ -19,6 +19,8 @@ export const BASE_STYLES = String.raw`
     --radius-lg: 24px;
     --radius-pill: 9999px;
     --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --panel-motion-duration: 380ms;
+    --panel-motion: opacity 180ms ease, transform var(--panel-motion-duration) var(--ease-out);
     --font-display: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
     --font-text: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
   }
@@ -641,7 +643,7 @@ export const BASE_STYLES = String.raw`
     transform: translateY(-8px) scale(0.99);
     pointer-events: none;
     overflow-anchor: none;
-    transition: grid-template-rows 380ms var(--ease-out), margin 380ms var(--ease-out), padding 380ms var(--ease-out), border-color 240ms ease, opacity 180ms ease, transform 380ms var(--ease-out);
+    transition: grid-template-rows 380ms var(--ease-out), margin 380ms var(--ease-out), padding 380ms var(--ease-out), border-color 240ms ease, var(--panel-motion);
   }
   .history[hidden] { display: grid; }
   .history.is-open { grid-template-rows: 1fr; margin-top: 18px; padding-top: 18px; border-color: rgba(0, 0, 0, 0.08); opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }

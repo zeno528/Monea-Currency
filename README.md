@@ -60,6 +60,14 @@ pnpm test
 
 测试使用 Cloudflare Workers 的 Vitest 集成，在本地 `workerd` 运行。
 
+计算器浏览器回归测试需安装并连接 `ego-browser`，先在另一终端启动 `pnpm dev`（默认 8787 端口），再执行：
+
+```bash
+pnpm test:ui
+```
+
+覆盖实时回填、未完成/无效算式保留金额、AC、Enter 关闭、精度保护及双向换算。
+
 ## 致谢
 
 汇率数据由开源项目 [Frankfurter](https://frankfurter.dev/) 提供。感谢其维护免费的货币数据 API 与公开数据来源；如需合规用途，请通过其 `providers` 参数选择对应的官方数据源。

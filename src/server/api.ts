@@ -190,6 +190,7 @@ export async function handleConvert(url: URL, ctx: ExecutionContext): Promise<Re
     const entry = arr.find((e) => e.base === from && e.quote === to);
     if (entry) {
       const result = +(amount * entry.rate).toFixed(4);
+      if (!Number.isFinite(result)) return json({ error: "Conversion result out of range" }, 400);
       return json(
         { from: entry.base, to: entry.quote, amount, rate: entry.rate, result, date: entry.date },
         200,
@@ -205,6 +206,7 @@ export async function handleConvert(url: URL, ctx: ExecutionContext): Promise<Re
   if (!resp.ok) return upstreamError(resp);
   const data: RateEntry = await resp.json();
   const result = +(amount * data.rate).toFixed(4);
+  if (!Number.isFinite(result)) return json({ error: "Conversion result out of range" }, 400);
   return json(
     { from: data.base, to: data.quote, amount, rate: data.rate, result, date: data.date },
     200,
