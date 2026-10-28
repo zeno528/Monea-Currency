@@ -468,6 +468,37 @@ export const HOME_CLIENT_CORE = String.raw`
       return cached.data;
     }
 
+    // 走势预热：页面空闲时静默预取当前货币对最常看的三个范围（默认 1M + 短期 1W + 长期 1Y），
+    // 点击图表时直接命中本地缓存，只付渲染成本。1D 不预热（上游 ECB 每日仅一个参考价，
+    // 最多两三个点）；6M 与 1M/1Y 信息重叠、2Y/5Y 低频，均不预热，看过的范围会被 historyCache 自然缓存。
+    var HISTORY_PREFETCH_RANGES = ["1M", "1W", "1Y"];
+    var historyPrefetchTimer = null;
+    var historyPrefetchController = null;
+    function scheduleHistoryPrefetch() {
+      if (historyPrefetchTimer) clearTimeout(historyPrefetchTimer);
+      historyPrefetchTimer = window.setTimeout(runHistoryPrefetch, 2500);
+    }
+    function runHistoryPrefetch() {
+      historyPrefetchTimer = null;
+      var from = fromBox.dataset.value, to = toBox.dataset.value;
+      if (!from || !to) return;
+      ensureHistoryClient().catch(function () {});
+      if (historyPrefetchController) historyPrefetchController.abort();
+      var controller = new AbortController();
+      historyPrefetchController = controller;
+      HISTORY_PREFETCH_RANGES.forEach(function (range) {
+        var key = from + ":" + to + ":" + range;
+        if (readHistoryCache(key)) return;
+        fetchJsonWithin("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + range, controller.signal, HISTORY_TIMEOUT_MS)
+          .then(function (data) {
+            if (controller.signal.aborted || !data || data.error) return;
+            historyCache.set(key, { data: data, storedAt: Date.now() });
+            persistHistoryStore();
+          })
+          .catch(function () {});
+      });
+    }
+
     function fetchJsonWithin(url, signal, timeoutMs) {
       var controller = new AbortController();
       var timedOut = false;
@@ -836,6 +867,7 @@ export const HOME_CLIENT_CORE = String.raw`
         rememberCurrentPair();
         syncHistory();
         convert();
+        scheduleHistoryPrefetch();
       }
 
       function activateTextSearch() {
@@ -1274,6 +1306,7 @@ export const HOME_CLIENT_CORE = String.raw`
       requestAnimationFrame(deferredSaved);
       syncHistory();
       convert();
+      scheduleHistoryPrefetch();
     }
     document.addEventListener("click", function (event) {
       var remove = event.target.closest(".pair-chip-remove");
@@ -1313,6 +1346,7 @@ export const HOME_CLIENT_CORE = String.raw`
       rememberCurrentPair();
       syncHistory();
       convert();
+      scheduleHistoryPrefetch();
     });
     resetBtn.addEventListener("click", function () {
       fromBox.dataset.value = "USD";
@@ -1380,6 +1414,7 @@ export const HOME_CLIENT_CORE = String.raw`
     restoreRateSnapshot();
     preloadAllRates();
     convert();
+    scheduleHistoryPrefetch();
     loadCurrencies();
     renderSavedPairs();
 
