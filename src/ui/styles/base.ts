@@ -142,6 +142,7 @@ export const BASE_STYLES = String.raw`
     margin-bottom: 18px;
   }
   .converter-title, .history-title { display: inline-flex; align-items: center; gap: 7px; }
+  .converter-heading { display: flex; align-items: center; gap: 12px; }
   .converter-title { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
   .title-icon {
     width: 20px;
@@ -590,8 +591,6 @@ export const BASE_STYLES = String.raw`
   }
   .rate-summary.is-loading .rate-spinner { display: inline-block; }
   .summary-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: 0 0 auto; }
-  /* 摘要行双按钮：主操作用 .btn-primary（实心蓝），次操作用 .btn-secondary（描边蓝）。
-     走势图按钮带尾部 chevron SVG，重置按钮是纯文本 + Unicode 符号。 */
   .btn {
     flex: 0 0 auto;
     min-height: 32px;
@@ -616,16 +615,11 @@ export const BASE_STYLES = String.raw`
     background: var(--color-primary);
     color: var(--color-on-dark);
   }
-  .btn-secondary {
-    color: var(--color-primary);
-    border-color: var(--color-primary);
-  }
   /* 触屏 tap 后 hover 状态会粘住，必须用 media guard 排除 */
   @media (hover: hover) and (pointer: fine) {
     .btn-primary:hover { background: #006edc; }
-    .btn-secondary:hover { background: rgba(0, 113, 227, 0.08); }
   }
-  /* 走势图尾部 chevron 尺寸 + 展开旋转动画；重置按钮是纯文本 + Unicode 符号，无需单独样式 */
+  /* 走势图尾部 chevron 展开旋转动画 */
   .history-toggle-icon {
     width: 14px;
     height: 14px;

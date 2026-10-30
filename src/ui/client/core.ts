@@ -1375,6 +1375,7 @@ export const HOME_CLIENT_CORE = String.raw`
       toBox.dataset.value = "CNY";
       fromAmountEl.value = "100";
       toAmountEl.value = "";
+      dateEl.value = "";
       activeSide = "from";
       syncDisplay(fromBox);
       syncDisplay(toBox);
@@ -1387,7 +1388,6 @@ export const HOME_CLIENT_CORE = String.raw`
       clearError();
       convert();
       scheduleHistoryPrefetch();
-      fromAmountEl.focus({ preventScroll: true });
     });
     rateRetryEl.addEventListener("click", function () {
       clearError();
