@@ -287,7 +287,7 @@ export const BASE_STYLES = String.raw`
   }
   .currency-field:has(.money-input:focus) {
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.18);
+    box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.18);
   }
   .field-group[data-amount-side="to"] .currency-field { background: linear-gradient(145deg, #f7fbff, #eef6ff); }
   .money-input-wrap {

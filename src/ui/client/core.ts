@@ -405,13 +405,14 @@ export const HOME_CLIENT_CORE = String.raw`
       historyEl.setAttribute("aria-busy", updating ? "true" : "false");
     }
 
-    function ensureHistoryClient() {
+    function ensureHistoryClient(prefetch) {
       if (window.CurrencyHistoryRenderer) return Promise.resolve(window.CurrencyHistoryRenderer);
       if (historyClientPromise) return historyClientPromise;
       historyClientPromise = new Promise(function (resolve, reject) {
         var script = document.createElement("script");
         script.src = window.__HISTORY_CLIENT_URL || "/history-client.js";
         script.async = true;
+        if (prefetch) script.setAttribute("fetchpriority", "low");
         script.onload = function () {
           if (window.CurrencyHistoryRenderer) resolve(window.CurrencyHistoryRenderer);
           else {
@@ -468,38 +469,56 @@ export const HOME_CLIENT_CORE = String.raw`
       return cached.data;
     }
 
-    // 走势预热：页面空闲时静默预取当前货币对最常看的三个范围（默认 1M + 短期 1W + 长期 1Y），
-    // 点击图表时直接命中本地缓存，只付渲染成本。1D 不预热（上游 ECB 每日仅一个参考价，
-    // 最多两三个点）；6M 与 1M/1Y 信息重叠、2Y/5Y 低频，均不预热，看过的范围会被 historyCache 自然缓存。
-    var HISTORY_PREFETCH_RANGES = ["1M", "1W", "1Y"];
+    // 首屏绘制后预热常用范围；点击时复用尚未完成的预热请求。
+    var HISTORY_PREFETCH_RANGES = ["1M", "1W", "6M", "1Y"];
     var historyPrefetchTimer = null;
+    var historyPrefetchIdle = null;
     var historyPrefetchController = null;
+    var historyPrefetchPair = "";
+    var historyPrefetchRequests = new Map();
+    var historyForegroundKey = "";
     function scheduleHistoryPrefetch() {
       if (historyPrefetchTimer) clearTimeout(historyPrefetchTimer);
-      historyPrefetchTimer = window.setTimeout(runHistoryPrefetch, 2500);
+      if (historyPrefetchIdle !== null) { cancelIdleCallback(historyPrefetchIdle); historyPrefetchIdle = null; }
+      var pair = fromBox.dataset.value + ":" + toBox.dataset.value;
+      if (historyPrefetchController && historyPrefetchPair !== pair) {
+        historyPrefetchController.abort();
+        historyPrefetchController = null;
+        historyPrefetchRequests.clear();
+      }
+      historyPrefetchTimer = window.setTimeout(function () {
+        historyPrefetchTimer = null;
+        if (window.requestIdleCallback) {
+          historyPrefetchIdle = requestIdleCallback(function () { historyPrefetchIdle = null; runHistoryPrefetch(); }, { timeout: 1000 });
+        } else runHistoryPrefetch();
+      }, 400);
     }
     function runHistoryPrefetch() {
       historyPrefetchTimer = null;
       var from = fromBox.dataset.value, to = toBox.dataset.value;
       if (!from || !to) return;
-      ensureHistoryClient().catch(function () {});
-      if (historyPrefetchController) historyPrefetchController.abort();
-      var controller = new AbortController();
+      ensureHistoryClient(true).catch(function () {});
+      var controller = historyPrefetchController || new AbortController();
       historyPrefetchController = controller;
+      historyPrefetchPair = from + ":" + to;
       HISTORY_PREFETCH_RANGES.forEach(function (range) {
         var key = from + ":" + to + ":" + range;
-        if (readHistoryCache(key)) return;
-        fetchJsonWithin("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + range, controller.signal, HISTORY_TIMEOUT_MS)
+        if (readHistoryCache(key) || historyPrefetchRequests.has(key) || (historyForegroundKey === key && historyRequestController && !historyRequestController.signal.aborted)) return;
+        var request = fetchJsonWithin("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + range, controller.signal, HISTORY_TIMEOUT_MS, true)
           .then(function (data) {
-            if (controller.signal.aborted || !data || data.error) return;
+            if (controller.signal.aborted) throw new DOMException("Aborted", "AbortError");
+            if (!data || data.error) throw new Error("history-response");
             historyCache.set(key, { data: data, storedAt: Date.now() });
             persistHistoryStore();
+            return data;
           })
-          .catch(function () {});
+          .finally(function () { if (historyPrefetchRequests.get(key) === request) historyPrefetchRequests.delete(key); });
+        historyPrefetchRequests.set(key, request);
+        request.catch(function () {});
       });
     }
 
-    function fetchJsonWithin(url, signal, timeoutMs) {
+    function fetchJsonWithin(url, signal, timeoutMs, prefetch) {
       var controller = new AbortController();
       var timedOut = false;
       function abortWithParent() { controller.abort(); }
@@ -508,7 +527,7 @@ export const HOME_CLIENT_CORE = String.raw`
         timedOut = true;
         controller.abort();
       }, timeoutMs);
-      return fetch(url, { signal: controller.signal })
+      return fetch(url, { signal: controller.signal, priority: prefetch ? "low" : "auto" })
         .then(function (response) {
           if (!response.ok) throw new Error("history-response");
           return response.json();
@@ -528,17 +547,19 @@ export const HOME_CLIENT_CORE = String.raw`
       if (!from || !to) return;
       var id = ++historyRequestId;
       var key = from + ":" + to + ":" + historyRange;
+      var cached = readHistoryCache(key);
       var hasVisibleChart = Boolean(historyChartEl.querySelector("#history-svg"));
       // 首次加载需要完整占位；切换范围时保留旧曲线，并明确标注它正在更新。
-      if (animation === "draw" || (animation === "morph" && !hasVisibleChart)) setHistoryLoading("正在加载汇率走势图…", true);
-      else if (animation === "morph") setHistoryUpdating(true);
+      if (!cached || !window.CurrencyHistoryRenderer) {
+        if (animation === "draw" || (animation === "morph" && !hasVisibleChart)) setHistoryLoading("正在加载汇率走势图…", true);
+        else if (animation === "morph") setHistoryUpdating(true);
+      }
       if (historyRequestController) historyRequestController.abort();
       historyRequestController = new AbortController();
       var signal = historyRequestController.signal;
-      var cached = readHistoryCache(key);
       var dataPromise = cached
         ? Promise.resolve(cached)
-        : fetchJsonWithin("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + historyRange, signal, HISTORY_TIMEOUT_MS)
+        : historyPrefetchRequests.get(key) || fetchJsonWithin("/history?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&range=" + historyRange, signal, HISTORY_TIMEOUT_MS)
           .then(function (data) {
             if (data.error) throw new Error("history-response");
             return data;
@@ -550,6 +571,7 @@ export const HOME_CLIENT_CORE = String.raw`
             persistHistoryStore();
             return data;
           });
+      historyForegroundKey = cached || historyPrefetchRequests.has(key) ? "" : key;
       Promise.all([ensureHistoryClient(), dataPromise]).then(function (result) {
         if (id !== historyRequestId) return;
         var renderer = result[0], data = result[1];
@@ -1364,6 +1386,7 @@ export const HOME_CLIENT_CORE = String.raw`
       syncHistory();
       clearError();
       convert();
+      scheduleHistoryPrefetch();
       fromAmountEl.focus({ preventScroll: true });
     });
     rateRetryEl.addEventListener("click", function () {

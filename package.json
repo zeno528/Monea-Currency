@@ -1,6 +1,6 @@
 {
   "name": "monea-currency",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Monea Currency — 汇率换算 API + Apple 风格界面，部署在 Cloudflare Workers，数据来自 Frankfurter v2",
