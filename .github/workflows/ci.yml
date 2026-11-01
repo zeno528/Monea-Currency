@@ -1,0 +1,46 @@
+# PR 检查：只验证、不部署。
+#
+# pull_request 事件此前没有检查覆盖（两个部署 workflow 只在 push 时触发），
+# 这里补上缺口：checkout 在 pull_request 下取的是「合并到 main 后的结果」，
+# 测的是将要合入的代码，不是 PR 分支本身。
+# push 到 main 的检查已由 production-deploy.yml 前置步骤覆盖，这里不重复跑。
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+# 同一 PR 连续推送时取消上一次检查
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        # 不传 version：由 action 读取 package.json 的 packageManager 字段，单一事实来源
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 项目自带的验证链：wrangler types --check && tsc --noEmit && vitest run && wrangler deploy --dry-run
+      # 其中 dry-run 只打包不发布，无需 Cloudflare 凭据
+      - name: Verify
+        run: pnpm run verify

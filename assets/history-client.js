@@ -41,7 +41,8 @@
       }).join("");
       var gridLines = [0, 0.5, 1].map(function (ratio) {
         var y = inset.top + innerHeight * ratio;
-        return '<line x1="16" y1="' + y.toFixed(2) + '" x2="' + (width - 16) + '" y2="' + y.toFixed(2) + '" stroke="rgba(0,0,0,.09)"/>';
+        /* 发丝级网格线：non-scaling-stroke 防止 viewBox 放大把线描粗，不与走势线抢视觉 */
+        return '<line x1="16" y1="' + y.toFixed(2) + '" x2="' + (width - 16) + '" y2="' + y.toFixed(2) + '" stroke="rgba(0,0,0,.05)" vector-effect="non-scaling-stroke"/>';
       }).join("");
       var axisLabels = [max, (min + max) / 2, min].map(function (value, index) {
         var y = inset.top + innerHeight * index / 2;

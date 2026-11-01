@@ -12,7 +12,7 @@ export const HOME_HTML = `<!DOCTYPE html>
 <style>
 ${HOME_STYLES}</style>
 ${HOME_MARKUP}  <script>
-window.__HISTORY_CLIENT_URL = "/history-client.js?v=20261101-cursor-capture";
+window.__HISTORY_CLIENT_URL = "/history-client.js?v=20261102-grid-line";
 ${HOME_CLIENT}  </script>
 </body>
 </html>`;

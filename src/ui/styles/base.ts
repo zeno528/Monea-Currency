@@ -2,27 +2,24 @@ export const BASE_STYLES = String.raw`
   :root {
     --color-primary: #0071e3;
     --color-primary-focus: #0a84ff;
-    --color-primary-on-dark: #2997ff;
     --color-ink: #1d1d1f;
-    --color-ink-muted-80: #333333;
-    --color-ink-muted-48: #7a7a7a;
+    --color-ink-muted-80: #424245;
+    --color-ink-muted-48: #6e6e73;
     --color-canvas: #ffffff;
     --color-parchment: #f5f5f7;
     --color-pearl: #fbfbfd;
     --color-hairline: rgba(0, 0, 0, 0.12);
-    --color-divider-soft: rgba(0, 0, 0, 0.06);
+    --color-divider-soft: rgba(0, 0, 0, 0.07);
     --color-black: #000000;
     --color-on-dark: #ffffff;
-    --color-body-muted: #cccccc;
-    --color-tile-dark: #272729;
     --radius-sm: 8px;
     --radius-lg: 24px;
     --radius-pill: 9999px;
     --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
     --panel-motion-duration: 380ms;
     --panel-motion: opacity 180ms ease, transform var(--panel-motion-duration) var(--ease-out);
-    --font-display: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
-    --font-text: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+    --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
@@ -42,8 +39,10 @@ export const BASE_STYLES = String.raw`
   .global-nav {
     position: relative;
     z-index: 40;
-    background: linear-gradient(135deg, rgba(8, 20, 69, 0.78) 0%, rgba(4, 9, 44, 0.78) 60%, rgba(2, 8, 31, 0.78) 100%);
-    backdrop-filter: saturate(180%) blur(20px);
+    /* 纯色起笔，与 hero 渐变起点同色：接缝处两行像素完全同色，数学上无缝 */
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.16'/%3E%3C/svg%3E") repeat,
+      #3b82f6;
     color: var(--color-on-dark);
     min-height: calc(44px + env(safe-area-inset-top, 0px));
     display: flex;
@@ -61,17 +60,27 @@ export const BASE_STYLES = String.raw`
     gap: 8px;
     text-decoration: none;
   }
-  .brand img { width: 20px; height: 20px; }
-  .brand span { opacity: 0.92; }
+  /* 白色芯片反衬 logo：蓝底上让标志浮出来，类似 App icon 的处理 */
+  .brand img {
+    width: 28px;
+    height: 28px;
+    padding: 4px;
+    background: #fff;
+    border-radius: 9px;
+    box-shadow: 0 1px 4px rgba(0, 21, 60, 0.28);
+  }
+  .brand span { font-size: 13px; font-weight: 600; }
 
   .brand { min-height: 44px; }
   .brand:focus-visible { outline: 2px solid #fff; outline-offset: 4px; border-radius: 6px; }
 
   /* 单一、清晰的任务入口。 */
   .hero {
-    /* Hero 与换算器共用同一画布，避免两段渐变产生色阶断层。 */
-    background: var(--color-parchment);
-    padding: 32px 22px 20px;
+    /* 渐变完全在本元素内走完，起止与相邻元素同色，杜绝跨元素拼接断层 */
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.16'/%3E%3C/svg%3E") repeat,
+      linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    padding: 40px 22px 24px;
     text-align: center;
   }
   .eyebrow {
@@ -81,9 +90,9 @@ export const BASE_STYLES = String.raw`
     min-height: 28px;
     padding: 4px 11px;
     margin-bottom: 12px;
-    color: #6e6e73;
-    background: rgba(255, 255, 255, 0.72);
-    border: 1px solid rgba(0, 0, 0, 0.06);
+    color: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: var(--radius-pill);
     font-size: 12px;
     font-weight: 600;
@@ -93,7 +102,7 @@ export const BASE_STYLES = String.raw`
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--color-primary);
+    background: #ffffff;
   }
   .hero h1 {
     font-family: var(--font-display);
@@ -101,34 +110,51 @@ export const BASE_STYLES = String.raw`
     font-weight: 600;
     line-height: 1.07;
     letter-spacing: -0.045em;
+    color: var(--color-on-dark);
     max-width: 980px;
     margin: 0 auto;
   }
   .hero-meta {
     font-size: 13px;
     font-weight: 400;
-    color: var(--color-ink-muted-48);
+    color: rgba(255, 255, 255, 0.82);
     margin: 10px auto 0;
     max-width: 720px;
   }
   .hero-meta a {
     color: inherit;
     text-decoration: none;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.4);
   }
 
   /* 换算器是页面唯一的主操作面，输入与结果以深浅两层区分。 */
   .converter-wrap {
+    position: relative;
     background: var(--color-parchment);
-    padding: 0 22px 96px;
+    padding: 0 22px 72px;
     display: flex;
     justify-content: center;
   }
+  /* 蓝色大气层：灰色"行星圆顶"从中央隆起切开色带，磨砂噪点铺满蓝色区域 */
+  .converter-wrap::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 380px;
+    background:
+      /* 行星圆顶：平缓弯曲；磨砂噪点只落蓝色不落灰面 */
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 380' preserveAspectRatio='xMidYMax%20slice'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='1440' height='380' filter='url(%23n)' opacity='0.16'/%3E%3Cellipse cx='720' cy='1840' rx='3000' ry='1600' fill='%23f5f5f7'/%3E%3C/svg%3E") bottom center / 100% 380px no-repeat,
+      linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  }
   .converter-card {
+    position: relative;
     background: var(--color-canvas);
     border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: var(--radius-lg);
-    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.09), 0 2px 8px rgba(0, 0, 0, 0.04);
+    /* 蓝色地面上阴影带一点深蓝，浮起感更真实 */
+    box-shadow: 0 2px 8px rgba(0, 21, 60, 0.12), 0 20px 50px rgba(0, 21, 60, 0.2);
     padding: 26px;
     width: 100%;
     max-width: 1050px;
@@ -290,11 +316,16 @@ export const BASE_STYLES = String.raw`
     padding: 19px 20px 17px;
     cursor: text;
   }
+  /* 悬停：柔和蓝 2px（45% 品牌蓝，与芯片/换向钮同族）；输入聚焦：品牌蓝 2px */
+  .currency-field:hover {
+    border-color: rgba(0, 113, 227, 0.45);
+    box-shadow: inset 0 0 0 1px rgba(0, 113, 227, 0.45);
+  }
   .currency-field:has(.money-input:focus) {
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.18);
+    box-shadow: inset 0 0 0 1px var(--color-primary);
   }
-  .field-group[data-amount-side="to"] .currency-field { background: linear-gradient(145deg, #f7fbff, #eef6ff); }
+  .field-group[data-amount-side="to"] .currency-field { background: var(--color-canvas); }
   .money-input-wrap {
     display: flex;
     align-items: baseline;
@@ -763,48 +794,52 @@ export const BASE_STYLES = String.raw`
   .error-retry:active { transform: scale(0.97); }
   .error-retry:focus-visible { outline: 2px solid rgba(211, 51, 51, 0.35); outline-offset: 2px; }
 
-  /* 信息区域仍然简洁，但用可扫读的统计卡片替代大片装饰。 */
+  /* 信息区域：浅色地面上的统一白面板 + 发丝分线，层级靠字重和灰阶而非色块。 */
   .features {
-    background: linear-gradient(135deg, #081445 0%, #04092c 60%, #02081f 100%);
-    color: var(--color-on-dark);
-    padding: 92px 22px;
+    background: var(--color-parchment);
+    color: var(--color-ink);
+    padding: 72px 22px;
   }
   .features h2 {
     font-family: var(--font-display);
-    font-size: 40px;
-    font-weight: 600;
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 700;
     line-height: 1.1;
-    letter-spacing: 0;
+    letter-spacing: -0.02em;
     text-align: center;
-    margin-bottom: 48px;
+    margin-bottom: 40px;
   }
   .feature-grid {
     max-width: 980px;
     margin: 0 auto;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
+    background: var(--color-canvas);
+    border-radius: 22px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 14px 40px rgba(0, 0, 0, 0.05);
   }
-  .feature { text-align: center; padding: 28px 20px; border-radius: 20px; background: rgba(255, 255, 255, 0.07); }
+  .feature { text-align: center; padding: 36px 28px; }
+  .feature + .feature { border-left: 1px solid var(--color-divider-soft); }
   .feature-num {
     font-family: var(--font-display);
-    font-size: 48px;
-    font-weight: 600;
-    color: var(--color-primary-on-dark);
+    font-size: 44px;
+    font-weight: 700;
+    color: var(--color-ink);
     line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
     margin-bottom: 12px;
   }
   .feature-title {
-    font-size: 21px;
+    font-size: 17px;
     font-weight: 600;
-    letter-spacing: 0.231px;
+    letter-spacing: -0.01em;
     margin-bottom: 8px;
   }
   .feature-desc {
     font-size: 14px;
-    color: var(--color-body-muted);
-    line-height: 1.43;
-    letter-spacing: -0.224px;
+    color: var(--color-ink-muted-48);
+    line-height: 1.6;
   }
 
   /* Footer: identity, reference notice, and supporting information stay in distinct layers. */
@@ -824,10 +859,10 @@ export const BASE_STYLES = String.raw`
   .footer-description a { color: var(--color-primary); text-decoration: none; }
   .footer a:hover { color: var(--color-primary); text-decoration: underline; }
   .footer a:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 4px; border-radius: 3px; }
-  .footer-notice { display: flex; align-items: baseline; gap: 16px; margin-top: 28px; padding-left: 12px; border-left: 2px solid var(--color-hairline); font-size: 12px; line-height: 1.7; color: var(--color-ink-muted-48); }
+  .footer-notice { display: flex; align-items: baseline; gap: 16px; margin-top: 28px; padding-left: 12px; border-left: 1px solid var(--color-divider-soft); font-size: 12px; line-height: 1.7; color: var(--color-ink-muted-48); }
   .footer-notice a { color: var(--color-primary); text-decoration: none; }
   .footer-notice-label { flex-shrink: 0; font-weight: 500; color: var(--color-ink-muted-80); }
-  .footer-bottom { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-hairline); color: var(--color-ink-muted-48); font-size: 12px; }
+  .footer-bottom { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-divider-soft); color: var(--color-ink-muted-48); font-size: 12px; }
   .footer-bottom a { color: inherit; text-decoration: none; }
   @media (max-width: 640px) {
     .footer { padding-top: 28px; }

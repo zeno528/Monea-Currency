@@ -3,7 +3,9 @@ export const RESPONSIVE_STYLES = String.raw`
   @media (max-width: 833px) {
     .hero { padding-top: 54px; }
     .hero h1 { font-size: 42px; }
-    .feature-grid { grid-template-columns: 1fr; gap: 32px; }
+    .feature-grid { grid-template-columns: 1fr; }
+    .feature { padding: 28px 22px; }
+    .feature + .feature { border-left: none; border-top: 1px solid var(--color-divider-soft); }
     .api-grid { grid-template-columns: 1fr; }
     .pair-row {
       grid-template-columns: 1fr;
