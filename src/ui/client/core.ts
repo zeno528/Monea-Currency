@@ -57,11 +57,18 @@ export const HOME_CLIENT_CORE = String.raw`
     };
     // 无单一主权国家的货币使用轻量类别图标，而非空白占位旗帜。
     var CURRENCY_ICON_SOURCES = {
+      BTC:"bitcoin.svg",BCH:"bitcoin-cash.svg",ETH:"ethereum.svg",LTC:"litecoin.svg",XRP:"xrp.svg",
       XAF:"cfa.svg",XOF:"cfa.svg",XCD:"caribbean.svg",XCG:"caribbean-guilder.svg",XDR:"sdr.svg",XPF:"pacific.svg",
       XAG:"metal-silver.svg",XAU:"metal-gold.svg",XPD:"metal-palladium.svg",XPT:"metal-platinum.svg"
     };
     // 旗帜更新时只改此版本号；与一年 immutable 缓存配套，确保新旧图标 URL 不冲突。
-    var FLAG_ASSET_VERSION = "20260727";
+    var FLAG_ASSET_VERSION = "20261101";
+    var GOLD_GRAMS_PER_OUNCE = 31.1034768;
+
+    function displayRate(rate, from, to) {
+      return rate * (to === "XAU" ? GOLD_GRAMS_PER_OUNCE : 1) / (from === "XAU" ? GOLD_GRAMS_PER_OUNCE : 1);
+    }
+    function displayUnit(code) { return code === "XAU" ? "XAU（克）" : code; }
 
     var $ = function (id) { return document.getElementById(id); };
     var fromAmountEl = $("from-amount"), toAmountEl = $("to-amount");
@@ -75,6 +82,13 @@ export const HOME_CLIENT_CORE = String.raw`
     rateSubEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
     var rateDateText = document.createTextNode("");
     rateSubEl.appendChild(rateDateText);
+    var goldExchangeLink = document.createElement("a");
+    goldExchangeLink.href = "https://www.sge.com.cn/sjzx/quotation_daily_new";
+    goldExchangeLink.target = "_blank";
+    goldExchangeLink.rel = "noopener noreferrer";
+    goldExchangeLink.textContent = "查看上金所日行情";
+    goldExchangeLink.hidden = true;
+    rateSubEl.appendChild(goldExchangeLink);
     var heroTitleEl = $("hero-title");
     var errEl = $("error"), errTextEl = $("error-text"), rateRetryEl = $("rate-retry");
     var swapBtn = $("swap"), resetBtn = $("reset");
@@ -576,7 +590,10 @@ export const HOME_CLIENT_CORE = String.raw`
         if (id !== historyRequestId) return;
         var renderer = result[0], data = result[1];
         if (data.error) { setHistoryLoading(data.error); return; }
-        renderer.render(data.points, from, to, animation, historyRange);
+        var points = from === "XAU" || to === "XAU" ? data.points.map(function (point) {
+          return Object.assign({}, point, { rate: displayRate(Number(point.rate), from, to) });
+        }) : data.points;
+        renderer.render(points, from, to, animation, historyRange);
       }).catch(function (error) {
         if (id !== historyRequestId || error.name === "AbortError") return;
         setHistoryLoading(error.message === "history-timeout" ? "走势数据加载超时，请重试" : "走势加载失败，请稍后重试");
@@ -585,6 +602,7 @@ export const HOME_CLIENT_CORE = String.raw`
 
     // 展示文本：符号 中文名 (代码)
     function displayText(code) {
+      if (code === "XAU") return "黄金（克） (XAU)";
       for (var i = 0; i < CURRENCIES.length; i++) {
         if (CURRENCIES[i].code === code) {
           var c = CURRENCIES[i];
@@ -597,7 +615,7 @@ export const HOME_CLIENT_CORE = String.raw`
     function currencyFlagSource(code) {
       var filename = CURRENCY_ICON_SOURCES[code];
       var region = CURRENCY_REGIONS[code];
-      if (!filename) filename = (region || "XX").toLowerCase() + ".svg";
+      if (!filename) filename = region ? region.toLowerCase() + ".svg" : "currency.svg";
       return "/flags/" + filename + "?v=" + FLAG_ASSET_VERSION;
     }
 
@@ -615,16 +633,15 @@ export const HOME_CLIENT_CORE = String.raw`
           });
         });
       }).then(function (response) { return response.blob(); }).then(function (blob) {
-        if (!image.isConnected) return;
         var url = URL.createObjectURL(blob);
         image.onload = function () { URL.revokeObjectURL(url); };
         image.onerror = function () {
           URL.revokeObjectURL(url);
           image.onerror = null;
-          if (image.isConnected) image.src = src;
+          image.src = src;
         };
         image.src = url;
-      }).catch(function () { if (image.isConnected) image.src = src; });
+      }).catch(function () { image.src = src; });
     }
 
     function syncComboFlag(box) {
@@ -644,6 +661,7 @@ export const HOME_CLIENT_CORE = String.raw`
     }
 
     function currencySymbol(code) {
+      if (code === "XAU") return "Au";
       for (var i = 0; i < CURRENCIES.length; i++) {
         if (CURRENCIES[i].code === code) return CURRENCIES[i].symbol || code;
       }
@@ -651,14 +669,15 @@ export const HOME_CLIENT_CORE = String.raw`
     }
 
     function currencyName(code) {
+      if (code === "XAU") return "黄金（克）";
       for (var i = 0; i < CURRENCIES.length; i++) {
         if (CURRENCIES[i].code === code) return CURRENCIES[i].cn;
       }
       return CURRENCY_CN[code] || code || "";
     }
 
-    function formatHeroRate(rate) {
-      return Number(rate).toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 6 });
+    function formatHeroRate(rate, quote) {
+      return Number(rate).toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: quote === "XAU" ? 8 : 6 });
     }
 
     function syncHeroPair() {
@@ -668,8 +687,8 @@ export const HOME_CLIENT_CORE = String.raw`
       heroTitleEl.textContent = from + " 兑换 " + to;
     }
 
-    function formatEditableAmount(amount) {
-      return Number(amount).toLocaleString("en-US", { useGrouping: true, maximumFractionDigits: 4 });
+    function formatEditableAmount(amount, code) {
+      return Number(amount).toLocaleString("en-US", { useGrouping: true, maximumFractionDigits: code === "XAU" ? 8 : 4 });
     }
 
     function parseAmount(value) { return parseFloat(String(value).replace(/,/g, "")); }
@@ -706,6 +725,8 @@ export const HOME_CLIENT_CORE = String.raw`
     function syncSymbols() {
       fromSymbolEl.textContent = currencySymbol(fromBox.dataset.value);
       toSymbolEl.textContent = currencySymbol(toBox.dataset.value);
+      document.querySelector('label[for="from-amount"]').textContent = fromBox.dataset.value === "XAU" ? "金额（克）" : "金额";
+      document.querySelector('label[for="to-amount"]').textContent = toBox.dataset.value === "XAU" ? "换算为（克）" : "换算为";
     }
 
     function syncQuickPairs() {
@@ -740,7 +761,7 @@ export const HOME_CLIENT_CORE = String.raw`
         var codes = Object.keys(data.currencies).sort();
         CURRENCIES = codes.map(function (code) {
           var info = data.currencies[code];
-          return { code: code, name: info.name, cn: CURRENCY_CN[code] || info.name, symbol: info.symbol || "" };
+          return { code: code, name: info.name, cn: code === "XAU" ? "黄金（克）" : CURRENCY_CN[code] || info.name, symbol: code === "XAU" ? "g" : info.symbol || "" };
         });
         var cc = $("currency-count");
         if (cc) cc.textContent = String(CURRENCIES.length);
@@ -759,6 +780,7 @@ export const HOME_CLIENT_CORE = String.raw`
       var arrow = box.querySelector(".combo-arrow");
       var lastTouchY = null;
       var flagObserver = null;
+      var currencyRows = new Map();
       var renderedCurrencies = [];
       var renderedCount = 0;
       var blurCloseTimer = null;
@@ -825,13 +847,27 @@ export const HOME_CLIENT_CORE = String.raw`
       function render(list) {
         if (flagObserver) flagObserver.disconnect();
         flagObserver = null;
-        listEl.replaceChildren();
         renderedCurrencies = list;
-        renderedCount = 0;
+        renderedCount = Math.min(32, list.length);
+        Array.from(listEl.children).forEach(function (item) {
+          if (item.dataset.code) currencyRows.set(item.dataset.code, item);
+        });
         if (!list.length) {
           listEl.innerHTML = '<div class="combo-empty">未找到匹配的货币</div>';
           return;
         }
+        var batch = list.slice(0, renderedCount);
+        Array.from(listEl.children).forEach(function (item) {
+          if (!item.dataset.code || !batch.some(function (currency) { return currency.code === item.dataset.code; })) item.remove();
+        });
+        batch.forEach(function (currency, index) {
+          var item = currencyRows.get(currency.code);
+          if (!item) {
+            listEl.insertAdjacentHTML("beforeend", currencyItemsHtml([currency]));
+            item = listEl.lastElementChild;
+          }
+          if (listEl.children[index] !== item) listEl.insertBefore(item, listEl.children[index] || null);
+        });
         if ("IntersectionObserver" in window) {
           var observer = new IntersectionObserver(function (entries) {
             entries.forEach(function (entry) {
@@ -843,7 +879,8 @@ export const HOME_CLIENT_CORE = String.raw`
           }, { root: listEl, rootMargin: "48px 0px" });
           flagObserver = observer;
         }
-        appendCurrencyBatch();
+        listEl.querySelectorAll('.combo-item-flag[data-src][data-observed]').forEach(function (image) { image.removeAttribute('data-observed'); });
+        observePendingFlags();
       }
 
       function cancelBlurClose() {
@@ -868,6 +905,7 @@ export const HOME_CLIENT_CORE = String.raw`
         flagObserver = null;
         renderedCurrencies = [];
         renderedCount = 0;
+        currencyRows.clear();
         listEl.replaceChildren();
       }
       box._closeCombo = close;
@@ -1203,16 +1241,18 @@ export const HOME_CLIENT_CORE = String.raw`
     }
 
     function applyConversion(data, amount, outputEl) {
-      var rate = Number(data.rate);
+      var rate = displayRate(Number(data.rate), data.from, data.to);
       var result = amount * rate;
       if (!Number.isFinite(result)) {
         showError("换算结果超出支持范围，请减小金额", false);
         return;
       }
-      outputEl.value = formatEditableAmount(+result.toFixed(4));
+      outputEl.value = formatEditableAmount(result, data.to);
       // 双行布局：上行汇率 + 下行日历图标
-      rateMainEl.textContent = "1 " + data.from + " = " + formatHeroRate(rate) + " " + data.to;
-      rateDateText.textContent = "数据日期 " + data.date;
+      rateMainEl.textContent = "1 " + displayUnit(data.from) + " = " + formatHeroRate(rate, data.to) + " " + displayUnit(data.to);
+      var hasGold = data.from === "XAU" || data.to === "XAU";
+      rateDateText.textContent = "数据日期 " + data.date + (hasGold ? " · Frankfurter 黄金参考价，非实时" : "");
+      goldExchangeLink.hidden = !hasGold;
       rateEl.replaceChildren(rateMainEl, rateSubEl);
       syncCalculatorPreview();
     }
@@ -1315,7 +1355,7 @@ export const HOME_CLIENT_CORE = String.raw`
       input.addEventListener("compositionend", function () { handleAmountInput(input, false); });
       input.addEventListener("blur", function () {
         var amount = parseAmount(input.value);
-        if (isFinite(amount)) input.value = formatEditableAmount(amount);
+        if (isFinite(amount)) input.value = formatEditableAmount(amount, input === fromAmountEl ? fromBox.dataset.value : toBox.dataset.value);
       });
     });
     // 整张金额卡片都是输入热区；货币选择控件维持自己的点击语义。

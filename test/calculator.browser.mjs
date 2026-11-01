@@ -1,6 +1,6 @@
 const task = await taskSpace("monea-calculator-regression");
 const page = task.page("p1");
-await page.goto("http://localhost:8787/");
+await page.goto("http://localhost:8790/");
 await page.snapshot();
 await page.click('[data-amount="from-amount"]');
 await page.keyboard.type("200");

@@ -1,6 +1,6 @@
 const task = await taskSpace("monea-reset-regression");
 const page = task.page("p1");
-await page.goto("http://localhost:8787/");
+await page.goto("http://localhost:8790/");
 await page.click('.quick-pairs [data-from="EUR"]');
 await page.fill('#from-amount', '250');
 await page.fill('#rate-date', '2026-10-01');

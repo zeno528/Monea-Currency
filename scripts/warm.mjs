@@ -5,7 +5,7 @@
 // Cache-Control 头落），跨 DC 共享。
 //
 // 用法：
-//   pnpm warm                                  // 预热本地 wrangler dev (默认 http://localhost:8787)
+//   pnpm warm                                  // 预热本地 wrangler dev (默认 http://localhost:8790)
 //   WORKER_URL=https://monea.example.com pnpm warm   // 预热线上
 //   CONCURRENCY=30 pnpm warm                   // 自定义并发（默认 20）
 //
@@ -13,7 +13,7 @@
 
 import process from "node:process";
 
-const url = (process.env.WORKER_URL ?? "http://localhost:8787").replace(/\/$/, "");
+const url = (process.env.WORKER_URL ?? "http://localhost:8790").replace(/\/$/, "");
 const concurrency = Number.parseInt(process.env.CONCURRENCY ?? "20", 10);
 if (!Number.isFinite(concurrency) || concurrency < 1) {
   console.error(`Invalid CONCURRENCY: ${process.env.CONCURRENCY}`);

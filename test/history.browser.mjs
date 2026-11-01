@@ -1,5 +1,7 @@
 const task = await taskSpace("monea-history-regression");
 const page = task.page("p1");
+await page.cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+await page.cdp('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
 await page.cdp("Page.addScriptToEvaluateOnNewDocument", { source: `
   const originalGet = Storage.prototype.getItem;
   const originalSet = Storage.prototype.setItem;
@@ -17,7 +19,7 @@ await page.cdp("Page.addScriptToEvaluateOnNewDocument", { source: `
     });
   };
 ` });
-await page.goto("http://localhost:8787/");
+await page.goto("http://localhost:8790/");
 await page.waitForFunction(() => window.historyRequests.length === 4);
 await page.click("#history-toggle");
 await page.waitForSelector("#history-svg");
@@ -29,5 +31,24 @@ await page.evaluate(() => {
   const requests = window.historyRequests.slice().sort().join(",");
   if (requests !== "1M,1W,1Y,6M") throw Error("Unexpected or duplicate history requests: " + requests);
 });
+await page.hover('#history-svg');
+const point = await page.evaluate(() => {
+  const rect = document.querySelector('#history-svg').getBoundingClientRect();
+  const line = document.querySelector('#history-line');
+  const p = line.getPointAtLength(line.getTotalLength() * 0.2);
+  return { x: rect.left + p.x / 640 * rect.width, y: rect.top + p.y / 210 * rect.height };
+});
+await page.cdp('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...point, id: 1 }] });
+const first = await page.evaluate(() => document.querySelector('#history-tooltip').textContent);
+await page.cdp('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: point.x + 150, y: point.y, id: 1 }] });
+const second = await page.evaluate(() => document.querySelector('#history-tooltip').textContent);
+await page.cdp('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+if (!first || first === second) throw Error('Touch drag did not update the chart tooltip');
+const scrollBefore = await page.evaluate(() => window.scrollY);
+await page.cdp('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...point, id: 1 }] });
+await page.cdp('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: point.x, y: point.y - 80, id: 1 }] });
+await page.cdp('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: point.x, y: point.y - 130, id: 1 }] });
+await page.cdp('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+if (await page.evaluate(() => window.scrollY) <= scrollBefore) throw Error('Vertical page scrolling was blocked');
 await task.finish({ keep: [] });
 console.log("History prefetch regression passed");

@@ -25,7 +25,8 @@
         return { x: inset.left + innerWidth * index / (points.length - 1), y: inset.top + (max - Number(point.rate)) / (max - min) * innerHeight };
       });
       var latest = points[points.length - 1];
-      var latestRate = Number(latest.rate).toFixed(4);
+      var digits = to === "XAU" ? 8 : 4;
+      var latestRate = Number(latest.rate).toFixed(digits);
       var dateIndexes = [0, Math.round((points.length - 1) / 3), Math.round((points.length - 1) * 2 / 3), points.length - 1].filter(function (index, position, list) { return list.indexOf(index) === position; });
       var dateLabels = dateIndexes.map(function (index, position) {
         var dateParts = points[index].date.split("-");
@@ -44,18 +45,18 @@
       }).join("");
       var axisLabels = [max, (min + max) / 2, min].map(function (value, index) {
         var y = inset.top + innerHeight * index / 2;
-        return '<text x="8" y="' + (y - 6).toFixed(2) + '" fill="#86868b" font-size="10.5">' + value.toFixed(4) + '</text>';
+        return '<text x="8" y="' + (y - 6).toFixed(2) + '" fill="#86868b" font-size="10.5">' + value.toFixed(digits) + '</text>';
       }).join("");
       var areaPath = path + "L " + positions[positions.length - 1].x.toFixed(2) + " " + (height - inset.bottom) + "L " + positions[0].x.toFixed(2) + " " + (height - inset.bottom) + "Z";
       var latestPosition = positions[positions.length - 1];
-      historyQuoteEl.innerHTML = '<span class="history-quote-label">1 ' + from + ' =</span><strong class="history-quote-value">' + latestRate + " " + to + "</strong>";
-      historyNoteEl.textContent = "参考区间 " + rangeMin.toFixed(4) + "–" + rangeMax.toFixed(4) + " · " + points[0].date + " 至 " + latest.date;
+      historyQuoteEl.innerHTML = '<span class="history-quote-label">1 ' + displayUnit(from) + ' =</span><strong class="history-quote-value">' + latestRate + " " + displayUnit(to) + "</strong>";
+      historyNoteEl.textContent = "参考区间 " + rangeMin.toFixed(digits) + "–" + rangeMax.toFixed(digits) + " " + displayUnit(to) + " · " + points[0].date + " 至 " + latest.date;
       historyQuoteEl.hidden = false;
       historyNoteEl.hidden = false;
       var oldTooltip = $("history-tooltip");
       if (oldTooltip) oldTooltip.remove();
       document.body.insertAdjacentHTML("beforeend", '<div id="history-tooltip" class="chart-tooltip" role="status"></div>');
-      historyChartEl.innerHTML = '<svg id="history-svg" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="' + from + " 到 " + to + ' 的参考汇率走势。桌面端移动鼠标查看价格；触屏设备点按曲线查看，点按空白处取消。"><defs><linearGradient id="history-area-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#0071e3" stop-opacity=".20"/><stop offset="100%" stop-color="#0071e3" stop-opacity="0"/></linearGradient><clipPath id="history-area-clip"><rect id="history-area-reveal" x="' + inset.left + '" y="' + inset.top + '" width="' + innerWidth + '" height="' + innerHeight + '"/></clipPath></defs>' + gridLines + axisLabels + '<path id="history-area" d="' + areaPath + '" fill="url(#history-area-gradient)" clip-path="url(#history-area-clip)"/><path id="history-line" d="' + path + '" fill="none" stroke="#0071e3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle id="history-latest-dot" cx="' + latestPosition.x.toFixed(2) + '" cy="' + latestPosition.y.toFixed(2) + '" r="4.5" fill="#0071e3" stroke="#fff" stroke-width="2"/><g id="history-cursor" class="chart-cursor" hidden><line id="history-cursor-line" y1="' + inset.top + '" y2="' + (height - inset.bottom) + '" stroke="#0071e3" stroke-width="1" stroke-dasharray="3 3"/><circle id="history-cursor-dot" r="5" fill="#fff" stroke="#0071e3" stroke-width="3"/></g>' + dateLabels + '</svg>';
+      historyChartEl.innerHTML = '<svg id="history-svg" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="' + displayUnit(from) + " 到 " + displayUnit(to) + ' 的参考汇率走势。桌面端移动鼠标查看价格；触屏设备点按或横向滑动曲线查看，点按空白处取消。"><defs><linearGradient id="history-area-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#0071e3" stop-opacity=".20"/><stop offset="100%" stop-color="#0071e3" stop-opacity="0"/></linearGradient><clipPath id="history-area-clip"><rect id="history-area-reveal" x="' + inset.left + '" y="' + inset.top + '" width="' + innerWidth + '" height="' + innerHeight + '"/></clipPath></defs>' + gridLines + axisLabels + '<path id="history-area" d="' + areaPath + '" fill="url(#history-area-gradient)" clip-path="url(#history-area-clip)"/><path id="history-line" d="' + path + '" fill="none" stroke="#0071e3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle id="history-latest-dot" cx="' + latestPosition.x.toFixed(2) + '" cy="' + latestPosition.y.toFixed(2) + '" r="4.5" fill="#0071e3" stroke="#fff" stroke-width="2"/><g id="history-cursor" class="chart-cursor" hidden><line id="history-cursor-line" y1="' + inset.top + '" y2="' + (height - inset.bottom) + '" stroke="#0071e3" stroke-width="1" stroke-dasharray="3 3"/><circle id="history-cursor-dot" r="5" fill="#fff" stroke="#0071e3" stroke-width="3"/></g>' + dateLabels + '</svg>';
       var svg = $("history-svg"), line = $("history-line"), area = $("history-area"), areaReveal = $("history-area-reveal"), latestDot = $("history-latest-dot"), tooltip = $("history-tooltip"), cursor = $("history-cursor"), cursorLine = $("history-cursor-line"), cursorDot = $("history-cursor-dot");
       var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       function pathFromPositions(list) {
@@ -159,7 +160,7 @@
         cursor.removeAttribute("hidden");
         cursorLine.setAttribute("x1", x); cursorLine.setAttribute("x2", x);
         cursorDot.setAttribute("cx", x); cursorDot.setAttribute("cy", y);
-        tooltip.innerHTML = '<strong class="chart-tooltip-rate">' + Number(point.rate).toFixed(4) + " " + to + '</strong><span class="chart-tooltip-meta">1 ' + from + " · 参考日期 " + point.date + "</span>";
+        tooltip.innerHTML = '<strong class="chart-tooltip-rate">' + Number(point.rate).toFixed(digits) + " " + displayUnit(to) + '</strong><span class="chart-tooltip-meta">1 ' + displayUnit(from) + " · 参考日期 " + point.date + "</span>";
         if (clientX === undefined || clientY === undefined) {
           var svgRect = svg.getBoundingClientRect();
           clientX = svgRect.left + x / width * svgRect.width;
@@ -200,10 +201,17 @@
         svg.addEventListener("pointerleave", hidePoint, listenerOptions);
       } else {
         historyChartEl.addEventListener("pointerdown", function (event) {
-          tapStart = { x: event.clientX, y: event.clientY };
+          if (!event.isPrimary) return;
+          var position = pointFromEvent(event);
+          tapStart = { x: event.clientX, y: event.clientY, id: event.pointerId, onCurve: hitsCurve(position) };
+          if (tapStart.onCurve) showPoint(pointIndexAt(position), event.clientX, event.clientY);
+        }, listenerOptions);
+        historyChartEl.addEventListener("pointermove", function (event) {
+          if (!tapStart || event.pointerId !== tapStart.id || !tapStart.onCurve) return;
+          showPoint(pointIndexAt(pointFromEvent(event)), event.clientX, event.clientY);
         }, listenerOptions);
         historyChartEl.addEventListener("pointerup", function (event) {
-          if (!tapStart) return;
+          if (!tapStart || event.pointerId !== tapStart.id) return;
           var moved = Math.hypot(event.clientX - tapStart.x, event.clientY - tapStart.y) > 10;
           tapStart = null;
           if (moved) return;
@@ -214,7 +222,7 @@
           }
           showPoint(pointIndexAt(position), event.clientX, event.clientY);
         }, listenerOptions);
-        historyChartEl.addEventListener("pointercancel", function () { tapStart = null; }, listenerOptions);
+        historyChartEl.addEventListener("pointercancel", function () { tapStart = null; hidePoint(); }, listenerOptions);
       }
     }
 

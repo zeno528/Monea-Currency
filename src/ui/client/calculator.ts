@@ -105,7 +105,7 @@ export const CALCULATOR_CLIENT = String.raw`
     calcDirection.textContent = currencyName(base) + " → " + currencyName(quote);
     calcPreview.textContent = !errEl.hidden ? "暂时无法更新换算结果"
       : rateSummaryEl.classList.contains("is-loading") ? "正在更新换算结果…"
-      : output.value ? "≈ " + output.value + " " + quote : "暂无换算结果";
+      : output.value ? "≈ " + output.value + " " + displayUnit(quote) : "暂无换算结果";
     positionCalculator();
     [calcExpression, calcResult, calcPreview].forEach(function (text) {
       text.parentElement.scrollLeft = text.parentElement.scrollWidth;

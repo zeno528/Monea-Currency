@@ -564,6 +564,7 @@ export const BASE_STYLES = String.raw`
   .rate-text .rate-sub {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 5px;
     font-size: 11px;
     font-weight: 400;
@@ -576,6 +577,7 @@ export const BASE_STYLES = String.raw`
     flex: 0 0 auto;
     opacity: 0.85;
   }
+  .rate-text .rate-sub a { color: var(--color-primary); }
   .rate-summary.is-loading .rate-text { color: #86868b; }
   /* 切换货币或拉参考汇率时在 rate-summary 行内显示一个旋转指示器，
      复用历史走势加载动画的 keyframe（CSS keyframe 全局唯一，不必重写）。 */
@@ -687,6 +689,7 @@ export const BASE_STYLES = String.raw`
   }
   .history-range:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
   .history-chart { position: relative; }
+  .history-chart svg { touch-action: pan-y pinch-zoom; }
   .history.is-updating .history-chart { opacity: 0.58; }
   .history-chart { transition: opacity 140ms ease; }
   .history.is-loading .history-chart { height: 148px; border: 1px solid rgba(0, 102, 204, 0.1); border-radius: 14px; background: linear-gradient(135deg, rgba(0, 113, 227, 0.06), rgba(0, 113, 227, 0.015)); }
@@ -810,7 +813,8 @@ export const BASE_STYLES = String.raw`
   .footer-about { min-width: 0; }
   .footer-identity { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; }
   .footer-brand { font-size: 18px; font-weight: 600; letter-spacing: -.025em; color: var(--color-ink); }
-  .footer-author-link { font-size: 12px; color: var(--color-ink-muted-48); text-decoration: none; }
+  .footer-author-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--color-ink-muted-48); text-decoration: none; }
+  .footer-author-link svg { width: 14px; height: 14px; flex: none; }
   .footer-description { margin-top: 8px; font-size: 13px; line-height: 1.65; color: var(--color-ink-muted-48); }
   .footer-description a { color: var(--color-primary); text-decoration: none; }
   .footer a:hover { color: var(--color-primary); text-decoration: underline; }

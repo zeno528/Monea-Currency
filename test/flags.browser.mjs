@@ -1,7 +1,7 @@
 const task = await taskSpace('monea-flags-regression');
 const page = task.page('p1');
 await page.cdp('Network.enable');
-await page.goto('http://localhost:8787/');
+await page.goto('http://localhost:8790/');
 await page.click('button[aria-label="展开从货币列表"]');
 await page.waitForFunction(async () => (await (await caches.open('monea-flags')).keys()).length >= 5, undefined, { timeout: 10000 });
 await page.reload();
@@ -14,5 +14,18 @@ await page.reload();
 await page.evaluate(() => { caches.open = () => Promise.reject(new Error('storage unavailable')); });
 await page.click('button[aria-label="展开从货币列表"]');
 await page.waitForFunction(() => [...document.querySelectorAll('.combobox.open .combo-item-flag')].filter(image => image.currentSrc.includes('/flags/') && image.naturalWidth).length >= 5, undefined, { timeout: 10000 });
+await page.fill('input[aria-label="从货币"]', 'Bitcoin');
+await page.waitForFunction(() => ['BTC', 'BCH'].every(code => document.querySelector('[data-code="' + code + '"] .combo-item-flag')?.naturalWidth > 0), undefined, { timeout: 10000 });
+await page.evaluate(() => { window.testBitcoinRow = document.querySelector('.combo-item[data-code="BTC"]'); });
+await page.fill('input[aria-label="从货币"]', 'Bitco');
+await page.evaluate(() => {
+  if (document.querySelector('.combo-item[data-code="BTC"]') !== window.testBitcoinRow) throw Error('Filtering replaced an unchanged currency row');
+});
+await page.fill('input[aria-label="从货币"]', 'no-such-currency');
+await page.fill('input[aria-label="从货币"]', 'Bitcoin');
+await page.evaluate(() => {
+  const row = document.querySelector('.combo-item[data-code="BTC"]');
+  if (row !== window.testBitcoinRow || !row.querySelector('img').naturalWidth) throw Error('Filtering discarded a previously loaded flag');
+});
 await task.finish({ keep: [] });
 console.log('Flag cache browser regression passed');
