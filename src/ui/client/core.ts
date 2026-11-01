@@ -1347,6 +1347,11 @@ export const HOME_CLIENT_CORE = String.raw`
         // 已在安全位置时抢先无滚动聚焦，保留默认点击的光标定位和选择行为。
         if (document.activeElement !== input && amountInputIsKeyboardSafe(input)) input.focus({ preventScroll: true });
       });
+      // 选中金额后再拖动会触发浏览器原生文本拖拽（半透明数字跟随鼠标跳动），金额框用不到该行为，直接禁掉。
+      input.addEventListener("dragstart", function (e) { e.preventDefault(); });
+      // 行框与内容盒有亚像素差（50.6px vs 50.59px），输入框产生 1px 纵向溢出，
+      // 按住选区上下移动会触发选区自动滚动使数值跳动；scroll 时归零只清纵向，不影响横向跟随光标。
+      input.addEventListener("scroll", function () { if (input.scrollTop) input.scrollTop = 0; });
       input.addEventListener("focus", function () {
         activeSide = amountSide(input);
         rememberAmountKeyboardViewport(input);
