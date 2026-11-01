@@ -204,7 +204,11 @@
           if (!event.isPrimary) return;
           var position = pointFromEvent(event);
           tapStart = { x: event.clientX, y: event.clientY, id: event.pointerId, onCurve: hitsCurve(position) };
-          if (tapStart.onCurve) showPoint(pointIndexAt(position), event.clientX, event.clientY);
+          if (tapStart.onCurve) {
+            // 锁定指针：手指滑出图表乃至屏幕外任意位置，拖动持续到抬起为止
+            historyChartEl.setPointerCapture(event.pointerId);
+            showPoint(pointIndexAt(position), event.clientX, event.clientY);
+          }
         }, listenerOptions);
         historyChartEl.addEventListener("pointermove", function (event) {
           if (!tapStart || event.pointerId !== tapStart.id || !tapStart.onCurve) return;

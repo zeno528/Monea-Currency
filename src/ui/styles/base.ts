@@ -693,7 +693,8 @@ export const BASE_STYLES = String.raw`
   }
   .history-range:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
   .history-chart { position: relative; }
-  .history-chart svg { touch-action: pan-y pinch-zoom; }
+  /* 禁止浏览器把手势转成页面滚动/缩放，否则拖动浮标时会收到 pointercancel 导致跟踪中断 */
+  .history-chart svg { touch-action: none; }
   .history.is-updating .history-chart { opacity: 0.58; }
   .history-chart { transition: opacity 140ms ease; }
   .history.is-loading .history-chart { height: 148px; border: 1px solid rgba(0, 102, 204, 0.1); border-radius: 14px; background: linear-gradient(135deg, rgba(0, 113, 227, 0.06), rgba(0, 113, 227, 0.015)); }
