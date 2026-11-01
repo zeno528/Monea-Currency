@@ -823,12 +823,20 @@ export const BASE_STYLES = String.raw`
     margin: 0 auto;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    background: var(--brand-gradient);
+    background: linear-gradient(125deg, #326ddd 0%, #2754be 55%, #2149aa 100%);
     border-radius: 22px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 12px 30px rgba(28, 62, 139, 0.18);
   }
-  .feature { text-align: center; padding: 36px 28px; }
-  .feature + .feature { border-left: 1px solid rgba(255, 255, 255, 0.2); }
+  .feature { position: relative; text-align: center; padding: 36px 28px; }
+  .feature + .feature::before {
+    content: "";
+    position: absolute;
+    top: 36px;
+    bottom: 36px;
+    left: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.16) 25%, rgba(255, 255, 255, 0.16) 75%, transparent);
+  }
   .feature-num {
     font-family: var(--font-display);
     font-size: 44px;

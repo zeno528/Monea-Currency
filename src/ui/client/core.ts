@@ -899,6 +899,8 @@ export const HOME_CLIENT_CORE = String.raw`
         // 快速连续切换时，前一次失焦留下的关闭任务不能清空刚重新打开的列表。
         cancelBlurClose();
         closeAll(box);
+        input.value = "";
+        searchQuery = "";
         box.classList.add("open");
         if (arrow) arrow.setAttribute("aria-expanded", "true");
         render(getFiltered(searchQuery));
@@ -908,6 +910,7 @@ export const HOME_CLIENT_CORE = String.raw`
         box.classList.remove("open");
         if (arrow) arrow.setAttribute("aria-expanded", "false");
         searchQuery = "";
+        input.value = displayText(box.dataset.value);
         if (flagObserver) flagObserver.disconnect();
         flagObserver = null;
         renderedCurrencies = [];
@@ -922,7 +925,6 @@ export const HOME_CLIENT_CORE = String.raw`
         var rect = input.getBoundingClientRect();
         if (rect.bottom <= 0 || rect.top >= window.innerHeight) {
           close();
-          input.value = displayText(box.dataset.value);
         }
       }, { passive: true });
 
@@ -970,7 +972,6 @@ export const HOME_CLIENT_CORE = String.raw`
 
       function activateTextSearch() {
         startComboKeyboardSession(input);
-        input.select();
         if (!box.classList.contains("open")) open();
       }
       input.addEventListener("focus", activateTextSearch);
@@ -1012,7 +1013,6 @@ export const HOME_CLIENT_CORE = String.raw`
           if (sel) selectCode(sel.dataset.code);
         } else if (e.key === "Escape") {
           e.preventDefault();
-          input.value = displayText(box.dataset.value);
           close();
           input.blur();
         }
@@ -1069,7 +1069,6 @@ export const HOME_CLIENT_CORE = String.raw`
           }
           blurCloseTimer = null;
           close();
-          input.value = displayText(box.dataset.value);
         }
         blurCloseTimer = setTimeout(closeAfterPointerGesture, 150);
       });

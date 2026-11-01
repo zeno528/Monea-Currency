@@ -5,7 +5,15 @@ export const RESPONSIVE_STYLES = String.raw`
     .hero h1 { font-size: 42px; }
     .feature-grid { grid-template-columns: 1fr; }
     .feature { padding: 28px 22px; }
-    .feature + .feature { border-left: none; border-top: 1px solid rgba(255, 255, 255, 0.2); }
+    .feature + .feature::before {
+      top: 0;
+      bottom: auto;
+      left: 22px;
+      right: 22px;
+      width: auto;
+      height: 1px;
+      background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.16) 25%, rgba(255, 255, 255, 0.16) 75%, transparent);
+    }
     .api-grid { grid-template-columns: 1fr; }
     .pair-row {
       grid-template-columns: 1fr;
