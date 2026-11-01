@@ -28,6 +28,8 @@ corepack pnpm dev
 
 默认地址为 <http://localhost:8787>。
 
+保存源码后，本地页面会自动刷新；这是整页刷新，未保存的输入可能丢失。`assets/history-client.js` 使用长期缓存，开发时可在浏览器开发者工具中禁用 HTTP 缓存；修改该文件或国旗资源后，仍需按项目约定更新对应的版本参数。
+
 运行 Worker 测试和类型检查：
 
 ```bash
