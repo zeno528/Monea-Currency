@@ -23,8 +23,8 @@ export const RESPONSIVE_STYLES = String.raw`
       align-items: stretch;
     }
     .currency-field { --combo-panel-offset: 6px; padding: 18px 20px; }
-    .combo-input { height: 52px; padding: 14px 64px 14px 52px; }
-    .combo-arrow { width: 56px; padding-right: 13px; }
+    .combo-input { height: 52px; padding: 14px 64px 14px 32px; }
+    .combo-arrow { right: -12px; width: 68px; padding-right: 25px; }
     .combo-panel { --combo-panel-max-height: min(320px, 42dvh); }
     .rate-summary {
       box-sizing: border-box;

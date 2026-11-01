@@ -330,7 +330,8 @@ export const BASE_STYLES = String.raw`
     border-color: rgba(0, 113, 227, 0.45);
     box-shadow: inset 0 0 0 1px rgba(0, 113, 227, 0.45);
   }
-  .currency-field:has(.money-input:focus) {
+  .currency-field:has(.money-input:focus),
+  .currency-field:has(.combo-input:focus-visible) {
     border-color: var(--color-primary);
     box-shadow: inset 0 0 0 1px var(--color-primary);
   }
@@ -367,35 +368,30 @@ export const BASE_STYLES = String.raw`
   .money-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .money-input { -moz-appearance: textfield; appearance: textfield; }
   .currency-field .combobox { margin-top: 18px; }
-  /* combobox: 可搜索货币下拉（Apple search-input pill 规范） */
+  /* 可搜索货币下拉。 */
   .combobox { position: relative; }
   .combo-input {
     font-family: var(--font-text);
     font-size: 17px;
     color: var(--color-ink);
-    background-color: var(--color-canvas);
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    background-color: transparent;
+    border: 1px solid transparent;
     border-radius: var(--radius-pill);
-    padding: 12px 80px 12px 52px;
+    padding: 12px 80px 12px 32px;
     height: 44px;
     width: 100%;
     cursor: pointer;
     outline: none;
-    transition: border-color 160ms ease, box-shadow 180ms var(--ease-out);
   }
   .combo-input::placeholder { color: var(--color-ink-muted-48); }
-  .combobox:focus-within .combo-input {
-    border-color: rgba(10, 132, 255, 0.55);
-    box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.12), 0 0 8px rgba(10, 132, 255, 0.08);
-  }
   .combo-input:focus { cursor: text; }
   .combo-arrow {
     position: absolute;
-    right: 0;
+    right: -28px;
     top: 0;
     bottom: 0;
-    width: 72px;
-    padding: 0 13px 0 0;
+    width: 100px;
+    padding: 0 41px 0 0;
     border: 0;
     background: transparent;
     color: var(--color-ink);
@@ -404,7 +400,7 @@ export const BASE_STYLES = String.raw`
     align-items: center;
     justify-content: flex-end;
   }
-  .combo-arrow:focus-visible { outline: none; }
+  .combo-arrow:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; border-radius: var(--radius-pill); }
   .combo-arrow svg {
     width: 18px;
     height: 18px;
@@ -416,7 +412,7 @@ export const BASE_STYLES = String.raw`
   .combo-selected-flag {
     position: absolute;
     z-index: 1;
-    left: 20px;
+    left: 0;
     top: 50%;
     display: grid;
     width: 24px;
