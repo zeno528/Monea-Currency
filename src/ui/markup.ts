@@ -26,7 +26,6 @@ export const HOME_MARKUP = String.raw`
         </div>
         <div class="converter-actions">
           <label class="date-control"><span>参考日期</span><input id="rate-date" type="date" aria-label="参考日期，留空则使用最新数据"></label>
-          <button id="favorite-pair" class="utility-btn" type="button" aria-pressed="false">收藏组合</button>
           <button id="reset" class="utility-btn" type="button" title="恢复为 100 美元兑换人民币，使用最新汇率" aria-label="恢复默认：100 美元兑换人民币，使用最新汇率">恢复默认</button>
         </div>
       </div>

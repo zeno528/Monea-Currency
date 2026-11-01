@@ -225,9 +225,10 @@ export const BASE_STYLES = String.raw`
     gap: 7px;
   }
   .saved-pair-label { min-width: 26px; color: var(--color-ink-muted-48); font-size: 12px; }
-  .saved-pair-track { display: flex; flex-wrap: wrap; gap: 7px; min-width: 0; }
-  .pair-chip-wrap { position: relative; display: inline-flex; flex: 0 0 auto; margin: 7px 6px 3px 0; }
-  .pair-chip-remove {
+  .saved-pair-track { display: flex; flex-wrap: wrap; gap: 1px; min-width: 0; }
+  .pair-chip-wrap { position: relative; display: inline-flex; flex: 0 0 auto; margin: 7px 4px 3px; }
+  .pair-chip-wrap:first-child { margin-left: 6px; }
+  .pair-chip-remove, .pair-chip-favorite {
     position: absolute;
     top: -4px;
     right: -4px;
@@ -246,16 +247,19 @@ export const BASE_STYLES = String.raw`
     transform: scale(0.8);
     transition: opacity 160ms ease, transform 180ms var(--ease-out), visibility 160ms;
   }
-  .pair-chip-remove svg { display: block; width: 12px; height: 12px; }
-  .pair-chip-remove::before { content: ""; position: absolute; inset: -5px; border-radius: 50%; }
-  .pair-chip[aria-pressed="true"] + .pair-chip-remove { background: #e8f2ff; border-color: #b8d8ff; color: #0066cc; }
-  .pair-chip-wrap:focus-within .pair-chip-remove { opacity: 1; visibility: visible; transform: scale(1); }
-  .pair-chip-remove:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
+  .pair-chip-favorite { right: auto; left: -4px; }
+  .pair-chip-favorite svg { fill: none; }
+  .pair-chip-favorite[aria-pressed="true"] { color: #0066cc; }
+  .pair-chip-favorite[aria-pressed="true"] svg { fill: currentColor; }
+  .pair-chip-remove svg, .pair-chip-favorite svg { display: block; width: 12px; height: 12px; }
+  .pair-chip-remove::before, .pair-chip-favorite::before { content: ""; position: absolute; inset: -5px; border-radius: 50%; }
+  .pair-chip-wrap:focus-within .pair-chip-remove, .pair-chip-wrap:focus-within .pair-chip-favorite { opacity: 1; visibility: visible; transform: scale(1); }
+  .pair-chip-remove:focus-visible, .pair-chip-favorite:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
   @media (hover: hover) and (pointer: fine) {
-    .pair-chip-wrap:hover .pair-chip-remove { opacity: 1; visibility: visible; transform: scale(1); }
+    .pair-chip-wrap:hover .pair-chip-remove, .pair-chip-wrap:hover .pair-chip-favorite { opacity: 1; visibility: visible; transform: scale(1); }
   }
   @media (hover: none), (pointer: coarse) {
-    .pair-chip-wrap.is-revealed .pair-chip-remove { opacity: 1; visibility: visible; transform: scale(1); }
+    .pair-chip-wrap.is-revealed .pair-chip-remove, .pair-chip-wrap.is-revealed .pair-chip-favorite { opacity: 1; visibility: visible; transform: scale(1); }
   }
   .pair-row {
     display: grid;

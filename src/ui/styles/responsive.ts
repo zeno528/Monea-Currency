@@ -67,13 +67,14 @@ export const RESPONSIVE_STYLES = String.raw`
       overflow-x: auto;
       overscroll-behavior-x: contain;
       scroll-snap-type: x proximity;
+      scroll-padding-inline: 8px;
       scrollbar-width: none;
-      padding: 4px 0;
+      padding: 4px 8px;
       margin: -4px 0;
       -webkit-overflow-scrolling: touch;
     }
     .saved-pair-track::-webkit-scrollbar { display: none; }
-    .saved-pair-track .pair-chip { scroll-snap-align: start; }
+    .saved-pair-track .pair-chip-wrap { scroll-snap-align: start; scroll-margin-inline-start: 4px; }
     .history { padding-inline: 14px; }
     .history-head { display: block; min-height: 0; }
     .history-ranges { overflow-x: auto; margin-top: 12px; padding-bottom: 2px; scrollbar-width: none; }

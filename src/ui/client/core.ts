@@ -92,7 +92,7 @@ export const HOME_CLIENT_CORE = String.raw`
     var heroTitleEl = $("hero-title");
     var errEl = $("error"), errTextEl = $("error-text"), rateRetryEl = $("rate-retry");
     var swapBtn = $("swap"), resetBtn = $("reset");
-    var dateEl = $("rate-date"), favoriteBtn = $("favorite-pair");
+    var dateEl = $("rate-date");
     var savedPairsEl = $("saved-pairs"), historyEl = $("history"), historyContentEl = $("history-content"), historyToggleEl = $("history-toggle");
     var historyChartEl = $("history-chart"), historyNoteEl = $("history-note"), historyQuoteEl = $("history-quote");
     var rateSummaryEl = document.querySelector(".rate-summary");
@@ -328,14 +328,17 @@ export const HOME_CLIENT_CORE = String.raw`
       return currencyName(pair.from) + " · " + currencyName(pair.to);
     }
     var revealedPairAction = "";
+    function favoritePairButton(pair) {
+      return '<button class="pair-chip-favorite" type="button" data-from="' + pair.from + '" data-to="' + pair.to + '"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m12 3.7 2.57 5.21 5.75.84-4.16 4.05.98 5.73L12 16.82l-5.14 2.71.98-5.73-4.16-4.05 5.75-.84L12 3.7Z"/></svg></button>';
+    }
     function renderPairs(items, label) {
       if (!items.length) return "";
       var list = label === "最近" ? "recent" : "favorites";
       var rowClass = list === "recent" ? " saved-pair-row--recent" : "";
       return '<div class="saved-pair-row' + rowClass + '"><span class="saved-pair-label">' + label + '</span><div class="saved-pair-track" aria-label="' + label + '组合，可左右滑动查看">' + items.map(function (pair) {
         var key = list + ":" + pairId(pair.from, pair.to);
-        var action = list === "recent" ? "删除最近组合" : "取消收藏";
-        return '<span class="pair-chip-wrap' + (revealedPairAction === key ? ' is-revealed' : '') + '" data-pair-key="' + key + '"><button class="pair-chip" type="button" data-from="' + pair.from + '" data-to="' + pair.to + '" aria-pressed="false">' + pairLabel(pair) + '</button><button class="pair-chip-remove" type="button" data-list="' + list + '" data-from="' + pair.from + '" data-to="' + pair.to + '" aria-label="' + action + " " + pairLabel(pair) + '"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m3.5 3.5 5 5m0-5-5 5"/></svg></button></span>';
+        var remove = list === "recent" ? '<button class="pair-chip-remove" type="button" data-list="recent" data-from="' + pair.from + '" data-to="' + pair.to + '" aria-label="删除最近组合 ' + pairLabel(pair) + '"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m3.5 3.5 5 5m0-5-5 5"/></svg></button>' : '';
+        return '<span class="pair-chip-wrap' + (revealedPairAction === key ? ' is-revealed' : '') + '" data-pair-key="' + key + '"><button class="pair-chip" type="button" data-from="' + pair.from + '" data-to="' + pair.to + '" aria-pressed="false">' + pairLabel(pair) + '</button>' + favoritePairButton(pair) + remove + '</span>';
       }).join("") + '</div></div>';
     }
     function updateSavedPairs(content) {
@@ -387,8 +390,12 @@ export const HOME_CLIENT_CORE = String.raw`
       syncFavoriteButton();
     }
     function syncFavoriteButton() {
-      favoriteBtn.setAttribute("aria-pressed", isFavorite(currentPair()) ? "true" : "false");
-      favoriteBtn.textContent = isFavorite(currentPair()) ? "已收藏" : "收藏组合";
+      document.querySelectorAll(".pair-chip-favorite").forEach(function (button) {
+        var pair = { from: button.dataset.from, to: button.dataset.to };
+        var favorite = isFavorite(pair);
+        button.setAttribute("aria-pressed", String(favorite));
+        button.setAttribute("aria-label", (favorite ? "取消收藏 " : "收藏组合 ") + pairLabel(pair));
+      });
     }
     function rememberCurrentPair() {
       var store = readPairStore(), pair = currentPair(), id = pairId(pair.from, pair.to);
@@ -1402,6 +1409,16 @@ export const HOME_CLIENT_CORE = String.raw`
       scheduleHistoryPrefetch();
     }
     document.addEventListener("click", function (event) {
+      var favoriteButton = event.target.closest(".pair-chip-favorite");
+      if (favoriteButton) {
+        var favoriteStore = readPairStore(), favoritePair = { from: favoriteButton.dataset.from, to: favoriteButton.dataset.to };
+        var favoriteId = pairId(favoritePair.from, favoritePair.to);
+        var exists = favoriteStore.favorites.some(function (item) { return pairId(item.from, item.to) === favoriteId; });
+        favoriteStore.favorites = exists ? favoriteStore.favorites.filter(function (item) { return pairId(item.from, item.to) !== favoriteId; }) : [favoritePair].concat(favoriteStore.favorites).slice(0, 6);
+        writePairStore(favoriteStore);
+        renderSavedPairs();
+        return;
+      }
       var remove = event.target.closest(".pair-chip-remove");
       if (remove) {
         var store = readPairStore();
@@ -1466,13 +1483,6 @@ export const HOME_CLIENT_CORE = String.raw`
     });
 
     dateEl.addEventListener("change", function () { syncHeroPair(); convert(); });
-    favoriteBtn.addEventListener("click", function () {
-      var store = readPairStore(), pair = currentPair(), id = pairId(pair.from, pair.to);
-      var exists = store.favorites.some(function (item) { return pairId(item.from, item.to) === id; });
-      store.favorites = exists ? store.favorites.filter(function (item) { return pairId(item.from, item.to) !== id; }) : [pair].concat(store.favorites).slice(0, 6);
-      writePairStore(store);
-      renderSavedPairs();
-    });
 
     historyToggleEl.addEventListener("click", function () {
       var opening = !historyEl.classList.contains("is-open");
