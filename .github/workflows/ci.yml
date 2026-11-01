@@ -3,11 +3,18 @@
 # pull_request 事件此前没有检查覆盖（两个部署 workflow 只在 push 时触发），
 # 这里补上缺口：checkout 在 pull_request 下取的是「合并到 main 后的结果」，
 # 测的是将要合入的代码，不是 PR 分支本身。
-# push 到 main 的检查已由 production-deploy.yml 前置步骤覆盖，这里不重复跑。
+#
+# push 到 main 也触发：实际合并流程多为「本地合并后直推主干」，
+# 只挂 pull_request 的话这份检查永远不会跑（历史上运行次数为 0）。
+# 与 production-deploy.yml 的验证有重叠，但后者是部署门禁（不通过就不发版），
+# 这份提供独立可见的检查结果，供后续加 branch protection 当必需检查用。
 name: CI
 
 on:
   pull_request:
+    branches:
+      - main
+  push:
     branches:
       - main
 
