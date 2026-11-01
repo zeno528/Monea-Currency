@@ -3,6 +3,7 @@ import { version } from "../../package.json";
 export const HOME_MARKUP = String.raw`
 </head>
 <body>
+  <div class="hero-band">
   <nav class="global-nav">
     <a class="brand" href="/" aria-label="Monea Currency 汇率换算首页">
       <img src="/currency-logo.svg" alt="" width="20" height="20">
@@ -19,6 +20,7 @@ export const HOME_MARKUP = String.raw`
   </section>
 
   <div class="converter-wrap">
+    <svg class="band-dome" viewBox="0 0 1440 380" preserveAspectRatio="none" aria-hidden="true"><ellipse cx="720" cy="7184" rx="6000" ry="6944" fill="#f5f5f7"/></svg>
     <div class="converter-card">
       <div class="converter-topline">
         <div class="converter-heading">
@@ -105,6 +107,7 @@ export const HOME_MARKUP = String.raw`
         </div>
       </section>
     </div>
+  </div>
   </div>
 
   <section class="features">

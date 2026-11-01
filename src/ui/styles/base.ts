@@ -1,5 +1,6 @@
 export const BASE_STYLES = String.raw`
   :root {
+    --brand-gradient: linear-gradient(133deg, #2e66e5 0%, #1e40af 55%, #1d4ed8 100%);
     --color-primary: #0071e3;
     --color-primary-focus: #0a84ff;
     --color-ink: #1d1d1f;
@@ -36,13 +37,17 @@ export const BASE_STYLES = String.raw`
   }
 
   /* 普通文档流中的品牌栏：提供身份识别，不干预移动端键盘滚动。 */
+  /* 整个头部色带的唯一背景：对角渐变（深色为主、小幅度）+ 磨砂噪点，单元素绘制永不断层 */
+  .hero-band {
+    position: relative;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.16'/%3E%3C/svg%3E") repeat,
+      var(--brand-gradient);
+  }
   .global-nav {
     position: relative;
     z-index: 40;
-    /* 纯色起笔，与 hero 渐变起点同色：接缝处两行像素完全同色，数学上无缝 */
-    background:
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.16'/%3E%3C/svg%3E") repeat,
-      #3b82f6;
+    background: transparent;
     color: var(--color-on-dark);
     min-height: calc(44px + env(safe-area-inset-top, 0px));
     display: flex;
@@ -76,10 +81,7 @@ export const BASE_STYLES = String.raw`
 
   /* 单一、清晰的任务入口。 */
   .hero {
-    /* 渐变完全在本元素内走完，起止与相邻元素同色，杜绝跨元素拼接断层 */
-    background:
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.16'/%3E%3C/svg%3E") repeat,
-      linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    background: transparent;
     padding: 40px 22px 24px;
     text-align: center;
   }
@@ -130,26 +132,33 @@ export const BASE_STYLES = String.raw`
   /* 换算器是页面唯一的主操作面，输入与结果以深浅两层区分。 */
   .converter-wrap {
     position: relative;
-    background: var(--color-parchment);
     padding: 0 22px 72px;
     display: flex;
     justify-content: center;
   }
-  /* 蓝色大气层：灰色"行星圆顶"从中央隆起切开色带，磨砂噪点铺满蓝色区域 */
-  .converter-wrap::before {
+  /* 380px 以下的浅色地面：盖住色带渐变，让卡片下半段落在灰面上 */
+  .converter-wrap::after {
     content: "";
+    position: absolute;
+    z-index: 0;
+    top: 380px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--color-parchment);
+  }
+  /* 圆顶蒙版：透明 SVG 只画浅色椭圆，天空由 hero-band 的渐变+噪点透出，无拼接无断层 */
+  .band-dome {
     position: absolute;
     top: 0;
     left: 0;
-    right: 0;
+    width: 100%;
     height: 380px;
-    background:
-      /* 行星圆顶：平缓弯曲；磨砂噪点只落蓝色不落灰面 */
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 380' preserveAspectRatio='xMidYMax%20slice'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='1440' height='380' filter='url(%23n)' opacity='0.16'/%3E%3Cellipse cx='720' cy='1840' rx='3000' ry='1600' fill='%23f5f5f7'/%3E%3C/svg%3E") bottom center / 100% 380px no-repeat,
-      linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+    pointer-events: none;
   }
   .converter-card {
     position: relative;
+    z-index: 1;
     background: var(--color-canvas);
     border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: var(--radius-lg);
@@ -310,8 +319,8 @@ export const BASE_STYLES = String.raw`
   .currency-field {
     --combo-panel-offset: 6px;
     min-width: 0;
-    background: #fbfbfd;
-    border: 1px solid rgba(0, 0, 0, 0.09);
+    background: transparent;
+    border: 1px solid rgba(0, 0, 0, 0.16);
     border-radius: 20px;
     padding: 19px 20px 17px;
     cursor: text;
@@ -325,7 +334,6 @@ export const BASE_STYLES = String.raw`
     border-color: var(--color-primary);
     box-shadow: inset 0 0 0 1px var(--color-primary);
   }
-  .field-group[data-amount-side="to"] .currency-field { background: var(--color-canvas); }
   .money-input-wrap {
     display: flex;
     align-items: baseline;
@@ -551,15 +559,15 @@ export const BASE_STYLES = String.raw`
     height: 48px;
     border-radius: 9999px;
     background: var(--color-primary);
-    border: 1px solid rgba(0, 0, 0, 0.08);
+    border: 0;
     color: white;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 7px 16px rgba(0, 113, 227, 0.28);
-    transition: transform 160ms var(--ease-out), background-color 160ms ease, box-shadow 160ms ease;
+    transition: transform 160ms var(--ease-out), background-color 160ms ease;
   }
+  .swap-btn:hover { background: #005fc2; }
   .swap-btn:active { transform: scale(0.95); }
   .swap-btn:focus-visible { outline: 3px solid rgba(10, 132, 255, 0.3); outline-offset: 3px; }
   .swap-btn svg { width: 18px; height: 18px; }
@@ -568,7 +576,7 @@ export const BASE_STYLES = String.raw`
     box-sizing: border-box;
     /* 宽屏双行结果与单行加载共享同一高度，避免换算卡片随加载状态跳动。 */
     height: 68px;
-    background: #f5f5f7;
+    background: linear-gradient(100deg, #eaf2ff, #f6f8fc);
     border-radius: 16px;
     padding: 14px 16px;
     margin-top: 16px;
@@ -794,7 +802,7 @@ export const BASE_STYLES = String.raw`
   .error-retry:active { transform: scale(0.97); }
   .error-retry:focus-visible { outline: 2px solid rgba(211, 51, 51, 0.35); outline-offset: 2px; }
 
-  /* 信息区域：浅色地面上的统一白面板 + 发丝分线，层级靠字重和灰阶而非色块。 */
+  /* 信息区域以品牌蓝数据面板承接上方换算区。 */
   .features {
     background: var(--color-parchment);
     color: var(--color-ink);
@@ -810,21 +818,22 @@ export const BASE_STYLES = String.raw`
     margin-bottom: 40px;
   }
   .feature-grid {
+    color: var(--color-on-dark);
     max-width: 980px;
     margin: 0 auto;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    background: var(--color-canvas);
+    background: var(--brand-gradient);
     border-radius: 22px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 14px 40px rgba(0, 0, 0, 0.05);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 12px 30px rgba(28, 62, 139, 0.18);
   }
   .feature { text-align: center; padding: 36px 28px; }
-  .feature + .feature { border-left: 1px solid var(--color-divider-soft); }
+  .feature + .feature { border-left: 1px solid rgba(255, 255, 255, 0.2); }
   .feature-num {
     font-family: var(--font-display);
     font-size: 44px;
     font-weight: 700;
-    color: var(--color-ink);
+    color: inherit;
     line-height: 1;
     letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
@@ -838,7 +847,7 @@ export const BASE_STYLES = String.raw`
   }
   .feature-desc {
     font-size: 14px;
-    color: var(--color-ink-muted-48);
+    color: rgba(255, 255, 255, 0.86);
     line-height: 1.6;
   }
 
@@ -859,7 +868,7 @@ export const BASE_STYLES = String.raw`
   .footer-description a { color: var(--color-primary); text-decoration: none; }
   .footer a:hover { color: var(--color-primary); text-decoration: underline; }
   .footer a:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 4px; border-radius: 3px; }
-  .footer-notice { display: flex; align-items: baseline; gap: 16px; margin-top: 28px; padding-left: 12px; border-left: 1px solid var(--color-divider-soft); font-size: 12px; line-height: 1.7; color: var(--color-ink-muted-48); }
+  .footer-notice { display: flex; align-items: baseline; gap: 16px; margin-top: 28px; padding-left: 12px; border-left: 2px solid var(--color-hairline); font-size: 12px; line-height: 1.7; color: var(--color-ink-muted-48); }
   .footer-notice a { color: var(--color-primary); text-decoration: none; }
   .footer-notice-label { flex-shrink: 0; font-weight: 500; color: var(--color-ink-muted-80); }
   .footer-bottom { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-divider-soft); color: var(--color-ink-muted-48); font-size: 12px; }

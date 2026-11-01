@@ -5,7 +5,7 @@ export const RESPONSIVE_STYLES = String.raw`
     .hero h1 { font-size: 42px; }
     .feature-grid { grid-template-columns: 1fr; }
     .feature { padding: 28px 22px; }
-    .feature + .feature { border-left: none; border-top: 1px solid var(--color-divider-soft); }
+    .feature + .feature { border-left: none; border-top: 1px solid rgba(255, 255, 255, 0.2); }
     .api-grid { grid-template-columns: 1fr; }
     .pair-row {
       grid-template-columns: 1fr;
