@@ -1,7 +1,7 @@
 * text=auto eol=lf
 
 *.ps1 text eol=crlf
-worker-configuration.d.ts text eol=crlf
+worker-configuration.d.ts text eol=lf
 
 *.png binary
 *.ico binary
