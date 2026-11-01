@@ -1,0 +1,18 @@
+const task = await taskSpace('monea-flags-regression');
+const page = task.page('p1');
+await page.cdp('Network.enable');
+await page.goto('http://localhost:8787/');
+await page.click('button[aria-label="展开从货币列表"]');
+await page.waitForFunction(async () => (await (await caches.open('monea-flags')).keys()).length >= 5, undefined, { timeout: 10000 });
+await page.reload();
+await page.events();
+await page.click('button[aria-label="展开从货币列表"]');
+await page.waitForFunction(() => [...document.querySelectorAll('.combobox.open .combo-item-flag')].filter(image => image.currentSrc.startsWith('blob:') && image.naturalWidth).length >= 5, undefined, { timeout: 10000 });
+const events = await page.events();
+if (events.some(event => event.method === 'Network.requestWillBeSent' && event.params.request.url.includes('/flags/'))) throw Error('Cached flags requested over network');
+await page.reload();
+await page.evaluate(() => { caches.open = () => Promise.reject(new Error('storage unavailable')); });
+await page.click('button[aria-label="展开从货币列表"]');
+await page.waitForFunction(() => [...document.querySelectorAll('.combobox.open .combo-item-flag')].filter(image => image.currentSrc.includes('/flags/') && image.naturalWidth).length >= 5, undefined, { timeout: 10000 });
+await task.finish({ keep: [] });
+console.log('Flag cache browser regression passed');

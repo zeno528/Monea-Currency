@@ -23,11 +23,11 @@ export const HOME_MARKUP = String.raw`
       <div class="converter-topline">
         <div class="converter-heading">
           <h2 class="converter-title"><svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.25"/><path d="M6.5 10.25h.01M17.5 13.75h.01"/></svg>开始换算</h2>
-          <button id="reset" class="utility-btn" type="button" title="恢复为 100 美元兑换人民币，使用最新汇率" aria-label="恢复默认：100 美元兑换人民币，使用最新汇率">恢复默认</button>
         </div>
         <div class="converter-actions">
           <label class="date-control"><span>参考日期</span><input id="rate-date" type="date" aria-label="参考日期，留空则使用最新数据"></label>
           <button id="favorite-pair" class="utility-btn" type="button" aria-pressed="false">收藏组合</button>
+          <button id="reset" class="utility-btn" type="button" title="恢复为 100 美元兑换人民币，使用最新汇率" aria-label="恢复默认：100 美元兑换人民币，使用最新汇率">恢复默认</button>
         </div>
       </div>
       <div class="quick-pairs" aria-label="常用货币组合">

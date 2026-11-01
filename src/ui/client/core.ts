@@ -601,6 +601,32 @@ export const HOME_CLIENT_CORE = String.raw`
       return "/flags/" + filename + "?v=" + FLAG_ASSET_VERSION;
     }
 
+    function loadListFlag(image) {
+      var src = image.dataset.src;
+      image.removeAttribute("data-src");
+      if (!("caches" in window)) { image.src = src; return; }
+      caches.open("monea-flags").then(function (cache) {
+        return cache.match(src).then(function (cached) {
+          if (cached) return cached;
+          return fetch(src, { priority: "low" }).then(function (response) {
+            if (!response.ok) throw new Error("flag-load-failed");
+            cache.put(src, response.clone()).catch(function () {});
+            return response;
+          });
+        });
+      }).then(function (response) { return response.blob(); }).then(function (blob) {
+        if (!image.isConnected) return;
+        var url = URL.createObjectURL(blob);
+        image.onload = function () { URL.revokeObjectURL(url); };
+        image.onerror = function () {
+          URL.revokeObjectURL(url);
+          image.onerror = null;
+          if (image.isConnected) image.src = src;
+        };
+        image.src = url;
+      }).catch(function () { if (image.isConnected) image.src = src; });
+    }
+
     function syncComboFlag(box) {
       var flagEl = box.querySelector(".combo-selected-flag");
       if (!flagEl) return;
@@ -785,10 +811,7 @@ export const HOME_CLIENT_CORE = String.raw`
           images.forEach(function (image) { flagObserver.observe(image); });
           return;
         }
-        images.forEach(function (image) {
-          image.src = image.dataset.src;
-          image.removeAttribute("data-src");
-        });
+        images.forEach(loadListFlag);
       }
 
       function appendCurrencyBatch() {
@@ -814,8 +837,7 @@ export const HOME_CLIENT_CORE = String.raw`
             entries.forEach(function (entry) {
               if (!entry.isIntersecting) return;
               var image = entry.target;
-              image.src = image.dataset.src;
-              image.removeAttribute("data-src");
+              loadListFlag(image);
               observer.unobserve(image);
             });
           }, { root: listEl, rootMargin: "48px 0px" });
@@ -849,6 +871,15 @@ export const HOME_CLIENT_CORE = String.raw`
         listEl.replaceChildren();
       }
       box._closeCombo = close;
+
+      window.addEventListener("scroll", function () {
+        if (!box.classList.contains("open")) return;
+        var rect = input.getBoundingClientRect();
+        if (rect.bottom <= 0 || rect.top >= window.innerHeight) {
+          close();
+          input.value = displayText(box.dataset.value);
+        }
+      }, { passive: true });
 
       // 浮层内列表滚到边界时，显式截断滚轮/触摸事件。
       // 某些浏览器在 absolute 浮层中仍会把剩余滚动量传给页面，

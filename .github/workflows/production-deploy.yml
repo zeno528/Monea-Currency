@@ -37,6 +37,12 @@ jobs:
       - name: Type check
         run: pnpm exec tsc --noEmit
 
+      - name: Check generated types
+        run: pnpm exec wrangler types --check
+
+      - name: Test
+        run: pnpm test
+
       - name: Prepare deployment message
         shell: bash
         run: echo "DEPLOY_MESSAGE=$(git log -1 --pretty=%s)" >> "$GITHUB_ENV"
