@@ -1281,7 +1281,7 @@ export const HOME_CLIENT_CORE = String.raw`
       // 双行布局：上行汇率 + 下行日历图标
       rateMainEl.textContent = "1 " + displayUnit(data.from) + " = " + formatHeroRate(rate, data.to) + " " + displayUnit(data.to);
       var hasGold = data.from === "XAU" || data.to === "XAU";
-      rateDateText.textContent = "数据日期 " + data.date + (hasGold ? " · Frankfurter 黄金参考价，非实时" : "");
+      rateDateText.textContent = "汇率日期 " + data.date + (hasGold ? " · Frankfurter 黄金参考价，非实时" : "");
       goldExchangeLink.hidden = !hasGold;
       rateEl.replaceChildren(rateMainEl, rateSubEl);
       syncCalculatorPreview();

@@ -107,6 +107,7 @@ export const HOME_MARKUP = String.raw`
         </div>
       </section>
     </div>
+    <p class="converter-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>汇率和换算结果仅供参考，实际兑换以交易机构为准。收藏及最近使用的货币组合仅存于当前浏览器。</span></p>
   </div>
   </div>
 

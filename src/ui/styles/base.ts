@@ -136,6 +136,8 @@ export const BASE_STYLES = String.raw`
     position: relative;
     padding: 0 22px 72px;
     display: flex;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
   }
   /* 380px 以下的浅色地面：盖住色带渐变，让卡片下半段落在灰面上 */
@@ -165,12 +167,14 @@ export const BASE_STYLES = String.raw`
     border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: var(--radius-lg);
     /* 蓝色地面上阴影带一点深蓝，浮起感更真实 */
-    box-shadow: 0 2px 8px rgba(0, 21, 60, 0.12), 0 20px 50px rgba(0, 21, 60, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 21, 60, 0.08), 0 12px 32px rgba(0, 21, 60, 0.12);
     padding: 26px;
     width: 100%;
     max-width: 1050px;
   }
   .converter-card.is-resizing { transition: height 380ms var(--ease-out); }
+  .converter-note { position: relative; z-index: 1; display: flex; align-items: flex-start; gap: 7px; max-width: 1050px; margin: 16px auto 0; color: #86868b; font-size: 12px; line-height: 1.6; }
+  .converter-note svg { width: 14px; height: 14px; flex: none; margin-top: 2px; }
   .converter-topline {
     display: flex;
     align-items: center;
