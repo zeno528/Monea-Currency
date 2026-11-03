@@ -162,7 +162,7 @@ export const BASE_STYLES = String.raw`
   }
   .converter-card {
     position: relative;
-    z-index: 1;
+    z-index: 2;
     background: var(--color-canvas);
     border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: var(--radius-lg);
