@@ -255,9 +255,9 @@ export const BASE_STYLES = String.raw`
     transform: translateY(-5px);
     transition: grid-template-rows 360ms var(--ease-out), margin 360ms var(--ease-out), opacity 180ms ease, transform 360ms var(--ease-out);
   }
-  .saved-pairs.has-content { grid-template-rows: 1fr; margin-bottom: 20px; opacity: 1; transform: translateY(0); }
+  .saved-pairs.has-content { grid-template-rows: 1fr; margin-top: -14px; margin-bottom: 20px; opacity: 1; transform: translateY(0); }
   .saved-pairs-inner { min-height: 0; overflow: hidden; }
-  .saved-pairs-content { display: grid; gap: 8px; }
+  .saved-pairs-content { display: grid; gap: 2px; }
   .saved-pair-row {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
