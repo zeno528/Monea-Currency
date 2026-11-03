@@ -436,7 +436,7 @@ export const BASE_STYLES = String.raw`
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
   }
   .combo-panel {
-    --combo-panel-max-height: 300px;
+    --combo-panel-max-height: 306px;
     position: absolute;
     top: calc(100% + var(--combo-panel-down, 0px) + var(--combo-panel-offset));
     left: var(--combo-panel-left, 0px);
@@ -446,9 +446,9 @@ export const BASE_STYLES = String.raw`
     /* 下拉菜单必须是独立实底层，避免与金额卡片叠色。 */
     background: #ffffff;
     border: 1px solid var(--color-hairline);
-    border-radius: var(--radius-lg);
+    border-radius: 20px;
     box-shadow: 0 18px 35px rgba(0, 0, 0, 0.14);
-    padding: 8px 4px 8px 6px;
+    padding: 5px 4px 5px 6px;
     z-index: 50;
     display: block;
     opacity: 0;
@@ -464,10 +464,10 @@ export const BASE_STYLES = String.raw`
     transform-origin: bottom center;
   }
   .combo-scroll {
-    max-height: min(calc(var(--combo-panel-max-height) - 18px), calc(var(--combo-available-height, 100vh) - 18px));
-    padding-block: 12px;
+    max-height: min(calc(var(--combo-panel-max-height) - 12px), calc(var(--combo-available-height, 100vh) - 12px));
+    padding-block: 8px;
     overflow-y: auto;
-    mask-image: linear-gradient(to bottom, transparent, rgba(0, 0, 0, .08) 3px, rgba(0, 0, 0, .5) 6px, rgba(0, 0, 0, .92) 9px, #000 12px, #000 calc(100% - 12px), rgba(0, 0, 0, .92) calc(100% - 9px), rgba(0, 0, 0, .5) calc(100% - 6px), rgba(0, 0, 0, .08) calc(100% - 3px), transparent);
+    mask-image: linear-gradient(to bottom, transparent, rgba(0, 0, 0, .08) 2px, rgba(0, 0, 0, .5) 4px, rgba(0, 0, 0, .92) 6px, #000 8px, #000 calc(100% - 8px), rgba(0, 0, 0, .92) calc(100% - 6px), rgba(0, 0, 0, .5) calc(100% - 4px), rgba(0, 0, 0, .08) calc(100% - 2px), transparent);
     overscroll-behavior: contain;
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.18) transparent;

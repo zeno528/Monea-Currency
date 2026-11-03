@@ -24,6 +24,12 @@ await page.mouse.click(inputCorner.x, inputCorner.y);
 await page.evaluate(() => {
   const box = document.querySelector('[data-field="from"]');
   if (!box.classList.contains('open') || box.querySelector('input').value !== '' || box.dataset.value !== 'USD') throw Error('Opening search changed the selected currency or did not clear the display');
+  const list = box.querySelector('.combo-scroll');
+  const first = list.querySelector('.combo-item');
+  const padding = parseFloat(getComputedStyle(list).paddingTop) + parseFloat(getComputedStyle(list).paddingBottom);
+  const rows = (list.clientHeight - padding) / first.offsetHeight;
+  if (Math.abs(rows - Math.round(rows)) > 0.02) throw Error('Visible currency rows have uneven edge spacing');
+  if (Math.round(rows) !== 6) throw Error('Expected six visible currencies when space permits');
 });
 await page.fill('[data-field="from"] .combo-input', 'EUR');
 await page.press('[data-field="from"] .combo-input', 'Escape');

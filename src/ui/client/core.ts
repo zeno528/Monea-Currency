@@ -912,7 +912,15 @@ export const HOME_CLIENT_CORE = String.raw`
         var below = Math.max(0, bottom - rect.bottom - gap - 8);
         var openUp = below < panel.offsetHeight && above > below;
         box.classList.toggle("open-up", openUp);
-        panel.style.setProperty("--combo-available-height", (openUp ? above : below) + "px");
+        var available = Math.min(panel.offsetHeight, openUp ? above : below);
+        var item = listEl.querySelector(".combo-item");
+        if (item) {
+          var panelStyle = getComputedStyle(panel), listStyle = getComputedStyle(listEl);
+          var padding = panel.offsetHeight - panel.clientHeight + parseFloat(panelStyle.paddingTop) + parseFloat(panelStyle.paddingBottom) + parseFloat(listStyle.paddingTop) + parseFloat(listStyle.paddingBottom);
+          var rows = Math.floor((available - padding) / item.offsetHeight);
+          if (rows > 0) available = Math.min(available, padding + rows * item.offsetHeight);
+        }
+        panel.style.setProperty("--combo-available-height", available + "px");
       }
       function open() {
         // 快速连续切换时，前一次失焦留下的关闭任务不能清空刚重新打开的列表。
