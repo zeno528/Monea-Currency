@@ -51,7 +51,7 @@
       var areaPath = path + "L " + positions[positions.length - 1].x.toFixed(2) + " " + (height - inset.bottom) + "L " + positions[0].x.toFixed(2) + " " + (height - inset.bottom) + "Z";
       var latestPosition = positions[positions.length - 1];
       historyQuoteEl.innerHTML = '<span class="history-quote-label">1 ' + displayUnit(from) + ' =</span><strong class="history-quote-value">' + latestRate + " " + displayUnit(to) + "</strong>";
-      historyNoteEl.textContent = "参考区间 " + rangeMin.toFixed(digits) + "–" + rangeMax.toFixed(digits) + " " + displayUnit(to) + " · " + points[0].date + " 至 " + latest.date;
+      historyNoteEl.textContent = "汇率范围 " + rangeMin.toFixed(digits) + "–" + rangeMax.toFixed(digits) + " " + displayUnit(to) + " · " + points[0].date + " 至 " + latest.date;
       historyQuoteEl.hidden = false;
       historyNoteEl.hidden = false;
       var oldTooltip = $("history-tooltip");
