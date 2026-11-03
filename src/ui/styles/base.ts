@@ -19,10 +19,12 @@ export const BASE_STYLES = String.raw`
     --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
     --panel-motion-duration: 380ms;
     --panel-motion: opacity 180ms ease, transform var(--panel-motion-duration) var(--ease-out);
+    --press-transition: transform 100ms ease-out;
     --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  :is(.btn, .utility-btn, .pair-chip, .error-retry, .calc-keys button, .date-control input):active { transform: scale(0.97); }
   html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
   body {
     font-family: var(--font-text);
@@ -199,6 +201,7 @@ export const BASE_STYLES = String.raw`
     white-space: nowrap;
   }
   .date-control input {
+    transition: var(--press-transition);
     min-height: 32px;
     padding: 4px 7px;
     border: 1px solid rgba(0, 0, 0, 0.1);
@@ -219,10 +222,9 @@ export const BASE_STYLES = String.raw`
     font: inherit;
     font-size: 12px;
     cursor: pointer;
-    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 100ms ease-out;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, var(--press-transition);
   }
   .utility-btn[aria-pressed="true"] { color: #0066cc; border-color: #b8d8ff; background: #e8f2ff; }
-  .utility-btn:active { transform: scale(0.97); }
   .utility-btn:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
   .quick-pairs { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin: 0 0 20px; }
   .quick-pairs-label { flex: 0 0 auto; color: var(--color-ink-muted-48); font-size: 13px; }
@@ -236,10 +238,9 @@ export const BASE_STYLES = String.raw`
     font: inherit;
     font-size: 12px;
     cursor: pointer;
-    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 100ms ease-out;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, var(--press-transition);
   }
   .pair-chip[aria-pressed="true"] { background: #e8f2ff; border-color: #b8d8ff; color: #0066cc; }
-  .pair-chip:active { transform: scale(0.97); }
   .pair-chip:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
   @media (hover: hover) and (pointer: fine) { .pair-chip:hover { border-color: #9fc9ff; color: #0066cc; } }
   .saved-pairs {
@@ -658,9 +659,8 @@ export const BASE_STYLES = String.raw`
     align-items: center;
     gap: 5px;
     white-space: nowrap;
-    transition: background-color 160ms ease, transform 100ms ease-out;
+    transition: background-color 160ms ease, var(--press-transition);
   }
-  .btn:active { transform: scale(0.97); }
   .btn:focus-visible { outline: 2px solid var(--color-primary-focus); outline-offset: 2px; }
   .btn-primary {
     background: var(--color-primary);
@@ -805,7 +805,6 @@ export const BASE_STYLES = String.raw`
     cursor: pointer;
     touch-action: manipulation;
   }
-  .error-retry:active { transform: scale(0.97); }
   .error-retry:focus-visible { outline: 2px solid rgba(211, 51, 51, 0.35); outline-offset: 2px; }
 
   /* 信息区域以品牌蓝数据面板承接上方换算区。 */

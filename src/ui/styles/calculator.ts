@@ -26,7 +26,7 @@ export const CALCULATOR_STYLES = String.raw`
   .calc-expression::-webkit-scrollbar, .calc-result::-webkit-scrollbar, .calc-preview::-webkit-scrollbar { display: none; }
   .calc-expression > span, .calc-result > span, .calc-preview > span { display: block; width: max-content; min-width: 100%; }
   .calc-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
-  .calc-keys button { min-height: 48px; border: 1px solid var(--color-divider-soft); border-radius: var(--radius-pill); background: #fff; color: var(--color-ink); font: inherit; font-size: 24px; font-weight: 400; cursor: pointer; transition: transform 100ms ease, background 140ms ease; }
+  .calc-keys button { min-height: 48px; border: 1px solid var(--color-divider-soft); border-radius: var(--radius-pill); background: #fff; color: var(--color-ink); font: inherit; font-size: 24px; font-weight: 400; cursor: pointer; transition: var(--press-transition), background 140ms ease; }
   .calc-keys button[data-calc-key="0"] { grid-column: span 2; }
   .calc-keys button { position: relative; }
   /* 平分 8px 间隙，并补偿按钮的 1px 边框。 */
