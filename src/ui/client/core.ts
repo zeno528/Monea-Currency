@@ -895,15 +895,36 @@ export const HOME_CLIENT_CORE = String.raw`
         clearTimeout(blurCloseTimer);
         blurCloseTimer = null;
       }
+      function positionPanel() {
+        if (!box.classList.contains("open")) return;
+        panel.style.removeProperty("--combo-available-height");
+        var boxRect = box.getBoundingClientRect();
+        var rect = box.closest(".currency-field").getBoundingClientRect();
+        panel.style.setProperty("--combo-panel-left", (rect.left - boxRect.left) + "px");
+        panel.style.setProperty("--combo-panel-right", (boxRect.right - rect.right) + "px");
+        panel.style.setProperty("--combo-panel-down", (rect.bottom - boxRect.bottom) + "px");
+        panel.style.setProperty("--combo-panel-up", (boxRect.top - rect.top) + "px");
+        var viewport = window.visualViewport;
+        var top = viewport ? viewport.offsetTop : 0;
+        var bottom = top + comboViewportHeight();
+        var gap = parseFloat(getComputedStyle(box).getPropertyValue("--combo-panel-offset")) || 0;
+        var above = Math.max(0, rect.top - top - gap - 8);
+        var below = Math.max(0, bottom - rect.bottom - gap - 8);
+        var openUp = below < panel.offsetHeight && above > below;
+        box.classList.toggle("open-up", openUp);
+        panel.style.setProperty("--combo-available-height", (openUp ? above : below) + "px");
+      }
       function open() {
         // 快速连续切换时，前一次失焦留下的关闭任务不能清空刚重新打开的列表。
         cancelBlurClose();
         closeAll(box);
         input.value = "";
         searchQuery = "";
+        listEl.replaceChildren();
         box.classList.add("open");
         if (arrow) arrow.setAttribute("aria-expanded", "true");
         render(getFiltered(searchQuery));
+        positionPanel();
       }
       function close() {
         cancelBlurClose();
@@ -916,7 +937,6 @@ export const HOME_CLIENT_CORE = String.raw`
         renderedCurrencies = [];
         renderedCount = 0;
         currencyRows.clear();
-        listEl.replaceChildren();
       }
       box._closeCombo = close;
 
@@ -925,8 +945,10 @@ export const HOME_CLIENT_CORE = String.raw`
         var rect = input.getBoundingClientRect();
         if (rect.bottom <= 0 || rect.top >= window.innerHeight) {
           close();
-        }
+        } else positionPanel();
       }, { passive: true });
+      window.addEventListener("resize", positionPanel);
+      if (window.visualViewport) window.visualViewport.addEventListener("resize", positionPanel);
 
       // 浮层内列表滚到边界时，显式截断滚轮/触摸事件。
       // 某些浏览器在 absolute 浮层中仍会把剩余滚动量传给页面，
@@ -987,6 +1009,7 @@ export const HOME_CLIENT_CORE = String.raw`
           if (arrow) arrow.setAttribute("aria-expanded", "true");
         }
         render(getFiltered(searchQuery));
+        positionPanel();
       });
       input.addEventListener("keydown", function (e) {
         var items = panel.querySelectorAll(".combo-item");
@@ -1009,8 +1032,9 @@ export const HOME_CLIENT_CORE = String.raw`
           items[idx].scrollIntoView({ block: "nearest" });
         } else if (e.key === "Enter") {
           e.preventDefault();
-          var sel = panel.querySelector(".combo-item.active") || panel.querySelector(".combo-item");
-          if (sel) selectCode(sel.dataset.code);
+          var sel = panel.querySelector(".combo-item.active");
+          if (!sel && !searchQuery) selectCode(box.dataset.value);
+          else if (sel || panel.querySelector(".combo-item")) selectCode((sel || panel.querySelector(".combo-item")).dataset.code);
         } else if (e.key === "Escape") {
           e.preventDefault();
           close();
@@ -1253,7 +1277,7 @@ export const HOME_CLIENT_CORE = String.raw`
         showError("换算结果超出支持范围，请减小金额", false);
         return;
       }
-      outputEl.value = formatEditableAmount(result, data.to);
+      outputEl.value = result.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       // 双行布局：上行汇率 + 下行日历图标
       rateMainEl.textContent = "1 " + displayUnit(data.from) + " = " + formatHeroRate(rate, data.to) + " " + displayUnit(data.to);
       var hasGold = data.from === "XAU" || data.to === "XAU";
@@ -1366,7 +1390,7 @@ export const HOME_CLIENT_CORE = String.raw`
       input.addEventListener("compositionend", function () { handleAmountInput(input, false); });
       input.addEventListener("blur", function () {
         var amount = parseAmount(input.value);
-        if (isFinite(amount)) input.value = formatEditableAmount(amount, input === fromAmountEl ? fromBox.dataset.value : toBox.dataset.value);
+        if (isFinite(amount) && !/\.\d{2}$/.test(input.value)) input.value = formatEditableAmount(amount, input === fromAmountEl ? fromBox.dataset.value : toBox.dataset.value);
       });
     });
     // 整张金额卡片都是输入热区；货币选择控件维持自己的点击语义。
@@ -1452,7 +1476,7 @@ export const HOME_CLIENT_CORE = String.raw`
       var amount = fromAmountEl.value;
       fromAmountEl.value = toAmountEl.value;
       toAmountEl.value = amount;
-      activeSide = "from";
+      activeSide = activeSide === "from" ? "to" : "from";
       syncSymbols();
       syncHeroPair();
       activePairSource = "";

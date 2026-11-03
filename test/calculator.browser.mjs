@@ -19,7 +19,7 @@ await page.evaluate(() => {
 });
 await page.click('[data-calc-key="clear"]');
 await page.evaluate(() => {
-  if (document.querySelector("#from-amount").value !== "0" || document.querySelector("#to-amount").value !== "0") throw Error("AC did not reset both amounts");
+  if (document.querySelector("#from-amount").value !== "0" || document.querySelector("#to-amount").value !== "0.00") throw Error("AC did not reset both amounts");
 });
 await page.keyboard.type("1/0");
 await page.evaluate(() => {

@@ -24,7 +24,7 @@ export const RESPONSIVE_STYLES = String.raw`
     }
     .currency-field { --combo-panel-offset: 6px; padding: 18px 20px; }
     .combo-input { height: 52px; padding: 14px 64px 14px 32px; }
-    .combo-arrow { right: -12px; width: 68px; padding-right: 25px; }
+    .combo-arrow { width: 76px; }
     .combo-panel { --combo-panel-max-height: min(320px, 42dvh); }
     .rate-summary {
       box-sizing: border-box;

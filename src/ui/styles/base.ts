@@ -376,7 +376,7 @@ export const BASE_STYLES = String.raw`
     color: var(--color-ink);
     background-color: transparent;
     border: 1px solid transparent;
-    border-radius: var(--radius-pill);
+    border-radius: 6px;
     padding: 12px 80px 12px 32px;
     height: 44px;
     width: 100%;
@@ -387,11 +387,11 @@ export const BASE_STYLES = String.raw`
   .combo-input:focus { cursor: text; }
   .combo-arrow {
     position: absolute;
-    right: -28px;
+    right: -20px;
     top: 0;
     bottom: 0;
-    width: 100px;
-    padding: 0 41px 0 0;
+    width: 92px;
+    padding: 0 31px 0 0;
     border: 0;
     background: transparent;
     color: var(--color-ink);
@@ -433,30 +433,36 @@ export const BASE_STYLES = String.raw`
   .combo-panel {
     --combo-panel-max-height: 300px;
     position: absolute;
-    top: calc(100% + var(--combo-panel-offset));
-    left: 0;
-    right: 0;
-    max-height: var(--combo-panel-max-height);
+    top: calc(100% + var(--combo-panel-down, 0px) + var(--combo-panel-offset));
+    left: var(--combo-panel-left, 0px);
+    right: var(--combo-panel-right, 0px);
+    max-height: min(var(--combo-panel-max-height), var(--combo-available-height, 100vh));
     overflow: hidden;
     /* 下拉菜单必须是独立实底层，避免与金额卡片叠色。 */
     background: #ffffff;
     border: 1px solid var(--color-hairline);
     border-radius: var(--radius-lg);
     box-shadow: 0 18px 35px rgba(0, 0, 0, 0.14);
-    padding: 20px 4px 20px 6px;
+    padding: 8px 4px 8px 6px;
     z-index: 50;
     display: block;
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transform: translateY(-6px) scale(0.98);
     transform-origin: top center;
-    transition: opacity 160ms var(--ease-out), transform 180ms var(--ease-out), visibility 0s linear 180ms;
+    transition: opacity 150ms ease-out, visibility 0s linear 180ms;
     will-change: opacity, transform;
   }
+  .combobox.open-up .combo-panel {
+    top: auto;
+    bottom: calc(100% + var(--combo-panel-up, 0px) + var(--combo-panel-offset));
+    transform-origin: bottom center;
+  }
   .combo-scroll {
-    max-height: calc(var(--combo-panel-max-height) - 40px);
+    max-height: min(calc(var(--combo-panel-max-height) - 18px), calc(var(--combo-available-height, 100vh) - 18px));
+    padding-block: 12px;
     overflow-y: auto;
+    mask-image: linear-gradient(to bottom, transparent, rgba(0, 0, 0, .08) 3px, rgba(0, 0, 0, .5) 6px, rgba(0, 0, 0, .92) 9px, #000 12px, #000 calc(100% - 12px), rgba(0, 0, 0, .92) calc(100% - 9px), rgba(0, 0, 0, .5) calc(100% - 6px), rgba(0, 0, 0, .08) calc(100% - 3px), transparent);
     overscroll-behavior: contain;
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
@@ -476,15 +482,19 @@ export const BASE_STYLES = String.raw`
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
-    transform: translateY(0) scale(1);
-    transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out), visibility 0s;
+    transition: opacity 150ms ease-out, visibility 0s;
+    animation: combo-panel-in 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  }
+  @keyframes combo-panel-in {
+    from { opacity: 0; transform: scale(1, 0.8); }
+    to { opacity: 1; transform: scale(1); }
   }
   .combo-item {
     display: grid;
     grid-template-columns: 24px 34px minmax(0, 1fr) auto 36px;
     align-items: center;
     gap: 12px;
-    padding: 10px 14px;
+    padding: 4px 14px;
     border-radius: var(--radius-sm);
     cursor: pointer;
     touch-action: manipulation;
