@@ -551,10 +551,9 @@ export const BASE_STYLES = String.raw`
     transition: transform 120ms ease-out, background 160ms var(--ease-out), color 160ms var(--ease-out);
   }
   .combo-favorite svg { width: 18px; height: 18px; transition: fill 160ms var(--ease-out), stroke 160ms var(--ease-out); }
-  .combo-favorite[aria-pressed="true"] { background: rgba(0, 113, 227, 0.1); color: var(--color-primary); }
   .combo-favorite[aria-pressed="true"] svg { fill: #ffcc00; stroke: #ffcc00; }
   @media (hover: hover) {
-    .combo-favorite:hover { background: rgba(0, 113, 227, 0.08); color: var(--color-primary); }
+    .combo-favorite[aria-pressed="false"]:hover svg { stroke: #ffcc00; }
   }
   .combo-favorite:active { transform: scale(0.9); }
   .combo-favorite:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
