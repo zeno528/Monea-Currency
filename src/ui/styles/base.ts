@@ -467,7 +467,7 @@ export const BASE_STYLES = String.raw`
     max-height: min(calc(var(--combo-panel-max-height) - 12px), calc(var(--combo-available-height, 100vh) - 12px));
     padding-block: 8px;
     overflow-y: auto;
-    mask-image: linear-gradient(to bottom, transparent, rgba(0, 0, 0, .08) 2px, rgba(0, 0, 0, .5) 4px, rgba(0, 0, 0, .92) 6px, #000 8px, #000 calc(100% - 8px), rgba(0, 0, 0, .92) calc(100% - 6px), rgba(0, 0, 0, .5) calc(100% - 4px), rgba(0, 0, 0, .08) calc(100% - 2px), transparent);
+    mask-image: linear-gradient(to bottom, #000, #000 calc(100% - 12px), rgba(0, 0, 0, .92) calc(100% - 9px), rgba(0, 0, 0, .5) calc(100% - 6px), rgba(0, 0, 0, .08) calc(100% - 3px), transparent);
     overscroll-behavior: contain;
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
